@@ -249,6 +249,7 @@ static inline int cpumask_to_vpset_noself(struct hv_vpset *vpset,
 	return __cpumask_to_vpset(vpset, cpus, true);
 }
 
+const char *hv_status_to_string(u64 hv_status);
 void hyperv_report_panic(struct pt_regs *regs, long err, bool in_die);
 bool hv_is_hyperv_initialized(void);
 bool hv_is_hibernation_supported(void);
