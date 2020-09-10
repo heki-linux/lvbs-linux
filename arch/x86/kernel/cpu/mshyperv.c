@@ -38,6 +38,7 @@ bool hv_root_partition;
 struct ms_hyperv_info ms_hyperv;
 
 #if IS_ENABLED(CONFIG_HYPERV)
+static void (*mshv_handler)(void);
 static void (*vmbus_handler)(void);
 static void (*hv_stimer0_handler)(void);
 static void (*hv_kexec_handler)(void);
@@ -48,6 +49,9 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_hyperv_callback)
 	struct pt_regs *old_regs = set_irq_regs(regs);
 
 	inc_irq_stat(irq_hv_callback_count);
+	if (mshv_handler)
+		mshv_handler();
+
 	if (vmbus_handler)
 		vmbus_handler();
 
@@ -56,6 +60,18 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_hyperv_callback)
 
 	set_irq_regs(old_regs);
 }
+
+void hv_setup_mshv_irq(void (*handler)(void))
+{
+	mshv_handler = handler;
+}
+EXPORT_SYMBOL_GPL(hv_setup_mshv_irq);
+
+void hv_remove_mshv_irq(void)
+{
+	mshv_handler = NULL;
+}
+EXPORT_SYMBOL_GPL(hv_remove_mshv_irq);
 
 void hv_setup_vmbus_handler(void (*handler)(void))
 {
