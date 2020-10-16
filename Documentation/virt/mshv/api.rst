@@ -166,3 +166,6 @@ The page is laid out in struct hv_vp_register_page in asm/hyperv-tlfs.h.
 :Returns: 0 on success
 
 Can be used to get/set various properties of a partition.
+
+Some properties can only be set at partition creation. For these, there are
+parameters in MSHV_CREATE_PARTITION.
