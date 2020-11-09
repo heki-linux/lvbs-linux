@@ -47,6 +47,17 @@ struct mshv_partition {
 		u32 count;
 		struct mshv_vp *array[MSHV_MAX_VPS];
 	} vps;
+
+	struct {
+		spinlock_t        lock;
+		struct list_head  items;
+	} irqfds;
+};
+
+struct mshv_lapic_irq {
+	u32 vector;
+	u64 apic_id;
+	union hv_interrupt_control control;
 };
 
 struct hv_synic_pages {

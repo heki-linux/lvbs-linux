@@ -19,6 +19,7 @@
 #include <linux/cpuhotplug.h>
 #include <linux/random.h>
 #include <linux/mshv.h>
+#include <linux/mshv_eventfd.h>
 #include <asm/mshyperv.h>
 
 #include "mshv.h"
@@ -839,6 +840,18 @@ mshv_partition_ioctl_assert_interrupt(struct mshv_partition *partition,
 }
 
 static long
+mshv_partition_ioctl_irqfd(struct mshv_partition *partition,
+		void __user *user_args)
+{
+	struct mshv_irqfd args;
+
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+	return mshv_irqfd(partition, &args);
+}
+
+static long
 mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
 	struct mshv_partition *partition = filp->private_data;
@@ -875,6 +888,10 @@ mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 	case MSHV_SET_PARTITION_PROPERTY:
 		ret = mshv_partition_ioctl_set_property(partition,
 							(void __user *)arg);
+		break;
+	case MSHV_IRQFD:
+		ret = mshv_partition_ioctl_irqfd(partition,
+						 (void __user *)arg);
 		break;
 	default:
 		ret = -ENOTTY;
@@ -964,6 +981,8 @@ static int
 mshv_partition_release(struct inode *inode, struct file *filp)
 {
 	struct mshv_partition *partition = filp->private_data;
+
+	mshv_irqfd_release(partition);
 
 	mshv_partition_put(partition);
 
@@ -1059,6 +1078,8 @@ mshv_ioctl_create_partition(void __user *user_arg)
 
 	fd_install(fd, file);
 
+	mshv_irqfd_init(partition);
+
 	return fd;
 
 release_file:
@@ -1150,12 +1171,17 @@ __init mshv_init(void)
 	mshv_cpuhp_online = ret;
 	spin_lock_init(&mshv.partitions.lock);
 
+	if (mshv_irqfd_wq_init())
+		mshv_irqfd_wq_cleanup();
+
 	return 0;
 }
 
 static void
 __exit mshv_exit(void)
 {
+	mshv_irqfd_wq_cleanup();
+
 	cpuhp_remove_state(mshv_cpuhp_online);
 	free_percpu(mshv.synic_pages);
 

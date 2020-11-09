@@ -15,6 +15,7 @@ config HYPERV
 config HYPERV_VMM_API
 	tristate "Microsoft Hypervisor root partition interfaces: /dev/mshv"
 	depends on HYPERV
+	select EVENTFD
 	help
 	  Provides access to interfaces for managing guest virtual machines
 	  running under the Microsoft Hypervisor.

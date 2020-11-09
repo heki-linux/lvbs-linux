@@ -79,6 +79,20 @@ struct mshv_translate_gva {
 	__u64 *gpa;
 };
 
+#define MSHV_IRQFD_FLAG_DEASSIGN (1 << 0)
+
+struct mshv_irqfd {
+	__u64 apic_id;
+	__s32 fd;
+	__u32 gsi;
+	__u32 vector;
+	__u32 interrupt_type;
+	__u32 flags;
+	__u8  level_triggered;
+	__u8  logical_dest_mode;
+	__u8  pad[2];
+};
+
 #define MSHV_IOCTL 0xB8
 
 /* mshv device */
@@ -95,6 +109,7 @@ struct mshv_translate_gva {
 				_IOW(MSHV_IOCTL, 0xC, struct mshv_partition_property)
 #define MSHV_GET_PARTITION_PROPERTY \
 				_IOWR(MSHV_IOCTL, 0xD, struct mshv_partition_property)
+#define MSHV_IRQFD              _IOW(MSHV_IOCTL, 0xE, struct mshv_irqfd)
 
 /* vp device */
 #define MSHV_GET_VP_REGISTERS   _IOWR(MSHV_IOCTL, 0x05, struct mshv_vp_registers)
