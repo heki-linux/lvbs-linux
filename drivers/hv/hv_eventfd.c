@@ -2,8 +2,8 @@
 /*
  * eventfd support for mshv
  *
- * Heavily inspired from KVM implementation of irqfd. The basic framework
- * code is taken from the kvm implementation.
+ * Heavily inspired from KVM implementation of irqfd/ioeventfd. The basic
+ * framework code is taken from the kvm implementation.
  *
  * All credits to kvm developers.
  */
@@ -210,13 +210,6 @@ out:
 	return ret;
 }
 
-void
-mshv_irqfd_init(struct mshv_partition *partition)
-{
-	spin_lock_init(&partition->irqfds.lock);
-	INIT_LIST_HEAD(&partition->irqfds.items);
-}
-
 /*
  * shutdown any irqfd's that match fd+gsi
  */
@@ -261,10 +254,10 @@ mshv_irqfd(struct mshv_partition *partition, struct mshv_irqfd *args)
 }
 
 /*
- * This function is called as the mshv VM fd is being released. Shutdown all
- * irqfds that still remain open
+ * This function is called as the mshv VM fd is being released.
+ * Shutdown all irqfds that still remain open
  */
-void
+static void
 mshv_irqfd_release(struct mshv_partition *partition)
 {
 	struct mshv_kernel_irqfd *irqfd, *tmp;
@@ -296,4 +289,235 @@ int mshv_irqfd_wq_init(void)
 void mshv_irqfd_wq_cleanup(void)
 {
 	destroy_workqueue(irqfd_cleanup_wq);
+}
+
+/*
+ * --------------------------------------------------------------------
+ * ioeventfd: translate a MMIO memory write to an eventfd signal.
+ *
+ * userspace can register a MMIO address with an eventfd for receiving
+ * notification when the memory has been touched.
+ *
+ * TODO: Implement eventfd for PIO as well.
+ * --------------------------------------------------------------------
+ */
+
+static void
+ioeventfd_release(struct kernel_mshv_ioeventfd *p, u64 partition_id)
+{
+	if (p->doorbell_id > 0)
+		hv_unregister_doorbell(partition_id, p->doorbell_id);
+	eventfd_ctx_put(p->eventfd);
+	list_del(&p->list);
+	kfree(p);
+}
+
+/* MMIO writes trigger an event if the addr/val match */
+static void
+ioeventfd_mmio_write(int doorbell_id, void *data)
+{
+	struct mshv_partition *partition = (struct mshv_partition *)data;
+	struct kernel_mshv_ioeventfd *p;
+	unsigned long flags;
+
+	spin_lock_irqsave(&partition->ioeventfds.lock, flags);
+	list_for_each_entry(p, &partition->ioeventfds.items, list) {
+		if (p->doorbell_id == doorbell_id) {
+			eventfd_signal(p->eventfd, 1);
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&partition->ioeventfds.lock, flags);
+}
+
+static bool
+ioeventfd_check_collision(struct mshv_partition *partition,
+			  struct kernel_mshv_ioeventfd *p)
+{
+	struct kernel_mshv_ioeventfd *_p;
+
+	list_for_each_entry(_p, &partition->ioeventfds.items, list)
+		if (_p->addr == p->addr && _p->length == p->length &&
+		    (_p->wildcard || p->wildcard ||
+		     _p->datamatch == p->datamatch))
+			return true;
+
+	return false;
+}
+
+static int
+mshv_assign_ioeventfd(struct mshv_partition *partition,
+		      struct mshv_ioeventfd *args)
+{
+	struct kernel_mshv_ioeventfd *p;
+	struct eventfd_ctx *eventfd;
+	u64 doorbell_flags = 0;
+	unsigned long irqflags;
+	int ret;
+
+	if (args->flags & MSHV_IOEVENTFD_FLAG_PIO)
+		return -EOPNOTSUPP;
+
+	/* must be natural-word sized */
+	switch (args->len) {
+	case 0:
+		doorbell_flags = HV_DOORBELL_FLAG_TRIGGER_SIZE_ANY;
+		break;
+	case 1:
+		doorbell_flags = HV_DOORBELL_FLAG_TRIGGER_SIZE_BYTE;
+		break;
+	case 2:
+		doorbell_flags = HV_DOORBELL_FLAG_TRIGGER_SIZE_WORD;
+		break;
+	case 4:
+		doorbell_flags = HV_DOORBELL_FLAG_TRIGGER_SIZE_DWORD;
+		break;
+	case 8:
+		doorbell_flags = HV_DOORBELL_FLAG_TRIGGER_SIZE_QWORD;
+		break;
+	default:
+		pr_warn("ioeventfd: invalid length specified\n");
+		return -EINVAL;
+	}
+
+	/* check for range overflow */
+	if (args->addr + args->len < args->addr)
+		return -EINVAL;
+
+	/* check for extra flags that we don't understand */
+	if (args->flags & ~MSHV_IOEVENTFD_VALID_FLAG_MASK)
+		return -EINVAL;
+
+	eventfd = eventfd_ctx_fdget(args->fd);
+	if (IS_ERR(eventfd))
+		return PTR_ERR(eventfd);
+
+	p = kzalloc(sizeof(*p), GFP_KERNEL);
+	if (!p) {
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	INIT_LIST_HEAD(&p->list);
+	p->addr    = args->addr;
+	p->length  = args->len;
+	p->eventfd = eventfd;
+
+	/* The datamatch feature is optional, otherwise this is a wildcard */
+	if (args->flags & MSHV_IOEVENTFD_FLAG_DATAMATCH)
+		p->datamatch = args->datamatch;
+	else {
+		p->wildcard = true;
+		doorbell_flags |= HV_DOORBELL_FLAG_TRIGGER_ANY_VALUE;
+	}
+
+	spin_lock_irqsave(&partition->ioeventfds.lock, irqflags);
+
+	if (ioeventfd_check_collision(partition, p)) {
+		ret = -EEXIST;
+		goto unlock_fail;
+	}
+
+	ret = hv_register_doorbell(partition->id, ioeventfd_mmio_write,
+				   (void *)partition, p->addr,
+				   p->datamatch, doorbell_flags);
+	if (ret < 0) {
+		pr_err("Failed to register ioeventfd doorbell!\n");
+		goto unlock_fail;
+	}
+
+	p->doorbell_id = ret;
+	list_add_tail(&p->list, &partition->ioeventfds.items);
+
+	spin_unlock_irqrestore(&partition->ioeventfds.lock, irqflags);
+
+	return 0;
+
+unlock_fail:
+	spin_unlock_irqrestore(&partition->ioeventfds.lock, irqflags);
+
+	kfree(p);
+
+fail:
+	eventfd_ctx_put(eventfd);
+
+	return ret;
+}
+
+static int
+mshv_deassign_ioeventfd(struct mshv_partition *partition,
+			struct mshv_ioeventfd *args)
+{
+	struct kernel_mshv_ioeventfd *p, *tmp;
+	struct eventfd_ctx *eventfd;
+	unsigned long flags;
+	int ret = -ENOENT;
+
+	eventfd = eventfd_ctx_fdget(args->fd);
+	if (IS_ERR(eventfd))
+		return PTR_ERR(eventfd);
+
+	spin_lock_irqsave(&partition->ioeventfds.lock, flags);
+
+	list_for_each_entry_safe(p, tmp, &partition->ioeventfds.items, list) {
+		bool wildcard = !(args->flags & MSHV_IOEVENTFD_FLAG_DATAMATCH);
+
+		if (p->eventfd != eventfd  ||
+		    p->addr != args->addr  ||
+		    p->length != args->len ||
+		    p->wildcard != wildcard)
+			continue;
+
+		if (!p->wildcard && p->datamatch != args->datamatch)
+			continue;
+
+		ioeventfd_release(p, partition->id);
+		ret = 0;
+		break;
+	}
+
+	spin_unlock_irqrestore(&partition->ioeventfds.lock, flags);
+
+	eventfd_ctx_put(eventfd);
+
+	return ret;
+}
+
+int
+mshv_ioeventfd(struct mshv_partition *partition,
+	       struct mshv_ioeventfd *args)
+{
+	/* PIO not yet implemented */
+	if (args->flags & MSHV_IOEVENTFD_FLAG_PIO)
+		return -EOPNOTSUPP;
+
+	if (args->flags & MSHV_IOEVENTFD_FLAG_DEASSIGN)
+		return mshv_deassign_ioeventfd(partition, args);
+
+	return mshv_assign_ioeventfd(partition, args);
+}
+
+void
+mshv_eventfd_init(struct mshv_partition *partition)
+{
+	spin_lock_init(&partition->irqfds.lock);
+	INIT_LIST_HEAD(&partition->irqfds.items);
+
+	spin_lock_init(&partition->ioeventfds.lock);
+	INIT_LIST_HEAD(&partition->ioeventfds.items);
+}
+
+void
+mshv_eventfd_release(struct mshv_partition *partition)
+{
+	struct kernel_mshv_ioeventfd *p, *tmp;
+	unsigned long flags;
+
+	spin_lock_irqsave(&partition->ioeventfds.lock, flags);
+	list_for_each_entry_safe(p, tmp, &partition->ioeventfds.items, list) {
+		ioeventfd_release(p, partition->id);
+	}
+	spin_unlock_irqrestore(&partition->ioeventfds.lock, flags);
+
+	mshv_irqfd_release(partition);
 }

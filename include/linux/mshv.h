@@ -52,6 +52,10 @@ struct mshv_partition {
 		spinlock_t        lock;
 		struct list_head  items;
 	} irqfds;
+	struct {
+		spinlock_t        lock;
+		struct list_head items;
+	} ioeventfds;
 };
 
 struct mshv_lapic_irq {

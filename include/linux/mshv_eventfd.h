@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  *
- * irqfd: Allows an fd to be used to inject an interrupt to the guest
+ * irqfd: Allows an fd to be used to inject an interrupt to the guest.
+ * ioeventfd: Allow an fd to be used to receive a signal from the guest.
  * All credit goes to kvm developers.
  */
 
@@ -10,6 +11,9 @@
 
 #include <linux/mshv.h>
 #include <linux/poll.h>
+
+void mshv_eventfd_init(struct mshv_partition *partition);
+void mshv_eventfd_release(struct mshv_partition *partition);
 
 struct mshv_kernel_irqfd {
 	struct mshv_partition     *partition;
@@ -26,10 +30,19 @@ struct mshv_kernel_irqfd {
 int mshv_irqfd(struct mshv_partition *partition,
 		struct mshv_irqfd *args);
 
-void mshv_irqfd_init(struct mshv_partition *partition);
-void mshv_irqfd_release(struct mshv_partition *partition);
-
 int mshv_irqfd_wq_init(void);
 void mshv_irqfd_wq_cleanup(void);
+
+struct kernel_mshv_ioeventfd {
+	struct list_head     list;
+	u64                  addr;
+	int                  length;
+	struct eventfd_ctx  *eventfd;
+	u64                  datamatch;
+	int                  doorbell_id;
+	bool                 wildcard;
+};
+
+int mshv_ioeventfd(struct mshv_partition *kvm, struct mshv_ioeventfd *args);
 
 #endif /* __LINUX_MSHV_EVENTFD_H */

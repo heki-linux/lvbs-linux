@@ -840,6 +840,18 @@ mshv_partition_ioctl_assert_interrupt(struct mshv_partition *partition,
 }
 
 static long
+mshv_partition_ioctl_ioeventfd(struct mshv_partition *partition,
+		void __user *user_args)
+{
+	struct mshv_ioeventfd args;
+
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+	return mshv_ioeventfd(partition, &args);
+}
+
+static long
 mshv_partition_ioctl_irqfd(struct mshv_partition *partition,
 		void __user *user_args)
 {
@@ -891,6 +903,10 @@ mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		break;
 	case MSHV_IRQFD:
 		ret = mshv_partition_ioctl_irqfd(partition,
+						 (void __user *)arg);
+		break;
+	case MSHV_IOEVENTFD:
+		ret = mshv_partition_ioctl_ioeventfd(partition,
 						 (void __user *)arg);
 		break;
 	default:
@@ -982,7 +998,7 @@ mshv_partition_release(struct inode *inode, struct file *filp)
 {
 	struct mshv_partition *partition = filp->private_data;
 
-	mshv_irqfd_release(partition);
+	mshv_eventfd_release(partition);
 
 	mshv_partition_put(partition);
 
@@ -1078,7 +1094,7 @@ mshv_ioctl_create_partition(void __user *user_arg)
 
 	fd_install(fd, file);
 
-	mshv_irqfd_init(partition);
+	mshv_eventfd_init(partition);
 
 	return fd;
 

@@ -93,6 +93,29 @@ struct mshv_irqfd {
 	__u8  pad[2];
 };
 
+enum {
+	mshv_ioeventfd_flag_nr_datamatch,
+	mshv_ioeventfd_flag_nr_pio,
+	mshv_ioeventfd_flag_nr_deassign,
+	mshv_ioeventfd_flag_nr_max,
+};
+
+#define MSHV_IOEVENTFD_FLAG_DATAMATCH (1 << mshv_ioeventfd_flag_nr_datamatch)
+#define MSHV_IOEVENTFD_FLAG_PIO       (1 << mshv_ioeventfd_flag_nr_pio)
+#define MSHV_IOEVENTFD_FLAG_DEASSIGN  (1 << mshv_ioeventfd_flag_nr_deassign)
+
+#define MSHV_IOEVENTFD_VALID_FLAG_MASK  ((1 << mshv_ioeventfd_flag_nr_max) - 1)
+
+struct mshv_ioeventfd {
+	__u64 datamatch;
+	__u64 addr;        /* legal pio/mmio address */
+	__u32 len;         /* 1, 2, 4, or 8 bytes    */
+	__s32 fd;
+	__u32 flags;
+	__u8  pad[4];
+};
+
+
 #define MSHV_IOCTL 0xB8
 
 /* mshv device */
@@ -109,7 +132,8 @@ struct mshv_irqfd {
 				_IOW(MSHV_IOCTL, 0xC, struct mshv_partition_property)
 #define MSHV_GET_PARTITION_PROPERTY \
 				_IOWR(MSHV_IOCTL, 0xD, struct mshv_partition_property)
-#define MSHV_IRQFD              _IOW(MSHV_IOCTL, 0xE, struct mshv_irqfd)
+#define MSHV_IRQFD		_IOW(MSHV_IOCTL, 0xE, struct mshv_irqfd)
+#define MSHV_IOEVENTFD		_IOW(MSHV_IOCTL, 0xF, struct mshv_ioeventfd)
 
 /* vp device */
 #define MSHV_GET_VP_REGISTERS   _IOWR(MSHV_IOCTL, 0x05, struct mshv_vp_registers)
