@@ -159,6 +159,8 @@ struct ms_hyperv_tsc_page {
 #define HVCALL_GET_VP_REGISTERS			0x0050
 #define HVCALL_SET_VP_REGISTERS			0x0051
 #define HVCALL_TRANSLATE_VIRTUAL_ADDRESS	0x0052
+#define HVCALL_DELETE_PORT			0x0058
+#define HVCALL_DISCONNECT_PORT			0x005b
 #define HVCALL_POST_MESSAGE			0x005c
 #define HVCALL_SIGNAL_EVENT			0x005d
 #define HVCALL_POST_DEBUG_DATA			0x0069
@@ -168,7 +170,10 @@ struct ms_hyperv_tsc_page {
 #define HVCALL_MAP_DEVICE_INTERRUPT		0x007c
 #define HVCALL_UNMAP_DEVICE_INTERRUPT		0x007d
 #define HVCALL_RETARGET_INTERRUPT		0x007e
+#define HVCALL_NOTIFY_PORT_RING_EMPTY		0x008b
 #define HVCALL_ASSERT_VIRTUAL_INTERRUPT		0x0094
+#define HVCALL_CREATE_PORT			0x0095
+#define HVCALL_CONNECT_PORT			0x0096
 #define HVCALL_FLUSH_GUEST_PHYSICAL_ADDRESS_SPACE 0x00af
 #define HVCALL_FLUSH_GUEST_PHYSICAL_ADDRESS_LIST 0x00b0
 #define HVCALL_MAP_VP_STATE_PAGE			0x00e1
@@ -917,4 +922,103 @@ struct hv_translate_virtual_address_out {
 	u64 gpa_page;
 } __packed;
 
+struct hv_port_info {
+	u32 port_type;
+	u32 padding;
+	union {
+		struct {
+			u32 target_sint;
+			u32 target_vp;
+			u64 rsvdz;
+		} message_port_info;
+		struct {
+			u32 target_sint;
+			u32 target_vp;
+			u16 base_flag_number;
+			u16 flag_count;
+			u32 rsvdz;
+		} event_port_info;
+		struct {
+			u64 monitor_address;
+			u64 rsvdz;
+		} monitor_port_info;
+		struct {
+			u32 target_sint;
+			u32 target_vp;
+			u64 rsvdz;
+		} doorbell_port_info;
+	};
+} __packed;
+
+struct hv_create_port {
+	u64 port_partition_id;
+	union hv_port_id port_id;
+	u8 port_vtl;
+	u8 min_connection_vtl;
+	u16 padding;
+	u64 connection_partition_id;
+	struct hv_port_info port_info;
+	union hv_proximity_domain_info proximity_domain_info;
+} __packed;
+
+union hv_delete_port {
+	u64 as_uint64[2];
+	struct {
+		u64 port_partition_id;
+		union hv_port_id port_id;
+		u32 reserved;
+	};
+} __packed;
+
+union hv_notify_port_ring_empty {
+	u64 as_uint64;
+	struct {
+		u32 sint_index;
+		u32 reserved;
+	};
+} __packed;
+
+struct hv_connection_info {
+	u32 port_type;
+	u32 padding;
+	union {
+		struct {
+			u64 rsvdz;
+		} message_connection_info;
+		struct {
+			u64 rsvdz;
+		} event_connection_info;
+		struct {
+			u64 monitor_address;
+		} monitor_connection_info;
+		struct {
+			u64 gpa;
+			u64 trigger_value;
+			u64 flags;
+		} doorbell_connection_info;
+	};
+} __packed;
+
+struct hv_connect_port {
+	u64 connection_partition_id;
+	union hv_connection_id connection_id;
+	u8 connection_vtl;
+	u8 rsvdz0;
+	u16 rsvdz1;
+	u64 port_partition_id;
+	union hv_port_id port_id;
+	u32 reserved2;
+	struct hv_connection_info connection_info;
+	union hv_proximity_domain_info proximity_domain_info;
+} __packed;
+
+union hv_disconnect_port {
+	u64 as_uint64[2];
+	struct {
+		u64 connection_partition_id;
+		union hv_connection_id connection_id;
+		u32 is_doorbell: 1;
+		u32 reserved: 31;
+	};
+} __packed;
 #endif

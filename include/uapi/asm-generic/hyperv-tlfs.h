@@ -53,6 +53,25 @@ union hv_message_flags {
 	} __packed;
 };
 
+enum hv_port_type {
+	HV_PORT_TYPE_MESSAGE = 1,
+	HV_PORT_TYPE_EVENT   = 2,
+	HV_PORT_TYPE_MONITOR = 3,
+	HV_PORT_TYPE_DOORBELL = 4	// Root Partition only
+};
+
+
+/*
+ * Doorbell connection_info flags.
+ */
+#define HV_DOORBELL_FLAG_TRIGGER_SIZE_MASK  0x00000007
+#define HV_DOORBELL_FLAG_TRIGGER_SIZE_ANY   0x00000000
+#define HV_DOORBELL_FLAG_TRIGGER_SIZE_BYTE  0x00000001
+#define HV_DOORBELL_FLAG_TRIGGER_SIZE_WORD  0x00000002
+#define HV_DOORBELL_FLAG_TRIGGER_SIZE_DWORD 0x00000003
+#define HV_DOORBELL_FLAG_TRIGGER_SIZE_QWORD 0x00000004
+#define HV_DOORBELL_FLAG_TRIGGER_ANY_VALUE  0x80000000
+
 /* Define port identifier type. */
 union hv_port_id {
 	__u32 asu32;
@@ -60,6 +79,15 @@ union hv_port_id {
 		__u32 id:24;
 		__u32 reserved:8;
 	} __packed u;
+};
+
+/* Define connection identifier type. */
+union hv_connection_id {
+	__u32 asu32;
+	struct {
+		__u32 id:24;
+		__u32 reserved:8;
+	} u;
 };
 
 /* Define synthetic interrupt controller message header. */

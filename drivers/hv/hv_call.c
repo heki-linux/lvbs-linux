@@ -740,3 +740,164 @@ out:
 	return hv_status_to_errno(status);
 }
 
+
+int
+hv_call_create_port(u64 port_partition_id, union hv_port_id port_id,
+		    u64 connection_partition_id,
+		    struct hv_port_info *port_info,
+		    u8 port_vtl, u8 min_connection_vtl, int node)
+{
+	struct hv_create_port *input;
+	unsigned long flags;
+	int ret = 0;
+	int status;
+
+	do {
+		local_irq_save(flags);
+		input = (struct hv_create_port *)(*this_cpu_ptr(
+				hyperv_pcpu_input_arg));
+		memset(input, 0, sizeof(*input));
+
+		input->port_partition_id = port_partition_id;
+		input->port_id = port_id;
+		input->connection_partition_id = connection_partition_id;
+		input->port_info = *port_info;
+		input->port_vtl = port_vtl;
+		input->min_connection_vtl = min_connection_vtl;
+		input->proximity_domain_info =
+			numa_node_to_proximity_domain_info(node);
+		status = hv_do_hypercall(HVCALL_CREATE_PORT, input,
+					NULL) & HV_HYPERCALL_RESULT_MASK;
+		local_irq_restore(flags);
+		if (status == HV_STATUS_SUCCESS)
+			break;
+
+		if (status != HV_STATUS_INSUFFICIENT_MEMORY) {
+			pr_err("%s: %s\n",
+			       __func__, hv_status_to_string(status));
+			ret = hv_status_to_errno(status);
+			break;
+		}
+		ret = hv_call_deposit_pages(NUMA_NO_NODE,
+				port_partition_id, 1);
+
+	} while (!ret);
+
+	return ret;
+}
+
+int
+hv_call_delete_port(u64 port_partition_id, union hv_port_id port_id)
+{
+	union hv_delete_port input = { 0 };
+	unsigned long flags;
+	int status;
+
+	local_irq_save(flags);
+	input.port_partition_id = port_partition_id;
+	input.port_id = port_id;
+	status = hv_do_fast_hypercall16(HVCALL_DELETE_PORT,
+					input.as_uint64[0],
+					input.as_uint64[1]) &
+			HV_HYPERCALL_RESULT_MASK;
+	local_irq_restore(flags);
+
+	if (status != HV_STATUS_SUCCESS) {
+		pr_err("%s: %s\n", __func__, hv_status_to_string(status));
+		return hv_status_to_errno(status);
+	}
+
+	return 0;
+}
+
+int
+hv_call_connect_port(u64 port_partition_id, union hv_port_id port_id,
+		     u64 connection_partition_id,
+		     union hv_connection_id connection_id,
+		     struct hv_connection_info *connection_info,
+		     u8 connection_vtl, int node)
+{
+	struct hv_connect_port *input;
+	unsigned long flags;
+	int ret = 0, status;
+
+	do {
+		local_irq_save(flags);
+		input = (struct hv_connect_port *)(*this_cpu_ptr(
+				hyperv_pcpu_input_arg));
+		memset(input, 0, sizeof(*input));
+		input->port_partition_id = port_partition_id;
+		input->port_id = port_id;
+		input->connection_partition_id = connection_partition_id;
+		input->connection_id = connection_id;
+		input->connection_info = *connection_info;
+		input->connection_vtl = connection_vtl;
+		input->proximity_domain_info =
+			numa_node_to_proximity_domain_info(node);
+		status = hv_do_hypercall(HVCALL_CONNECT_PORT, input,
+					NULL) & HV_HYPERCALL_RESULT_MASK;
+
+		local_irq_restore(flags);
+		if (status == HV_STATUS_SUCCESS)
+			break;
+
+		if (status != HV_STATUS_INSUFFICIENT_MEMORY) {
+			pr_err("%s: %s\n",
+			       __func__, hv_status_to_string(status));
+			ret = hv_status_to_errno(status);
+			break;
+		}
+		ret = hv_call_deposit_pages(NUMA_NO_NODE,
+				connection_partition_id, 1);
+	} while (!ret);
+
+	return ret;
+}
+
+int
+hv_call_disconnect_port(u64 connection_partition_id,
+			union hv_connection_id connection_id)
+{
+	union hv_disconnect_port input = { 0 };
+	unsigned long flags;
+	int status;
+
+	local_irq_save(flags);
+	input.connection_partition_id = connection_partition_id;
+	input.connection_id = connection_id;
+	input.is_doorbell = 1;
+	status = hv_do_fast_hypercall16(HVCALL_DISCONNECT_PORT,
+					input.as_uint64[0],
+					input.as_uint64[1]) &
+			HV_HYPERCALL_RESULT_MASK;
+	local_irq_restore(flags);
+
+	if (status != HV_STATUS_SUCCESS) {
+		pr_err("%s: %s\n", __func__, hv_status_to_string(status));
+		return hv_status_to_errno(status);
+	}
+
+	return 0;
+}
+
+int
+hv_call_notify_port_ring_empty(u32 sint_index)
+{
+	union hv_notify_port_ring_empty input = { 0 };
+	unsigned long flags;
+	int status;
+
+	local_irq_save(flags);
+	input.sint_index = sint_index;
+	status = hv_do_fast_hypercall8(HVCALL_NOTIFY_PORT_RING_EMPTY,
+					input.as_uint64) &
+			HV_HYPERCALL_RESULT_MASK;
+	local_irq_restore(flags);
+
+	if (status != HV_STATUS_SUCCESS) {
+		pr_err("%s: %s\n", __func__, hv_status_to_string(status));
+		return hv_status_to_errno(status);
+	}
+
+	return 0;
+}

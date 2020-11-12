@@ -117,4 +117,16 @@ int hv_call_translate_virtual_address(
 		u64 *gpa,
 		union hv_translate_gva_result *result);
 
+int hv_call_create_port(u64 port_partition_id, union hv_port_id port_id,
+			u64 connection_partition_id, struct hv_port_info *port_info,
+			u8 port_vtl, u8 min_connection_vtl, int node);
+int hv_call_delete_port(u64 port_partition_id, union hv_port_id port_id);
+int hv_call_connect_port(u64 port_partition_id, union hv_port_id port_id,
+			 u64 connection_partition_id,
+			 union hv_connection_id connection_id,
+			 struct hv_connection_info *connection_info,
+			 u8 connection_vtl, int node);
+int hv_call_disconnect_port(u64 connection_partition_id,
+			    union hv_connection_id connection_id);
+int hv_call_notify_port_ring_empty(u32 sint_index);
 #endif /* _MSHV_H */
