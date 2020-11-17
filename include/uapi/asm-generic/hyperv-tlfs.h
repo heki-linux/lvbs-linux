@@ -10,6 +10,7 @@
 #define HV_MESSAGE_SIZE			(256)
 #define HV_MESSAGE_PAYLOAD_BYTE_COUNT	(240)
 #define HV_MESSAGE_PAYLOAD_QWORD_COUNT	(30)
+#define HV_ANY_VP			(0xFFFFFFFF)
 
 /* Define hypervisor message types. */
 enum hv_message_type {

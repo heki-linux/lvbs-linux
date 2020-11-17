@@ -1003,6 +1003,8 @@ enum hv_interrupt_type {
 	HV_X64_INTERRUPT_TYPE_MAXIMUM           = 0x000A
 };
 
+#define HV_INTERRUPT_VECTOR_NONE 0xFFFFFFFF
+
 union hv_interrupt_control {
 	struct {
 		__u32 interrupt_type; /* enum hv_interrupt type */
