@@ -1159,6 +1159,8 @@ __exit mshv_exit(void)
 	cpuhp_remove_state(mshv_cpuhp_online);
 	free_percpu(mshv.synic_pages);
 
+	hv_port_table_fini();
+
 	misc_deregister(&mshv_dev);
 }
 

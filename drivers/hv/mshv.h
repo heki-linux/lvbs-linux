@@ -40,6 +40,41 @@ int mshv_synic_init(unsigned int cpu);
 int mshv_synic_cleanup(unsigned int cpu);
 
 /*
+ * Callback for doorbell events.
+ * NOTE: This is called in interrupt context. Callback
+ * should defer slow and sleeping logic to later.
+ */
+typedef void (*doorbell_cb_t) (void *);
+
+/*
+ * port table information
+ */
+struct port_table_info {
+	struct rcu_head rcu;
+	enum hv_port_type port_type;
+	union {
+		struct {
+			u64 reserved[2];
+		} port_message;
+		struct {
+			u64 reserved[2];
+		} port_event;
+		struct {
+			u64 reserved[2];
+		} port_monitor;
+		struct {
+			doorbell_cb_t doorbell_cb;
+			void *data;
+		} port_doorbell;
+	};
+};
+
+void hv_port_table_fini(void);
+int hv_portid_alloc(struct port_table_info *info);
+int hv_portid_lookup(int port_id, struct port_table_info *info);
+void hv_portid_free(int port_id);
+
+/*
  * Hyper-V hypercalls
  */
 
