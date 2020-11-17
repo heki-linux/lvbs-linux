@@ -9,6 +9,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/slab.h>
 #include <linux/mm.h>
 #include <linux/io.h>
 #include <linux/random.h>
@@ -388,4 +389,84 @@ int mshv_synic_cleanup(unsigned int cpu)
 	hv_set_register(HV_REGISTER_SCONTROL, sctrl.as_uint64);
 
 	return 0;
+}
+
+int
+hv_register_doorbell(u64 partition_id, doorbell_cb_t doorbell_cb, void *data,
+		     u64 gpa, u64 val, u64 flags)
+{
+	struct hv_connection_info connection_info = { 0 };
+	union hv_connection_id connection_id = { 0 };
+	struct port_table_info *port_table_info;
+	struct hv_port_info port_info = { 0 };
+	union hv_port_id port_id = { 0 };
+	int ret;
+
+	port_table_info = kmalloc(sizeof(struct port_table_info),
+				  GFP_KERNEL);
+	if (!port_table_info)
+		return -ENOMEM;
+
+	port_table_info->port_type = HV_PORT_TYPE_DOORBELL;
+	port_table_info->port_doorbell.doorbell_cb = doorbell_cb;
+	port_table_info->port_doorbell.data = data;
+	ret = hv_portid_alloc(port_table_info);
+	if (ret < 0) {
+		pr_err("Failed to create the doorbell port!\n");
+		kfree(port_table_info);
+		return ret;
+	}
+
+	port_id.u.id = ret;
+	port_info.port_type = HV_PORT_TYPE_DOORBELL;
+	port_info.doorbell_port_info.target_sint = HV_SYNIC_DOORBELL_SINT_INDEX;
+	port_info.doorbell_port_info.target_vp = HV_ANY_VP;
+	ret = hv_call_create_port(hv_current_partition_id, port_id, partition_id,
+				  &port_info,
+				  0, 0, NUMA_NO_NODE);
+
+	if (ret < 0) {
+		pr_err("Failed to create the port!\n");
+		hv_portid_free(port_id.u.id);
+		return ret;
+	}
+
+	connection_id.u.id = port_id.u.id;
+	connection_info.port_type = HV_PORT_TYPE_DOORBELL;
+	connection_info.doorbell_connection_info.gpa = gpa;
+	connection_info.doorbell_connection_info.trigger_value = val;
+	connection_info.doorbell_connection_info.flags = flags;
+
+	ret = hv_call_connect_port(hv_current_partition_id, port_id, partition_id,
+				   connection_id, &connection_info, 0, NUMA_NO_NODE);
+	if (ret < 0) {
+		hv_call_delete_port(hv_current_partition_id, port_id);
+		hv_portid_free(port_id.u.id);
+		return ret;
+	}
+
+	// lets use the port_id as the doorbell_id
+	return port_id.u.id;
+}
+
+int
+hv_unregister_doorbell(u64 partition_id, int doorbell_portid)
+{
+	int ret = 0;
+	union hv_port_id port_id = { 0 };
+	union hv_connection_id connection_id = { 0 };
+
+	connection_id.u.id = doorbell_portid;
+	ret = hv_call_disconnect_port(partition_id, connection_id);
+	if (ret < 0)
+		pr_err("Failed to disconnect the doorbell connection!\n");
+
+	port_id.u.id = doorbell_portid;
+	ret = hv_call_delete_port(hv_current_partition_id, port_id);
+	if (ret < 0)
+		pr_err("Failed to disconnect the doorbell connection!\n");
+
+	hv_portid_free(doorbell_portid);
+
+	return ret;
 }

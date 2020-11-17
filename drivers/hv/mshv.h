@@ -74,6 +74,10 @@ int hv_portid_alloc(struct port_table_info *info);
 int hv_portid_lookup(int port_id, struct port_table_info *info);
 void hv_portid_free(int port_id);
 
+int hv_register_doorbell(u64 partition_id, doorbell_cb_t doorbell_cb,
+			 void *data, u64 gpa, u64 val, u64 flags);
+int hv_unregister_doorbell(u64 partition_id, int doorbell_portid);
+
 /*
  * Hyper-V hypercalls
  */
