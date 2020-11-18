@@ -112,6 +112,15 @@ unlock_out:
 	add_interrupt_randomness(HYPERVISOR_CALLBACK_VECTOR, 0);
 }
 
+static inline bool hv_recommend_using_aeoi(void)
+{
+#ifdef HV_DEPRECATING_AEOI_RECOMMENDED
+	return !(ms_hyperv.hints & HV_DEPRECATING_AEOI_RECOMMENDED);
+#else
+	return false;
+#endif
+}
+
 int mshv_synic_init(unsigned int cpu)
 {
 	union hv_synic_simp simp;
@@ -166,12 +175,17 @@ int mshv_synic_init(unsigned int cpu)
 	sint.as_uint64 = 0;
 	sint.vector = HYPERVISOR_CALLBACK_VECTOR;
 	sint.masked = false;
-#ifdef HV_DEPRECATING_AEOI_RECOMMENDED
-	sint.auto_eoi =	!(ms_hyperv.hints & HV_DEPRECATING_AEOI_RECOMMENDED);
-#else
-	sint.auto_eoi = 0;
-#endif
+	sint.auto_eoi = hv_recommend_using_aeoi();
 	hv_set_register(HV_REGISTER_SINT0 + HV_SYNIC_INTERCEPTION_SINT_INDEX,
+			sint.as_uint64);
+
+	/* Doorbell SINT */
+	sint.as_uint64 = 0;
+	sint.vector = HYPERVISOR_CALLBACK_VECTOR;
+	sint.masked = false;
+	sint.as_intercept = 1;
+	sint.auto_eoi = hv_recommend_using_aeoi();
+	hv_set_register(HV_REGISTER_SINT0 + HV_SYNIC_DOORBELL_SINT_INDEX,
 			sint.as_uint64);
 
 	/* Enable global synic bit */
@@ -219,6 +233,12 @@ int mshv_synic_cleanup(unsigned int cpu)
 	sint.as_uint64 = hv_get_register(HV_REGISTER_SINT0 + HV_SYNIC_INTERCEPTION_SINT_INDEX);
 	sint.masked = true;
 	hv_set_register(HV_REGISTER_SINT0 + HV_SYNIC_INTERCEPTION_SINT_INDEX,
+			sint.as_uint64);
+
+	/* Disable Doorbell SINT */
+	sint.as_uint64 = hv_get_register(HV_REGISTER_SINT0 + HV_SYNIC_DOORBELL_SINT_INDEX);
+	sint.masked = true;
+	hv_set_register(HV_REGISTER_SINT0 + HV_SYNIC_DOORBELL_SINT_INDEX,
 			sint.as_uint64);
 
 	/* Disable Synic's event ring page */

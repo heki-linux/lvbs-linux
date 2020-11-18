@@ -262,6 +262,9 @@ enum hv_status {
 #define HV_SYNIC_HVL_SHARED_SINT_INDEX   0x00000004
 #define HV_SYNIC_FIRST_UNUSED_SINT_INDEX 0x00000005
 
+/* mshv assigned SINT for doorbell */
+#define HV_SYNIC_DOORBELL_SINT_INDEX     HV_SYNIC_FIRST_UNUSED_SINT_INDEX
+
 #define HV_SYNIC_CONTROL_ENABLE		(1ULL << 0)
 #define HV_SYNIC_SIMP_ENABLE		(1ULL << 0)
 #define HV_SYNIC_SIEFP_ENABLE		(1ULL << 0)
@@ -282,6 +285,14 @@ struct hv_timer_message_payload {
 	__u32 reserved;
 	__u64 expiration_time;	/* When the timer expired */
 	__u64 delivery_time;	/* When the message was delivered */
+} __packed;
+
+/*
+ * Message format for notifications delivered via
+ * intercept message(as_intercept=1)
+ */
+struct hv_notification_message_payload {
+	u32 sint_index;
 } __packed;
 
 /* Define the synthentic interrupt controller event ring format */
@@ -350,7 +361,9 @@ union hv_synic_sint {
 		u64 masked:1;
 		u64 auto_eoi:1;
 		u64 polling:1;
-		u64 reserved2:45;
+		u64 as_intercept: 1;
+		u64 proxy: 1;
+		u64 reserved2:43;
 	} __packed;
 };
 
