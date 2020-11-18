@@ -44,7 +44,7 @@ int mshv_synic_cleanup(unsigned int cpu);
  * NOTE: This is called in interrupt context. Callback
  * should defer slow and sleeping logic to later.
  */
-typedef void (*doorbell_cb_t) (void *);
+typedef void (*doorbell_cb_t) (int doorbell_id, void *);
 
 /*
  * port table information

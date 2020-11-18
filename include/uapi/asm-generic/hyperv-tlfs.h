@@ -31,6 +31,10 @@ enum hv_message_type {
 	/* Trace buffer complete messages. */
 	HVMSG_EVENTLOG_BUFFERCOMPLETE		= 0x80000040,
 
+	/* SynIC intercepts */
+	HVMSG_SYNIC_EVENT_INTERCEPT		= 0x80000060,
+	HVMSG_SYNIC_SINT_INTERCEPT		= 0x80000061,
+
 	/* Platform-specific processor intercept messages. */
 	HVMSG_X64_IO_PORT_INTERCEPT		= 0x80010000,
 	HVMSG_X64_MSR_INTERCEPT			= 0x80010001,

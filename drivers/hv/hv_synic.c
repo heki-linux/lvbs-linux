@@ -17,34 +17,124 @@
 
 #include "mshv.h"
 
-void mshv_isr(void)
+u32
+synic_event_ring_get_queued_port(u32 sint_index)
 {
-	struct hv_synic_pages *spages = this_cpu_ptr(mshv.synic_pages);
-	struct hv_message_page **msg_page = &spages->synic_message_page;
-	struct hv_message *msg;
-	u32 message_type;
+	struct hv_synic_event_ring_page **event_ring_page;
+	volatile struct hv_synic_event_ring *ring;
+	struct hv_synic_pages *spages;
+	u8 **synic_eventring_tail;
+	u32 message;
+	u8 tail;
+
+	spages = this_cpu_ptr(mshv.synic_pages);
+	event_ring_page = &spages->synic_event_ring_page;
+	synic_eventring_tail = (u8 **)this_cpu_ptr(hv_synic_eventring_tail);
+	tail = (*synic_eventring_tail)[sint_index];
+
+	if (unlikely(!(*event_ring_page))) {
+		pr_err("%s: Missing synic event ring page!\n", __func__);
+		return 0;
+	}
+
+	ring = &(*event_ring_page)->sint_event_ring[sint_index];
+
+	/*
+	 * Get the message.
+	 */
+	message = ring->data[tail];
+
+	if (!message) {
+		if (ring->ring_full) {
+			/*
+			 * Ring is marked full, but we would have consumed all
+			 * the messages. Notify the hypervisor that ring is now
+			 * empty and check again.
+			 */
+			ring->ring_full = 0;
+			hv_call_notify_port_ring_empty(sint_index);
+			message = ring->data[tail];
+		}
+
+		if (!message) {
+			ring->signal_masked = 0;
+			/*
+			 * Unmask the signal and sync with hypervisor
+			 * before one last check for any message.
+			 */
+			mb();
+			message = ring->data[tail];
+
+			/*
+			 * Ok, lets bail out.
+			 */
+			if (!message)
+				return 0;
+		}
+
+		ring->signal_masked = 1;
+
+	}
+
+	/*
+	 * Clear the message in the ring buffer.
+	 */
+	ring->data[tail] = 0;
+
+	if (++tail == HV_SYNIC_EVENT_RING_MESSAGE_COUNT)
+		tail = 0;
+
+	(*synic_eventring_tail)[sint_index] = tail;
+
+	return message;
+}
+
+static bool
+mshv_doorbell_isr(struct hv_message *msg)
+{
+	struct hv_notification_message_payload *notification;
+	u32 port;
+
+	if (msg->header.message_type != HVMSG_SYNIC_SINT_INTERCEPT)
+		return false;
+
+	notification = (struct hv_notification_message_payload *)msg->u.payload;
+	if (notification->sint_index != HV_SYNIC_DOORBELL_SINT_INDEX)
+		return false;
+
+	while ((port = synic_event_ring_get_queued_port(
+					HV_SYNIC_DOORBELL_SINT_INDEX))) {
+		struct port_table_info ptinfo = { 0 };
+
+		if (hv_portid_lookup(port, &ptinfo)) {
+			pr_err("Failed to get port information from port_table!\n");
+			continue;
+		}
+
+		if (ptinfo.port_type != HV_PORT_TYPE_DOORBELL) {
+			pr_warn("Not a doorbell port!, port: %d, port_type: %d\n",
+					port, ptinfo.port_type);
+			continue;
+		}
+
+		/* Invoke the callback */
+		ptinfo.port_doorbell.doorbell_cb(port, ptinfo.port_doorbell.data);
+	}
+
+	return true;
+}
+
+static bool
+mshv_intercept_isr(struct hv_message *msg)
+{
 	struct mshv_partition *partition;
+	struct task_struct *task;
+	bool handled = false;
+	unsigned long flags;
 	struct mshv_vp *vp;
 	u64 partition_id;
 	u32 vp_index;
 	int i;
-	unsigned long flags;
-	struct task_struct *task;
-
-	if (unlikely(!(*msg_page))) {
-		pr_err("%s: Missing synic page!\n", __func__);
-		return;
-	}
-
-	msg = &((*msg_page)->sint_message[HV_SYNIC_INTERCEPTION_SINT_INDEX]);
-
-	/*
-	 * If the type isn't set, there isn't really a message;
-	 * it may be some other hyperv interrupt
-	 */
-	message_type = msg->header.message_type;
-	if (message_type == HVMSG_NONE)
-		return;
 
 	/* Look for the partition */
 	partition_id = msg->header.sender;
@@ -102,14 +192,47 @@ void mshv_isr(void)
 	 */
 	wake_up_process(task);
 
+	handled = true;
+
 unlock_out:
 	spin_unlock_irqrestore(&mshv.partitions.lock, flags);
 
-	/* Acknowledge message with hypervisor */
-	msg->header.message_type = HVMSG_NONE;
-	wrmsrl(HV_X64_MSR_EOM, 0);
+	return handled;
+}
 
-	add_interrupt_randomness(HYPERVISOR_CALLBACK_VECTOR, 0);
+void mshv_isr(void)
+{
+	struct hv_synic_pages *spages = this_cpu_ptr(mshv.synic_pages);
+	struct hv_message_page **msg_page = &spages->synic_message_page;
+	struct hv_message *msg;
+	bool handled;
+
+	if (unlikely(!(*msg_page))) {
+		pr_err("%s: Missing synic page!\n", __func__);
+		return;
+	}
+
+	msg = &((*msg_page)->sint_message[HV_SYNIC_INTERCEPTION_SINT_INDEX]);
+
+	/*
+	 * If the type isn't set, there isn't really a message;
+	 * it may be some other hyperv interrupt
+	 */
+	if (msg->header.message_type == HVMSG_NONE)
+		return;
+
+	handled = mshv_doorbell_isr(msg);
+
+	if (!handled)
+		handled = mshv_intercept_isr(msg);
+
+	if (handled) {
+		/* Acknowledge message with hypervisor */
+		msg->header.message_type = HVMSG_NONE;
+		wrmsrl(HV_X64_MSR_EOM, 0);
+
+		add_interrupt_randomness(HYPERVISOR_CALLBACK_VECTOR);
+	}
 }
 
 static inline bool hv_recommend_using_aeoi(void)
