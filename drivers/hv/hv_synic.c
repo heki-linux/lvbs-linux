@@ -19,8 +19,8 @@
 
 void mshv_isr(void)
 {
-	struct hv_message_page **msg_page =
-			this_cpu_ptr(mshv.synic_message_page);
+	struct hv_synic_pages *spages = this_cpu_ptr(mshv.synic_pages);
+	struct hv_message_page **msg_page = &spages->synic_message_page;
 	struct hv_message *msg;
 	u32 message_type;
 	struct mshv_partition *partition;
@@ -115,10 +115,16 @@ unlock_out:
 int mshv_synic_init(unsigned int cpu)
 {
 	union hv_synic_simp simp;
+	union hv_synic_siefp siefp;
+	union hv_synic_sirbp sirbp;
 	union hv_synic_sint sint;
 	union hv_synic_scontrol sctrl;
-	struct hv_message_page **msg_page =
-			this_cpu_ptr(mshv.synic_message_page);
+	struct hv_synic_pages *spages = this_cpu_ptr(mshv.synic_pages);
+	struct hv_message_page **msg_page = &spages->synic_message_page;
+	struct hv_synic_event_flags_page **event_flags_page =
+			&spages->synic_event_flags_page;
+	struct hv_synic_event_ring_page **event_ring_page =
+			&spages->synic_event_ring_page;
 
 	/* Setup the Synic's message page */
 	simp.as_uint64 = hv_get_register(HV_REGISTER_SIMP);
@@ -127,10 +133,34 @@ int mshv_synic_init(unsigned int cpu)
 			     HV_HYP_PAGE_SIZE,
 			     MEMREMAP_WB);
 	if (!(*msg_page)) {
-		pr_err("%s: memremap failed\n", __func__);
+		pr_err("%s: SIMP memremap failed\n", __func__);
 		return -EFAULT;
 	}
 	hv_set_register(HV_REGISTER_SIMP, simp.as_uint64);
+
+	/* Setup the Synic's event flags page */
+	siefp.as_uint64 = hv_get_register(HV_REGISTER_SIEFP);
+	siefp.siefp_enabled = true;
+	*event_flags_page = memremap(siefp.base_siefp_gpa << PAGE_SHIFT,
+		     PAGE_SIZE, MEMREMAP_WB);
+
+	if (!(*event_flags_page)) {
+		pr_err("%s: SIEFP memremap failed\n", __func__);
+		goto cleanup;
+	}
+	hv_set_register(HV_REGISTER_SIEFP, siefp.as_uint64);
+
+	/* Setup the Synic's event ring page */
+	sirbp.as_uint64 = hv_get_register(HV_REGISTER_SIRBP);
+	sirbp.sirbp_enabled = true;
+	*event_ring_page = memremap(sirbp.base_sirbp_gpa << PAGE_SHIFT,
+		     PAGE_SIZE, MEMREMAP_WB);
+
+	if (!(*event_ring_page)) {
+		pr_err("%s: SIRBP memremap failed\n", __func__);
+		goto cleanup;
+	}
+	hv_set_register(HV_REGISTER_SIRBP, sirbp.as_uint64);
 
 	/* Enable intercepts */
 	sint.as_uint64 = 0;
@@ -150,21 +180,58 @@ int mshv_synic_init(unsigned int cpu)
 	hv_set_register(HV_REGISTER_SCONTROL, sctrl.as_uint64);
 
 	return 0;
+
+cleanup:
+	if (*event_ring_page) {
+		sirbp.sirbp_enabled = false;
+		hv_set_register(HV_REGISTER_SIRBP, sirbp.as_uint64);
+		memunmap(*event_ring_page);
+	}
+	if (*event_flags_page) {
+		siefp.siefp_enabled = false;
+		hv_set_register(HV_REGISTER_SIEFP, siefp.as_uint64);
+		memunmap(*event_flags_page);
+	}
+	if (*msg_page) {
+		simp.simp_enabled = false;
+		hv_set_register(HV_REGISTER_SIMP, simp.as_uint64);
+		memunmap(*msg_page);
+	}
+
+	return -EFAULT;
 }
 
 int mshv_synic_cleanup(unsigned int cpu)
 {
 	union hv_synic_sint sint;
 	union hv_synic_simp simp;
+	union hv_synic_siefp siefp;
+	union hv_synic_sirbp sirbp;
 	union hv_synic_scontrol sctrl;
-	struct hv_message_page **msg_page =
-			this_cpu_ptr(mshv.synic_message_page);
+	struct hv_synic_pages *spages = this_cpu_ptr(mshv.synic_pages);
+	struct hv_message_page **msg_page = &spages->synic_message_page;
+	struct hv_synic_event_flags_page **event_flags_page =
+		&spages->synic_event_flags_page;
+	struct hv_synic_event_ring_page **event_ring_page =
+		&spages->synic_event_ring_page;
 
 	/* Disable the interrupt */
 	sint.as_uint64 = hv_get_register(HV_REGISTER_SINT0 + HV_SYNIC_INTERCEPTION_SINT_INDEX);
 	sint.masked = true;
 	hv_set_register(HV_REGISTER_SINT0 + HV_SYNIC_INTERCEPTION_SINT_INDEX,
 			sint.as_uint64);
+
+	/* Disable Synic's event ring page */
+	sirbp.as_uint64 = hv_get_register(HV_REGISTER_SIRBP);
+	sirbp.sirbp_enabled = false;
+	hv_set_register(HV_REGISTER_SIRBP, sirbp.as_uint64);
+	memunmap(*event_ring_page);
+
+	/* Disable Synic's event flags page */
+	siefp.as_uint64 = hv_get_register(HV_REGISTER_SIEFP);
+	siefp.siefp_enabled = false;
+	hv_set_register(HV_REGISTER_SIEFP, siefp.as_uint64);
+	memunmap(*event_flags_page);
 
 	/* Disable Synic's message page */
 	simp.as_uint64 = hv_get_register(HV_REGISTER_SIMP);

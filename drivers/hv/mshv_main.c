@@ -1131,8 +1131,8 @@ __init mshv_init(void)
 		return ret;
 	}
 
-	mshv.synic_message_page = alloc_percpu(struct hv_message_page *);
-	if (!mshv.synic_message_page) {
+	mshv.synic_pages = alloc_percpu(struct hv_synic_pages);
+	if (!mshv.synic_pages) {
 		pr_err("%s: failed to allocate percpu synic page\n", __func__);
 		misc_deregister(&mshv_dev);
 		return -ENOMEM;
@@ -1157,7 +1157,7 @@ static void
 __exit mshv_exit(void)
 {
 	cpuhp_remove_state(mshv_cpuhp_online);
-	free_percpu(mshv.synic_message_page);
+	free_percpu(mshv.synic_pages);
 
 	misc_deregister(&mshv_dev);
 }

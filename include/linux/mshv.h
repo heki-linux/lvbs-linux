@@ -49,8 +49,14 @@ struct mshv_partition {
 	} vps;
 };
 
+struct hv_synic_pages {
+	struct hv_message_page *synic_message_page;
+	struct hv_synic_event_flags_page *synic_event_flags_page;
+	struct hv_synic_event_ring_page *synic_event_ring_page;
+};
+
 struct mshv {
-	struct hv_message_page __percpu **synic_message_page;
+	struct hv_synic_pages __percpu *synic_pages;
 	struct {
 		spinlock_t lock;
 		u64 count;

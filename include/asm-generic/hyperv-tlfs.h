@@ -279,8 +279,23 @@ struct hv_timer_message_payload {
 	__u64 delivery_time;	/* When the message was delivered */
 } __packed;
 
+/* Define the synthentic interrupt controller event ring format */
+#define HV_SYNIC_EVENT_RING_MESSAGE_COUNT 63
+
+struct hv_synic_event_ring {
+	u8  signal_masked;
+	u8  ring_full;
+	u16 reserved_z;
+	u32 data[HV_SYNIC_EVENT_RING_MESSAGE_COUNT];
+} __packed;
+
+struct hv_synic_event_ring_page {
+	volatile struct hv_synic_event_ring sint_event_ring[HV_SYNIC_SINT_COUNT];
+};
+
 /* Define synthetic interrupt controller flag constants. */
 #define HV_EVENT_FLAGS_COUNT		(256 * 8)
+#define HV_EVENT_FLAGS_BYTE_COUNT	(256)
 #define HV_EVENT_FLAGS_LONG_COUNT	(256 / sizeof(unsigned long))
 
 /*
@@ -304,7 +319,12 @@ union hv_stimer_config {
 
 /* Define the synthetic interrupt controller event flags format. */
 union hv_synic_event_flags {
+	unsigned char flags8[HV_EVENT_FLAGS_BYTE_COUNT];
 	unsigned long flags[HV_EVENT_FLAGS_LONG_COUNT];
+};
+
+struct hv_synic_event_flags_page {
+	volatile union hv_synic_event_flags event_flags[HV_SYNIC_SINT_COUNT];
 };
 
 /* Define SynIC control register. */
@@ -346,6 +366,15 @@ union hv_synic_siefp {
 		u64 siefp_enabled:1;
 		u64 preserved:11;
 		u64 base_siefp_gpa:52;
+	} __packed;
+};
+
+union hv_synic_sirbp {
+	u64 as_uint64;
+	struct {
+		u64 sirbp_enabled:1;
+		u64 preserved:11;
+		u64 base_sirbp_gpa:52;
 	} __packed;
 };
 
