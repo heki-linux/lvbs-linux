@@ -22,6 +22,44 @@
 
 static struct workqueue_struct *irqfd_cleanup_wq;
 
+void
+mshv_register_irq_ack_notifier(struct mshv_partition *partition,
+			       struct mshv_irq_ack_notifier *mian)
+{
+	spin_lock(&partition->irq_lock);
+	hlist_add_head_rcu(&mian->link, &partition->irq_ack_notifier_list);
+	spin_unlock(&partition->irq_lock);
+}
+
+void
+mshv_unregister_irq_ack_notifier(struct mshv_partition *partition,
+				 struct mshv_irq_ack_notifier *mian)
+{
+	spin_lock(&partition->irq_lock);
+	hlist_del_init_rcu(&mian->link);
+	spin_unlock(&partition->irq_lock);
+	synchronize_rcu();
+}
+
+bool
+mshv_notify_acked_gsi(struct mshv_partition *partition, int gsi)
+{
+	struct mshv_irq_ack_notifier *mian;
+	bool acked = false;
+
+	rcu_read_lock();
+	hlist_for_each_entry_rcu(mian, &partition->irq_ack_notifier_list,
+			link) {
+		if (mian->gsi == gsi) {
+			mian->irq_acked(mian);
+			acked = true;
+		}
+	}
+	rcu_read_unlock();
+
+	return acked;
+}
+
 static void
 irqfd_inject(struct mshv_kernel_irqfd *irqfd)
 {

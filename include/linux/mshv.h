@@ -35,6 +35,12 @@ struct mshv_mem_region {
 	struct page **pages;
 };
 
+struct mshv_irq_ack_notifier {
+	struct hlist_node link;
+	unsigned int gsi;
+	void (*irq_acked)(struct mshv_irq_ack_notifier *mian);
+};
+
 struct mshv_partition {
 	u64 id;
 	refcount_t ref_count;
@@ -47,6 +53,9 @@ struct mshv_partition {
 		u32 count;
 		struct mshv_vp *array[MSHV_MAX_VPS];
 	} vps;
+
+	spinlock_t irq_lock;
+	struct hlist_head irq_ack_notifier_list;
 
 	struct {
 		spinlock_t        lock;

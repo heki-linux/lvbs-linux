@@ -15,6 +15,12 @@
 void mshv_eventfd_init(struct mshv_partition *partition);
 void mshv_eventfd_release(struct mshv_partition *partition);
 
+void mshv_register_irq_ack_notifier(struct mshv_partition *partition,
+				    struct mshv_irq_ack_notifier *mian);
+void mshv_unregister_irq_ack_notifier(struct mshv_partition *partition,
+			struct mshv_irq_ack_notifier *mian);
+bool mshv_notify_acked_gsi(struct mshv_partition *partition, int gsi);
+
 struct mshv_kernel_irqfd {
 	struct mshv_partition     *partition;
 	struct eventfd_ctx        *eventfd;
