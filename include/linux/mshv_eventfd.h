@@ -21,6 +21,23 @@ void mshv_unregister_irq_ack_notifier(struct mshv_partition *partition,
 			struct mshv_irq_ack_notifier *mian);
 bool mshv_notify_acked_gsi(struct mshv_partition *partition, int gsi);
 
+struct mshv_kernel_irqfd_resampler {
+	struct mshv_partition *partition;
+	/*
+	 * List of irqfds sharing this gsi.
+	 * Protected by irqfds.resampler_lock
+	 * and irq_srcu.
+	 */
+	struct list_head list;
+	struct mshv_irq_ack_notifier notifier;
+	/*
+	 * Entry in the list of partition->irqfd.resampler_list.
+	 * Protected by irqfds.resampler_lock
+	 *
+	 */
+	struct list_head link;
+};
+
 struct mshv_kernel_irqfd {
 	struct mshv_partition     *partition;
 	struct eventfd_ctx        *eventfd;
@@ -31,6 +48,11 @@ struct mshv_kernel_irqfd {
 	wait_queue_head_t         *wqh;
 	wait_queue_entry_t         wait;
 	struct work_struct         shutdown;
+
+	/* Resampler related */
+	struct mshv_kernel_irqfd_resampler *resampler;
+	struct eventfd_ctx *resamplefd;
+	struct list_head resampler_link;
 };
 
 int mshv_irqfd(struct mshv_partition *partition,

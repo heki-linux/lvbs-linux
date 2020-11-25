@@ -10,6 +10,7 @@
 #include <linux/mutex.h>
 #include <linux/semaphore.h>
 #include <linux/sched.h>
+#include <linux/srcu.h>
 #include <uapi/linux/mshv.h>
 
 #define MSHV_MAX_PARTITIONS		128
@@ -55,11 +56,14 @@ struct mshv_partition {
 	} vps;
 
 	spinlock_t irq_lock;
+	struct srcu_struct irq_srcu;
 	struct hlist_head irq_ack_notifier_list;
 
 	struct {
 		spinlock_t        lock;
 		struct list_head  items;
+		struct mutex resampler_lock;
+		struct list_head  resampler_list;
 	} irqfds;
 	struct {
 		spinlock_t        lock;

@@ -1000,6 +1000,8 @@ mshv_partition_release(struct inode *inode, struct file *filp)
 
 	mshv_eventfd_release(partition);
 
+	cleanup_srcu_struct(&partition->irq_srcu);
+
 	mshv_partition_put(partition);
 
 	return 0;
@@ -1098,10 +1100,16 @@ mshv_ioctl_create_partition(void __user *user_arg)
 
 	fd_install(fd, file);
 
+	ret = init_srcu_struct(&partition->irq_srcu);
+	if (ret)
+		goto cleanup_irq_srcu;
+
 	mshv_eventfd_init(partition);
 
 	return fd;
 
+cleanup_irq_srcu:
+	cleanup_srcu_struct(&partition->irq_srcu);
 release_file:
 	file->f_op->release(file->f_inode, file);
 finalize_partition:

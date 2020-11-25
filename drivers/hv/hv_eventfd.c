@@ -61,15 +61,65 @@ mshv_notify_acked_gsi(struct mshv_partition *partition, int gsi)
 }
 
 static void
+irqfd_resampler_ack(struct mshv_irq_ack_notifier *mian)
+{
+	struct mshv_kernel_irqfd_resampler *resampler;
+	struct mshv_partition *partition;
+	struct mshv_kernel_irqfd *irqfd;
+	int idx;
+
+	resampler = container_of(mian,
+			struct mshv_kernel_irqfd_resampler, notifier);
+	partition = resampler->partition;
+
+	idx = srcu_read_lock(&partition->irq_srcu);
+
+	list_for_each_entry_rcu(irqfd, &resampler->list, resampler_link) {
+		if (irqfd->lapic_irq.control.interrupt_type ==
+				HV_X64_INTERRUPT_TYPE_EXTINT)
+			hv_call_clear_virtual_interrupt(partition->id);
+
+		eventfd_signal(irqfd->resamplefd, 1);
+	}
+
+	srcu_read_unlock(&partition->irq_srcu, idx);
+}
+
+static void
 irqfd_inject(struct mshv_kernel_irqfd *irqfd)
 {
 	struct mshv_lapic_irq *irq = &irqfd->lapic_irq;
 
+	WARN_ON(irqfd->resampler &&
+		!irq->control.level_triggered);
 	hv_call_assert_virtual_interrupt(irqfd->partition->id,
 					 irq->vector, irq->apic_id,
 					 irq->control);
 }
 
+static void
+irqfd_resampler_shutdown(struct mshv_kernel_irqfd *irqfd)
+{
+	struct mshv_kernel_irqfd_resampler *resampler = irqfd->resampler;
+	struct mshv_partition *partition = resampler->partition;
+
+	mutex_lock(&partition->irqfds.resampler_lock);
+
+	list_del_rcu(&irqfd->resampler_link);
+	synchronize_srcu(&partition->irq_srcu);
+
+	if (list_empty(&resampler->list)) {
+		list_del(&resampler->link);
+		mshv_unregister_irq_ack_notifier(partition, &resampler->notifier);
+		kfree(resampler);
+	}
+
+	mutex_unlock(&partition->irqfds.resampler_lock);
+}
+
+/*
+ * Race-free decouple logic (ordering is critical)
+ */
 static void
 irqfd_shutdown(struct work_struct *work)
 {
@@ -81,6 +131,11 @@ irqfd_shutdown(struct work_struct *work)
 	 * further events.
 	 */
 	remove_wait_queue(irqfd->wqh, &irqfd->wait);
+
+	if (irqfd->resampler) {
+		irqfd_resampler_shutdown(irqfd);
+		eventfd_ctx_put(irqfd->resamplefd);
+	}
 
 	/*
 	 * It is now safe to release the object's resources
@@ -168,13 +223,17 @@ mshv_irqfd_assign(struct mshv_partition *partition,
 {
 	struct mshv_kernel_irqfd *irqfd, *tmp;
 	struct fd f;
-	struct eventfd_ctx *eventfd = NULL;
+	struct eventfd_ctx *eventfd = NULL, *resamplefd = NULL;
 	int ret;
 	unsigned int events;
 
 	irqfd = kzalloc(sizeof(*irqfd), GFP_KERNEL);
 	if (!irqfd)
 		return -ENOMEM;
+
+	if (args->flags & MSHV_IRQFD_FLAG_RESAMPLE &&
+		!args->level_triggered)
+		return -EINVAL;
 
 	irqfd->partition = partition;
 	irqfd->gsi = args->gsi;
@@ -199,6 +258,54 @@ mshv_irqfd_assign(struct mshv_partition *partition,
 	}
 
 	irqfd->eventfd = eventfd;
+
+	if (args->flags & MSHV_IRQFD_FLAG_RESAMPLE) {
+		struct mshv_kernel_irqfd_resampler *resampler;
+
+		resamplefd = eventfd_ctx_fdget(args->resamplefd);
+		if (IS_ERR(resamplefd)) {
+			ret = PTR_ERR(resamplefd);
+			goto fail;
+		}
+
+		irqfd->resamplefd = resamplefd;
+		INIT_LIST_HEAD(&irqfd->resampler_link);
+
+		mutex_lock(&partition->irqfds.resampler_lock);
+
+		list_for_each_entry(resampler,
+				    &partition->irqfds.resampler_list, link) {
+			if (resampler->notifier.gsi == irqfd->gsi) {
+				irqfd->resampler = resampler;
+				break;
+			}
+		}
+
+		if (!irqfd->resampler) {
+			resampler = kzalloc(sizeof(*resampler),
+					    GFP_KERNEL_ACCOUNT);
+			if (!resampler) {
+				ret = -ENOMEM;
+				mutex_unlock(&partition->irqfds.resampler_lock);
+				goto fail;
+			}
+
+			resampler->partition = partition;
+			INIT_LIST_HEAD(&resampler->list);
+			resampler->notifier.gsi = irqfd->gsi;
+			resampler->notifier.irq_acked = irqfd_resampler_ack;
+			INIT_LIST_HEAD(&resampler->link);
+
+			list_add(&resampler->link, &partition->irqfds.resampler_list);
+			mshv_register_irq_ack_notifier(partition,
+						      &resampler->notifier);
+			irqfd->resampler = resampler;
+		}
+
+		list_add_rcu(&irqfd->resampler_link, &irqfd->resampler->list);
+
+		mutex_unlock(&partition->irqfds.resampler_lock);
+	}
 
 	/*
 	 * Install our own custom wake-up handling so we are notified via
@@ -238,6 +345,12 @@ mshv_irqfd_assign(struct mshv_partition *partition,
 	return 0;
 
 fail:
+	if (irqfd->resampler)
+		irqfd_resampler_shutdown(irqfd);
+
+	if (resamplefd && !IS_ERR(resamplefd))
+		eventfd_ctx_put(resamplefd);
+
 	if (eventfd && !IS_ERR(eventfd))
 		eventfd_ctx_put(eventfd);
 
@@ -540,6 +653,9 @@ mshv_eventfd_init(struct mshv_partition *partition)
 {
 	spin_lock_init(&partition->irqfds.lock);
 	INIT_LIST_HEAD(&partition->irqfds.items);
+
+	INIT_LIST_HEAD(&partition->irqfds.resampler_list);
+	mutex_init(&partition->irqfds.resampler_lock);
 
 	spin_lock_init(&partition->ioeventfds.lock);
 	INIT_LIST_HEAD(&partition->ioeventfds.items);
