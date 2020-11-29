@@ -117,6 +117,7 @@ int hv_call_assert_virtual_interrupt(
 		u32 vector,
 		u64 dest_addr,
 		union hv_interrupt_control control);
+int hv_call_clear_virtual_interrupt(u64 partition_id);
 int hv_call_get_vp_state(
 		u32 vp_index,
 		u64 partition_id,

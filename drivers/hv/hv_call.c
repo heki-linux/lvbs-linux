@@ -742,6 +742,26 @@ out:
 
 
 int
+hv_call_clear_virtual_interrupt(u64 partition_id)
+{
+	unsigned long flags;
+	int status;
+
+	local_irq_save(flags);
+	status = hv_do_fast_hypercall8(HVCALL_CLEAR_VIRTUAL_INTERRUPT,
+				       partition_id) &
+			HV_HYPERCALL_RESULT_MASK;
+	local_irq_restore(flags);
+
+	if (status != HV_STATUS_SUCCESS) {
+		pr_err("%s: %s\n", __func__, hv_status_to_string(status));
+		return hv_status_to_errno(status);
+	}
+
+	return 0;
+}
+
+int
 hv_call_create_port(u64 port_partition_id, union hv_port_id port_id,
 		    u64 connection_partition_id,
 		    struct hv_port_info *port_info,
