@@ -8,7 +8,7 @@ obj-$(CONFIG_DXGKRNL)		+= dxgkrnl/
 CFLAGS_hv_trace.o = -I$(src)
 CFLAGS_hv_balloon.o = -I$(src)
 
-mshv-y				+= mshv_main.o
+mshv-y				+= mshv_main.o hv_call.o
 hv_vmbus-y := vmbus_drv.o \
 		 hv.o connection.o channel.o \
 		 channel_mgmt.o ring_buffer.o hv_trace.o
