@@ -69,6 +69,7 @@ struct mshv_partition {
 		spinlock_t        lock;
 		struct list_head items;
 	} ioeventfds;
+	struct mshv_msi_routing_table __rcu *msi_routing;
 };
 
 struct mshv_lapic_irq {
@@ -76,6 +77,32 @@ struct mshv_lapic_irq {
 	u64 apic_id;
 	union hv_interrupt_control control;
 };
+
+#define MSHV_MAX_MSI_ROUTES		4096
+
+struct mshv_kernel_msi_routing_entry {
+	u32 entry_valid;
+	u32 gsi;
+	u32 address_lo;
+	u32 address_hi;
+	u32 data;
+};
+
+struct mshv_msi_routing_table {
+	u32 nr_rt_entries;
+	struct mshv_kernel_msi_routing_entry entries[];
+};
+
+int mshv_set_msi_routing(struct mshv_partition *partition,
+		const struct mshv_msi_routing_entry *entries,
+		unsigned int nr);
+void mshv_free_msi_routing(struct mshv_partition *partition);
+
+struct mshv_kernel_msi_routing_entry mshv_msi_map_gsi(
+		struct mshv_partition *partition, u32 gsi);
+
+void mshv_set_msi_irq(struct mshv_kernel_msi_routing_entry *e,
+		      struct mshv_lapic_irq *irq);
 
 struct hv_synic_pages {
 	struct hv_message_page *synic_message_page;

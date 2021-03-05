@@ -117,6 +117,18 @@ struct mshv_ioeventfd {
 	__u8  pad[4];
 };
 
+struct mshv_msi_routing_entry {
+	__u32 gsi;
+	__u32 address_lo;
+	__u32 address_hi;
+	__u32 data;
+};
+
+struct mshv_msi_routing {
+	__u32 nr;
+	__u32 pad;
+	struct mshv_msi_routing_entry entries[0];
+};
 
 #define MSHV_IOCTL 0xB8
 
@@ -136,6 +148,7 @@ struct mshv_ioeventfd {
 				_IOWR(MSHV_IOCTL, 0xD, struct mshv_partition_property)
 #define MSHV_IRQFD		_IOW(MSHV_IOCTL, 0xE, struct mshv_irqfd)
 #define MSHV_IOEVENTFD		_IOW(MSHV_IOCTL, 0xF, struct mshv_ioeventfd)
+#define MSHV_SET_MSI_ROUTING	_IOW(MSHV_IOCTL, 0x11, struct mshv_msi_routing)
 
 /* vp device */
 #define MSHV_GET_VP_REGISTERS   _IOWR(MSHV_IOCTL, 0x05, struct mshv_vp_registers)

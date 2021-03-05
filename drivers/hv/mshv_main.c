@@ -864,6 +864,35 @@ mshv_partition_ioctl_irqfd(struct mshv_partition *partition,
 }
 
 static long
+mshv_partition_ioctl_set_msi_routing(struct mshv_partition *partition,
+		void __user *user_args)
+{
+	struct mshv_msi_routing_entry *entries = NULL;
+	struct mshv_msi_routing args;
+	long ret;
+
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+	if (args.nr > MSHV_MAX_MSI_ROUTES)
+		return -EINVAL;
+
+	if (args.nr) {
+		struct mshv_msi_routing __user *urouting = user_args;
+
+		entries = vmemdup_user(urouting->entries,
+				       array_size(sizeof(*entries),
+					       args.nr));
+		if (IS_ERR(entries))
+			return PTR_ERR(entries);
+	}
+	ret = mshv_set_msi_routing(partition, entries, args.nr);
+	kvfree(entries);
+
+	return ret;
+}
+
+static long
 mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
 	struct mshv_partition *partition = filp->private_data;
@@ -908,6 +937,10 @@ mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 	case MSHV_IOEVENTFD:
 		ret = mshv_partition_ioctl_ioeventfd(partition,
 						 (void __user *)arg);
+		break;
+	case MSHV_SET_MSI_ROUTING:
+		ret = mshv_partition_ioctl_set_msi_routing(partition,
+							   (void __user *)arg);
 		break;
 	default:
 		ret = -ENOTTY;
@@ -975,6 +1008,7 @@ destroy_partition(struct mshv_partition *partition)
 		vfree(region->pages);
 	}
 
+	mshv_free_msi_routing(partition);
 	kfree(partition);
 }
 
