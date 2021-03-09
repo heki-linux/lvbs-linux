@@ -83,16 +83,10 @@ struct mshv_translate_gva {
 #define MSHV_IRQFD_FLAG_RESAMPLE (1 << 1)
 
 struct mshv_irqfd {
-	__u64 apic_id;
 	__s32 fd;
 	__s32 resamplefd;
 	__u32 gsi;
-	__u32 vector;
-	__u32 interrupt_type;
 	__u32 flags;
-	__u8  level_triggered;
-	__u8  logical_dest_mode;
-	__u8  pad[6];
 };
 
 enum {

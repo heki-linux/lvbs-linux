@@ -104,6 +104,8 @@ struct mshv_kernel_msi_routing_entry mshv_msi_map_gsi(
 void mshv_set_msi_irq(struct mshv_kernel_msi_routing_entry *e,
 		      struct mshv_lapic_irq *irq);
 
+void mshv_irqfd_routing_update(struct mshv_partition *partition);
+
 struct hv_synic_pages {
 	struct hv_message_page *synic_message_page;
 	struct hv_synic_event_flags_page *synic_event_flags_page;

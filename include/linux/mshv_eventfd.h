@@ -39,20 +39,22 @@ struct mshv_kernel_irqfd_resampler {
 };
 
 struct mshv_kernel_irqfd {
-	struct mshv_partition     *partition;
-	struct eventfd_ctx        *eventfd;
-	u32                        gsi;
-	struct mshv_lapic_irq      lapic_irq;
-	struct list_head           list;
-	poll_table                 pt;
-	wait_queue_head_t         *wqh;
-	wait_queue_entry_t         wait;
-	struct work_struct         shutdown;
+	struct mshv_partition                *partition;
+	struct eventfd_ctx                   *eventfd;
+	struct mshv_kernel_msi_routing_entry msi_entry;
+	seqcount_spinlock_t                  msi_entry_sc;
+	u32                                  gsi;
+	struct mshv_lapic_irq                lapic_irq;
+	struct list_head                     list;
+	poll_table                           pt;
+	wait_queue_head_t                    *wqh;
+	wait_queue_entry_t                   wait;
+	struct work_struct                   shutdown;
 
 	/* Resampler related */
-	struct mshv_kernel_irqfd_resampler *resampler;
-	struct eventfd_ctx *resamplefd;
-	struct list_head resampler_link;
+	struct mshv_kernel_irqfd_resampler   *resampler;
+	struct eventfd_ctx                   *resamplefd;
+	struct list_head                     resampler_link;
 };
 
 int mshv_irqfd(struct mshv_partition *partition,

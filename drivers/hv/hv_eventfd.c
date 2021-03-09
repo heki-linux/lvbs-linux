@@ -88,13 +88,32 @@ irqfd_resampler_ack(struct mshv_irq_ack_notifier *mian)
 static void
 irqfd_inject(struct mshv_kernel_irqfd *irqfd)
 {
+	struct mshv_partition *partition = irqfd->partition;
 	struct mshv_lapic_irq *irq = &irqfd->lapic_irq;
+	unsigned int seq;
+	int idx;
 
 	WARN_ON(irqfd->resampler &&
 		!irq->control.level_triggered);
+
+	idx = srcu_read_lock(&partition->irq_srcu);
+	if (irqfd->msi_entry.gsi) {
+		if (!irqfd->msi_entry.entry_valid) {
+			pr_warn("Invalid routing info for gsi %u",
+				irqfd->msi_entry.gsi);
+			srcu_read_unlock(&partition->irq_srcu, idx);
+			return;
+		}
+
+		do {
+			seq = read_seqcount_begin(&irqfd->msi_entry_sc);
+		} while (read_seqcount_retry(&irqfd->msi_entry_sc, seq));
+	}
+
 	hv_call_assert_virtual_interrupt(irqfd->partition->id,
 					 irq->vector, irq->apic_id,
 					 irq->control);
+	srcu_read_unlock(&partition->irq_srcu, idx);
 }
 
 static void
@@ -206,6 +225,27 @@ irqfd_wakeup(wait_queue_entry_t *wait, unsigned int mode,
 	return 0;
 }
 
+/* Must be called under irqfds.lock */
+static void irqfd_update(struct mshv_partition *partition,
+			 struct mshv_kernel_irqfd *irqfd)
+{
+	write_seqcount_begin(&irqfd->msi_entry_sc);
+	irqfd->msi_entry = mshv_msi_map_gsi(partition, irqfd->gsi);
+	mshv_set_msi_irq(&irqfd->msi_entry, &irqfd->lapic_irq);
+	write_seqcount_end(&irqfd->msi_entry_sc);
+}
+
+void mshv_irqfd_routing_update(struct mshv_partition *partition)
+{
+	struct mshv_kernel_irqfd *irqfd;
+
+	spin_lock_irq(&partition->irqfds.lock);
+	list_for_each_entry(irqfd, &partition->irqfds.items, list) {
+		irqfd_update(partition, irqfd);
+	}
+	spin_unlock_irq(&partition->irqfds.lock);
+}
+
 static void
 irqfd_ptable_queue_proc(struct file *file, wait_queue_head_t *wqh,
 			poll_table *pt)
@@ -221,29 +261,23 @@ static int
 mshv_irqfd_assign(struct mshv_partition *partition,
 		  struct mshv_irqfd *args)
 {
-	struct mshv_kernel_irqfd *irqfd, *tmp;
-	struct fd f;
 	struct eventfd_ctx *eventfd = NULL, *resamplefd = NULL;
-	int ret;
+	struct mshv_kernel_irqfd *irqfd, *tmp;
 	unsigned int events;
+	struct fd f;
+	int ret;
+	int idx;
 
 	irqfd = kzalloc(sizeof(*irqfd), GFP_KERNEL);
 	if (!irqfd)
 		return -ENOMEM;
 
-	if (args->flags & MSHV_IRQFD_FLAG_RESAMPLE &&
-		!args->level_triggered)
-		return -EINVAL;
-
 	irqfd->partition = partition;
 	irqfd->gsi = args->gsi;
-	irqfd->lapic_irq.vector = args->vector;
-	irqfd->lapic_irq.apic_id = args->apic_id;
-	irqfd->lapic_irq.control.interrupt_type = args->interrupt_type;
-	irqfd->lapic_irq.control.level_triggered = args->level_triggered;
-	irqfd->lapic_irq.control.logical_dest_mode = args->logical_dest_mode;
 	INIT_LIST_HEAD(&irqfd->list);
 	INIT_WORK(&irqfd->shutdown, irqfd_shutdown);
+	seqcount_spinlock_init(&irqfd->msi_entry_sc,
+			       &partition->irqfds.lock);
 
 	f = fdget(args->fd);
 	if (!f.file) {
@@ -258,6 +292,31 @@ mshv_irqfd_assign(struct mshv_partition *partition,
 	}
 
 	irqfd->eventfd = eventfd;
+
+
+	spin_lock_irq(&partition->irqfds.lock);
+	idx = srcu_read_lock(&partition->irq_srcu);
+	irqfd_update(partition, irqfd);
+	srcu_read_unlock(&partition->irq_srcu, idx);
+
+	if (args->flags & MSHV_IRQFD_FLAG_RESAMPLE &&
+	    !irqfd->lapic_irq.control.level_triggered) {
+		spin_unlock_irq(&partition->irqfds.lock);
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	ret = 0;
+	list_for_each_entry(tmp, &partition->irqfds.items, list) {
+		if (irqfd->eventfd != tmp->eventfd)
+			continue;
+		/* This fd is used for another irq already. */
+		ret = -EBUSY;
+		spin_unlock_irq(&partition->irqfds.lock);
+		goto fail;
+	}
+	list_add_tail(&irqfd->list, &partition->irqfds.items);
+	spin_unlock_irq(&partition->irqfds.lock);
 
 	if (args->flags & MSHV_IRQFD_FLAG_RESAMPLE) {
 		struct mshv_kernel_irqfd_resampler *resampler;
@@ -313,19 +372,6 @@ mshv_irqfd_assign(struct mshv_partition *partition,
 	 */
 	init_waitqueue_func_entry(&irqfd->wait, irqfd_wakeup);
 	init_poll_funcptr(&irqfd->pt, irqfd_ptable_queue_proc);
-
-	spin_lock_irq(&partition->irqfds.lock);
-	ret = 0;
-	list_for_each_entry(tmp, &partition->irqfds.items, list) {
-		if (irqfd->eventfd != tmp->eventfd)
-			continue;
-		/* This fd is used for another irq already. */
-		ret = -EBUSY;
-		spin_unlock_irq(&partition->irqfds.lock);
-		goto fail;
-	}
-	list_add_tail(&irqfd->list, &partition->irqfds.items);
-	spin_unlock_irq(&partition->irqfds.lock);
 
 	/*
 	 * Check if there was an event already pending on the eventfd
