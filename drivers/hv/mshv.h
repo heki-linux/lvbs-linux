@@ -32,7 +32,9 @@
 #define HV_SET_VP_STATE_BATCH_SIZE	\
 	((HV_HYP_PAGE_SIZE - sizeof(struct hv_set_vp_state_in)) \
 		/ sizeof(u64))
-
+#define HV_GET_GPA_ACCESS_STATES_BATCH_SIZE	\
+	((HV_HYP_PAGE_SIZE - sizeof(union hv_gpa_page_access_state)) \
+		/ sizeof(union hv_gpa_page_access_state))
 extern struct mshv mshv;
 
 void mshv_isr(void);
@@ -104,6 +106,14 @@ int hv_call_get_vp_registers(
 		u64 partition_id,
 		u16 count,
 		struct hv_register_assoc *registers);
+int hv_call_get_gpa_access_states(
+		u64 partition_id,
+		u32 count,
+		u64 gpa_base_pfn,
+		u64 state_flags,
+		int *written_total,
+		union hv_gpa_page_access_state *states);
+
 int hv_call_set_vp_registers(
 		u32 vp_index,
 		u64 partition_id,

@@ -348,6 +348,57 @@ int hv_call_get_vp_registers(
 	return hv_status_to_errno(status);
 }
 
+int hv_call_get_gpa_access_states(
+		u64 partition_id,
+		u32 count,
+		u64 gpa_base_pfn,
+		u64 state_flags,
+		int *written_total,
+		union hv_gpa_page_access_state *states)
+{
+	struct hv_input_get_gpa_pages_access_state *input_page;
+	union hv_gpa_page_access_state *output_page;
+	int completed = 0;
+	unsigned long remaining = count;
+	int rep_count, i;
+	u64 status;
+	unsigned long flags;
+
+	*written_total = 0;
+	while (remaining) {
+		local_irq_save(flags);
+		input_page = (struct hv_input_get_gpa_pages_access_state *)(*this_cpu_ptr(
+			hyperv_pcpu_input_arg));
+		output_page = (union hv_gpa_page_access_state *)(*this_cpu_ptr(
+			hyperv_pcpu_output_arg));
+
+		input_page->partition_id = partition_id;
+		input_page->hv_gpa_page_number = gpa_base_pfn + *written_total;
+		input_page->flags.as_uint64 = state_flags;
+		rep_count = min(remaining, HV_GET_GPA_ACCESS_STATES_BATCH_SIZE);
+
+		status = hv_do_rep_hypercall(HVCALL_GET_GPA_PAGES_ACCESS_STATES, rep_count,
+					     0, input_page, output_page);
+		if (!hv_result_success(status)) {
+			pr_err("%s: completed %li out of %u, %s\n",
+			       __func__,
+			       count - remaining, count,
+			       hv_status_to_string(status));
+			local_irq_restore(flags);
+			break;
+		}
+		completed = hv_repcomp(status);
+		for (i = 0; i < completed; ++i)
+			states[i].as_uint8 = output_page[i].as_uint8;
+
+		states += completed;
+		*written_total += completed;
+		remaining -= completed;
+		local_irq_restore(flags);
+	}
+
+	return hv_status_to_errno(status);
+}
 int hv_call_set_vp_registers(
 		u32 vp_index,
 		u64 partition_id,

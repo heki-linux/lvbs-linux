@@ -263,6 +263,46 @@ union hv_translate_gva_result {
 	} __packed;
 };
 
+union hv_gpa_page_access_state_flags {
+	struct {
+		__u64 clear_accessed : 1;
+		__u64 set_access : 1;
+		__u64 clear_dirty : 1;
+		__u64 set_dirty : 1;
+		__u64 reserved : 60;
+	};
+	__u64 as_uint64;
+} __packed;
+struct hv_input_get_gpa_pages_access_state {
+	__u64  partition_id;
+	union hv_gpa_page_access_state_flags flags;
+	__u64 hv_gpa_page_number;
+} __packed;
+
+union hv_gpa_page_access_state {
+	struct {
+		__u8 accessed : 1;
+		__u8 dirty : 1;
+		__u8 reserved: 6;
+	};
+	__u8 as_uint8;
+} __packed;
+
+union hv_partition_property_page_access_tracking_config {
+	struct {
+		__u64 enabled : 1;
+		__u64 granularity : 1;
+		__u64 reserved : 62;
+	};
+	__u64 as_uint64;
+} __packed;
+
+enum {
+	MSHV_PAGE_ACCESS_TRACKING_GRANULARITY_SMALL_PAGES = 0,
+	MSHV_PAGE_ACCESS_TRACKING_GRANULARITY_LARGE_PAGES = 1,
+};
+
+
 /* hv_translage_gva flags */
 #define HV_TRANSLATE_GVA_VALIDATE_READ		0x0001
 #define HV_TRANSLATE_GVA_VALIDATE_WRITE		0x0002

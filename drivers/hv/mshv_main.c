@@ -862,6 +862,39 @@ mshv_partition_ioctl_irqfd(struct mshv_partition *partition,
 
 	return mshv_irqfd(partition, &args);
 }
+static long mshv_partition_ioctl_get_gpa_access_state(struct mshv_partition *partition,
+		void __user *user_args)
+{
+	struct mshv_get_gpa_pages_access_state args;
+	union hv_gpa_page_access_state *states;
+	long ret;
+	int written = 0;
+
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+
+	states = vzalloc(args.count * sizeof(*states));
+	if (!states)
+		return -ENOMEM;
+	ret = hv_call_get_gpa_access_states(partition->id,
+				args.count, args.hv_gpa_page_number,
+				args.flags, &written, states);
+	if (ret)
+		goto free_return;
+
+	args.count = written;
+	if (copy_to_user(user_args, &args, sizeof(args))) {
+		ret = -EFAULT;
+		goto free_return;
+	}
+	if (copy_to_user(args.states, states, sizeof(*states) * args.count))
+		ret = -EFAULT;
+
+free_return:
+	vfree(states);
+	return ret;
+}
 
 static long
 mshv_partition_ioctl_set_msi_routing(struct mshv_partition *partition,
@@ -940,6 +973,10 @@ mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		break;
 	case MSHV_SET_MSI_ROUTING:
 		ret = mshv_partition_ioctl_set_msi_routing(partition,
+							   (void __user *)arg);
+		break;
+	case MSHV_GET_GPA_ACCESS_STATES:
+		ret = mshv_partition_ioctl_get_gpa_access_state(partition,
 							   (void __user *)arg);
 		break;
 	default:

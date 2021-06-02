@@ -143,7 +143,8 @@ struct mshv_msi_routing {
 #define MSHV_IRQFD		_IOW(MSHV_IOCTL, 0xE, struct mshv_irqfd)
 #define MSHV_IOEVENTFD		_IOW(MSHV_IOCTL, 0xF, struct mshv_ioeventfd)
 #define MSHV_SET_MSI_ROUTING	_IOW(MSHV_IOCTL, 0x11, struct mshv_msi_routing)
-
+#define MSHV_GET_GPA_ACCESS_STATES \
+				_IOWR(MSHV_IOCTL, 0x12, struct mshv_get_gpa_pages_access_state)
 /* vp device */
 #define MSHV_GET_VP_REGISTERS   _IOWR(MSHV_IOCTL, 0x05, struct mshv_vp_registers)
 #define MSHV_SET_VP_REGISTERS   _IOW(MSHV_IOCTL, 0x06, struct mshv_vp_registers)
@@ -161,5 +162,12 @@ struct mshv_msi_routing {
  *					   HV_VP_MMAP_REGISTERS_OFFSET);
  * munmap(regs, 4096);
  */
+
+struct mshv_get_gpa_pages_access_state {
+	__u32 count;
+	__u64 flags;
+	__u64 hv_gpa_page_number;
+	union hv_gpa_page_access_state *states;
+} __packed;
 
 #endif
