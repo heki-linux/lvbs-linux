@@ -140,6 +140,12 @@ const struct vmbus_device vmbus_devs[] = {
 	  .allowed_in_isolated = false,
 	},
 
+	/* Azure Blob */
+	{ .dev_type = HV_AZURE_BLOB,
+	  HV_AZURE_BLOB_GUID,
+	  .perf_device = false,
+	},
+
 	/* Unknown GUID */
 	{ .dev_type = HV_UNKNOWN,
 	  .perf_device = false,
