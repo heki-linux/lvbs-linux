@@ -25,6 +25,7 @@
 #include <asm/mshyperv.h>
 
 #include "mshv.h"
+#include "vfio.h"
 
 MODULE_AUTHOR("Microsoft");
 MODULE_LICENSE("GPL");
@@ -1455,6 +1456,8 @@ __init mshv_init(void)
 	if (mshv_irqfd_wq_init())
 		mshv_irqfd_wq_cleanup();
 
+	mshv_vfio_ops_init();
+
 	return 0;
 }
 
@@ -1467,6 +1470,8 @@ __exit mshv_exit(void)
 	free_percpu(mshv.synic_pages);
 
 	hv_port_table_fini();
+
+	mshv_vfio_ops_exit();
 
 	misc_deregister(&mshv_dev);
 }
