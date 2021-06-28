@@ -169,3 +169,17 @@ Can be used to get/set various properties of a partition.
 
 Some properties can only be set at partition creation. For these, there are
 parameters in MSHV_CREATE_PARTITION.
+
+3.12 MSHV_CREATE_DEVICE
+-----------------------
+:Type: partition ioctl
+:Parameters: struct mshv_create_device
+:Returns: 0 on success
+
+Can be used to create an in-kernel device.
+
+If the MSHV_CREATE_DEVICE_TEST flag is set, only test whether the
+device type is supported (not necessarily whether it can be created
+in the current vm).
+
+Currently only supports VFIO type device.

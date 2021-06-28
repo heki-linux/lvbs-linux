@@ -153,6 +153,14 @@ struct mshv_msi_routing {
 #define MSHV_SET_VP_STATE	_IOWR(MSHV_IOCTL, 0x0B, struct mshv_vp_state)
 #define MSHV_TRANSLATE_GVA	_IOWR(MSHV_IOCTL, 0x0E, struct mshv_translate_gva)
 
+/* ioctl for device fd */
+#define MSHV_CREATE_DEVICE	  _IOWR(MSHV_IOCTL, 0x13, struct mshv_create_device)
+
+/* ioctls for fds returned by MSHV_CREATE_DEVICE */
+#define MSHV_SET_DEVICE_ATTR	  _IOW(MSHV_IOCTL, 0x14, struct mshv_device_attr)
+#define MSHV_GET_DEVICE_ATTR	  _IOW(MSHV_IOCTL, 0x15, struct mshv_device_attr)
+#define MSHV_HAS_DEVICE_ATTR	  _IOW(MSHV_IOCTL, 0x16, struct mshv_device_attr)
+
 /* register page mapping example:
  * struct hv_vp_register_page *regs = mmap(NULL,
  *					   4096,
@@ -169,5 +177,33 @@ struct mshv_get_gpa_pages_access_state {
 	__u64 hv_gpa_page_number;
 	union hv_gpa_page_access_state *states;
 } __packed;
+
+/*
+ * Device control API.
+ */
+#define MSHV_CREATE_DEVICE_TEST		1
+
+struct mshv_create_device {
+	__u32	type;	/* in: MSHV_DEV_TYPE_xxx */
+	__u32	fd;	/* out: device handle */
+	__u32	flags;	/* in: MSHV_CREATE_DEVICE_xxx */
+};
+
+#define  MSHV_DEV_VFIO_GROUP			1
+#define   MSHV_DEV_VFIO_GROUP_ADD			1
+#define   MSHV_DEV_VFIO_GROUP_DEL			2
+
+enum mshv_device_type {
+	MSHV_DEV_TYPE_VFIO,
+#define MSHV_DEV_TYPE_VFIO		MSHV_DEV_TYPE_VFIO
+	MSHV_DEV_TYPE_MAX,
+};
+
+struct mshv_device_attr {
+	__u32	flags;		/* no flags currently defined */
+	__u32	group;		/* device-defined */
+	__u64	attr;		/* group-defined */
+	__u64	addr;		/* userspace address of attr data */
+};
 
 #endif

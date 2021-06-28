@@ -20,6 +20,8 @@
 #include <linux/random.h>
 #include <linux/mshv.h>
 #include <linux/mshv_eventfd.h>
+#include <linux/hyperv.h>
+#include <linux/nospec.h>
 #include <asm/mshyperv.h>
 
 #include "mshv.h"
@@ -33,6 +35,7 @@ static int mshv_vp_release(struct inode *inode, struct file *filp);
 static long mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg);
 static struct mshv_partition *mshv_partition_get(struct mshv_partition *partition);
 static void mshv_partition_put(struct mshv_partition *partition);
+static void mshv_partition_put_no_destroy(struct mshv_partition *partition);
 static int mshv_partition_release(struct inode *inode, struct file *filp);
 static long mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg);
 static int mshv_dev_open(struct inode *inode, struct file *filp);
@@ -925,6 +928,172 @@ mshv_partition_ioctl_set_msi_routing(struct mshv_partition *partition,
 	return ret;
 }
 
+static int mshv_device_ioctl_attr(struct mshv_device *dev,
+				 int (*accessor)(struct mshv_device *dev,
+						 struct mshv_device_attr *attr),
+				 unsigned long arg)
+{
+	struct mshv_device_attr attr;
+
+	if (!accessor)
+		return -EPERM;
+
+	if (copy_from_user(&attr, (void __user *)arg, sizeof(attr)))
+		return -EFAULT;
+
+	return accessor(dev, &attr);
+}
+
+static long mshv_device_ioctl(struct file *filp, unsigned int ioctl,
+			      unsigned long arg)
+{
+	struct mshv_device *dev = filp->private_data;
+
+	switch (ioctl) {
+	case MSHV_SET_DEVICE_ATTR:
+		return mshv_device_ioctl_attr(dev, dev->ops->set_attr, arg);
+	case MSHV_GET_DEVICE_ATTR:
+		return mshv_device_ioctl_attr(dev, dev->ops->get_attr, arg);
+	case MSHV_HAS_DEVICE_ATTR:
+		return mshv_device_ioctl_attr(dev, dev->ops->has_attr, arg);
+	default:
+		if (dev->ops->ioctl)
+			return dev->ops->ioctl(dev, ioctl, arg);
+
+		return -ENOTTY;
+	}
+}
+
+static int mshv_device_release(struct inode *inode, struct file *filp)
+{
+	struct mshv_device *dev = filp->private_data;
+	struct mshv_partition *partition = dev->partition;
+
+	if (dev->ops->release) {
+		mutex_lock(&partition->mutex);
+		list_del(&dev->partition_node);
+		dev->ops->release(dev);
+		mutex_unlock(&partition->mutex);
+	}
+
+	mshv_partition_put(partition);
+	return 0;
+}
+
+static const struct file_operations mshv_device_fops = {
+	.unlocked_ioctl = mshv_device_ioctl,
+	.release = mshv_device_release,
+};
+
+static const struct mshv_device_ops *mshv_device_ops_table[MSHV_DEV_TYPE_MAX];
+
+int mshv_register_device_ops(const struct mshv_device_ops *ops, u32 type)
+{
+	if (type >= ARRAY_SIZE(mshv_device_ops_table))
+		return -ENOSPC;
+
+	if (mshv_device_ops_table[type] != NULL)
+		return -EEXIST;
+
+	mshv_device_ops_table[type] = ops;
+	return 0;
+}
+
+void mshv_unregister_device_ops(u32 type)
+{
+	if (type >= ARRAY_SIZE(mshv_device_ops_table))
+		return;
+	mshv_device_ops_table[type] = NULL;
+}
+
+static long
+mshv_partition_ioctl_create_device(struct mshv_partition *partition,
+	void __user *user_args)
+{
+	long r;
+	struct mshv_create_device tmp, *cd;
+	struct mshv_device *dev;
+	const struct mshv_device_ops *ops;
+	int type;
+
+	if (copy_from_user(&tmp, user_args, sizeof(tmp))) {
+		r = -EFAULT;
+		goto out;
+	}
+
+	cd = &tmp;
+
+	if (cd->type >= ARRAY_SIZE(mshv_device_ops_table)) {
+		r = -ENODEV;
+		goto out;
+	}
+
+	type = array_index_nospec(cd->type, ARRAY_SIZE(mshv_device_ops_table));
+	ops = mshv_device_ops_table[type];
+	if (ops == NULL) {
+		r = -ENODEV;
+		goto out;
+	}
+
+	if (cd->flags & MSHV_CREATE_DEVICE_TEST) {
+		r = 0;
+		goto out;
+	}
+
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL_ACCOUNT);
+	if (!dev) {
+		r = -ENOMEM;
+		goto out;
+	}
+
+	dev->ops = ops;
+	dev->partition = partition;
+
+	r = ops->create(dev, type);
+	if (r < 0) {
+		kfree(dev);
+		goto out;
+	}
+
+	list_add(&dev->partition_node, &partition->devices);
+
+	if (ops->init)
+		ops->init(dev);
+
+	mshv_partition_get(partition);
+	r = anon_inode_getfd(ops->name, &mshv_device_fops, dev, O_RDWR | O_CLOEXEC);
+	if (r < 0) {
+		mshv_partition_put_no_destroy(partition);
+		list_del(&dev->partition_node);
+		ops->destroy(dev);
+		goto out;
+	}
+
+	cd->fd = r;
+	r = 0;
+
+	if (copy_to_user(user_args, &tmp, sizeof(tmp))) {
+		r = -EFAULT;
+		goto out;
+	}
+out:
+	return r;
+}
+
+static void mshv_destroy_devices(struct mshv_partition *partition)
+{
+	struct mshv_device *dev, *tmp;
+
+	/*
+	 * No need to take any lock since at this point nobody else can
+	 * reference this partition.
+	 */
+	list_for_each_entry_safe(dev, tmp, &partition->devices, partition_node) {
+		list_del(&dev->partition_node);
+		dev->ops->destroy(dev);
+	}
+}
+
 static long
 mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
@@ -978,6 +1147,10 @@ mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 	case MSHV_GET_GPA_ACCESS_STATES:
 		ret = mshv_partition_ioctl_get_gpa_access_state(partition,
 							   (void __user *)arg);
+		break;
+	case MSHV_CREATE_DEVICE:
+		ret = mshv_partition_ioctl_create_device(partition,
+							 (void __user *)arg);
 		break;
 	default:
 		ret = -ENOTTY;
@@ -1045,6 +1218,7 @@ destroy_partition(struct mshv_partition *partition)
 		vfree(region->pages);
 	}
 
+	mshv_destroy_devices(partition);
 	mshv_free_msi_routing(partition);
 	kfree(partition);
 }
@@ -1062,6 +1236,12 @@ mshv_partition_put(struct mshv_partition *partition)
 {
 	if (refcount_dec_and_test(&partition->ref_count))
 		destroy_partition(partition);
+}
+
+static void
+mshv_partition_put_no_destroy(struct mshv_partition *partition)
+{
+	WARN_ON(refcount_dec_and_test(&partition->ref_count));
 }
 
 static int
@@ -1133,6 +1313,8 @@ mshv_ioctl_create_partition(void __user *user_arg)
 	spin_lock_init(&partition->irq_lock);
 
 	INIT_HLIST_HEAD(&partition->irq_ack_notifier_list);
+
+	INIT_LIST_HEAD(&partition->devices);
 
 	fd = get_unused_fd_flags(O_CLOEXEC);
 	if (fd < 0) {

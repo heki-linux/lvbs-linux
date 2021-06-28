@@ -59,6 +59,8 @@ struct mshv_partition {
 	struct srcu_struct irq_srcu;
 	struct hlist_head irq_ack_notifier_list;
 
+	struct list_head devices;
+
 	struct {
 		spinlock_t        lock;
 		struct list_head  items;
@@ -120,5 +122,60 @@ struct mshv {
 		struct mshv_partition *array[MSHV_MAX_PARTITIONS];
 	} partitions;
 };
+
+struct mshv_device {
+	const struct mshv_device_ops *ops;
+	struct mshv_partition *partition;
+	void *private;
+	struct list_head partition_node;
+
+};
+
+/* create, destroy, and name are mandatory */
+struct mshv_device_ops {
+	const char *name;
+
+	/*
+	 * create is called holding partition->mutex and any operations not suitable
+	 * to do while holding the lock should be deferred to init (see
+	 * below).
+	 */
+	int (*create)(struct mshv_device *dev, u32 type);
+
+	/*
+	 * init is called after create if create is successful and is called
+	 * outside of holding partition->mutex.
+	 */
+	void (*init)(struct mshv_device *dev);
+
+	/*
+	 * Destroy is responsible for freeing dev.
+	 *
+	 * Destroy may be called before or after destructors are called
+	 * on emulated I/O regions, depending on whether a reference is
+	 * held by a vcpu or other mshv component that gets destroyed
+	 * after the emulated I/O.
+	 */
+	void (*destroy)(struct mshv_device *dev);
+
+	/*
+	 * Release is an alternative method to free the device. It is
+	 * called when the device file descriptor is closed. Once
+	 * release is called, the destroy method will not be called
+	 * anymore as the device is removed from the device list of
+	 * the VM. partition->mutex is held.
+	 */
+	void (*release)(struct mshv_device *dev);
+
+	int (*set_attr)(struct mshv_device *dev, struct mshv_device_attr *attr);
+	int (*get_attr)(struct mshv_device *dev, struct mshv_device_attr *attr);
+	int (*has_attr)(struct mshv_device *dev, struct mshv_device_attr *attr);
+	long (*ioctl)(struct mshv_device *dev, unsigned int ioctl,
+		      unsigned long arg);
+	int (*mmap)(struct mshv_device *dev, struct vm_area_struct *vma);
+};
+
+int mshv_register_device_ops(const struct mshv_device_ops *ops, u32 type);
+void mshv_unregister_device_ops(u32 type);
 
 #endif
