@@ -407,7 +407,8 @@ dmar_find_dmaru(struct acpi_dmar_hardware_unit *drhd)
  * structure which uniquely represent one DMA remapping hardware unit
  * present in the platform
  */
-static int dmar_parse_one_drhd(struct acpi_dmar_header *header, void *arg)
+static int dmar_parse_one_drhd_internal(struct acpi_dmar_header *header,
+		void *arg, bool alloc)
 {
 	struct acpi_dmar_hardware_unit *drhd;
 	struct dmar_drhd_unit *dmaru;
@@ -439,12 +440,14 @@ static int dmar_parse_one_drhd(struct acpi_dmar_header *header, void *arg)
 		return -ENOMEM;
 	}
 
-	ret = alloc_iommu(dmaru);
-	if (ret) {
-		dmar_free_dev_scope(&dmaru->devices,
-				    &dmaru->devices_cnt);
-		kfree(dmaru);
-		return ret;
+	if (alloc) {
+		ret = alloc_iommu(dmaru);
+		if (ret) {
+			dmar_free_dev_scope(&dmaru->devices,
+					    &dmaru->devices_cnt);
+			kfree(dmaru);
+			return ret;
+		}
 	}
 	dmar_register_drhd_unit(dmaru);
 
@@ -453,6 +456,16 @@ out:
 		(*(int *)arg)++;
 
 	return 0;
+}
+
+static int dmar_parse_one_drhd(struct acpi_dmar_header *header, void *arg)
+{
+	return dmar_parse_one_drhd_internal(header, arg, true);
+}
+
+int dmar_parse_one_drhd_noalloc(struct acpi_dmar_header *header, void *arg)
+{
+	return dmar_parse_one_drhd_internal(header, arg, false);
 }
 
 static void dmar_free_drhd(struct dmar_drhd_unit *dmaru)
@@ -632,7 +645,7 @@ static inline int dmar_walk_dmar_table(struct acpi_table_dmar *dmar,
  * parse_dmar_table - parses the DMA reporting table
  */
 static int __init
-parse_dmar_table(void)
+parse_dmar_table(bool alloc)
 {
 	struct acpi_table_dmar *dmar;
 	int drhd_count = 0;
@@ -648,6 +661,9 @@ parse_dmar_table(void)
 		.cb[ACPI_DMAR_TYPE_NAMESPACE] = &dmar_parse_one_andd,
 		.cb[ACPI_DMAR_TYPE_SATC] = &dmar_parse_one_satc,
 	};
+
+	if (!alloc)
+		cb.cb[ACPI_DMAR_TYPE_HARDWARE_UNIT] = &dmar_parse_one_drhd_noalloc;
 
 	/*
 	 * Do it again, earlier dmar_tbl mapping could be mapped with
@@ -839,13 +855,13 @@ void __init dmar_register_bus_notifier(void)
 }
 
 
-int __init dmar_table_init(void)
+int __init dmar_table_init(bool alloc, bool force_parse)
 {
 	static int dmar_table_initialized;
 	int ret;
 
-	if (dmar_table_initialized == 0) {
-		ret = parse_dmar_table();
+	if (dmar_table_initialized == 0 || force_parse) {
+		ret = parse_dmar_table(alloc);
 		if (ret < 0) {
 			if (ret != -ENODEV)
 				pr_info("Parse DMAR table failure.\n");
