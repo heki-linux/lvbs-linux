@@ -607,6 +607,13 @@ union hv_msi_entry {
 	} __packed;
 };
 
+struct hv_input_register_intercept_result {
+	__u64 partition_id;
+	__u32 vp_index;
+	__u32 intercept_type; /* enum hv_intercept_type */
+	union hv_register_intercept_result_parameters parameters;
+} __packed;
+
 #include <asm-generic/hyperv-tlfs.h>
 
 #endif

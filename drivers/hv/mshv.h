@@ -179,4 +179,8 @@ int hv_call_connect_port(u64 port_partition_id, union hv_port_id port_id,
 int hv_call_disconnect_port(u64 connection_partition_id,
 			    union hv_connection_id connection_id);
 int hv_call_notify_port_ring_empty(u32 sint_index);
+int hv_call_register_intercept_result(u32 vp_index,
+				  u64 partition_id,
+				  enum hv_intercept_type intercept_type,
+				  union hv_register_intercept_result_parameters *params);
 #endif /* _MSHV_H */

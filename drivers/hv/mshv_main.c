@@ -448,6 +448,23 @@ mshv_vp_ioctl_translate_gva(struct mshv_vp *vp, void __user *user_args)
 }
 
 static long
+mshv_vp_ioctl_register_intercept_result(struct mshv_vp *vp, void __user *user_args)
+{
+	struct mshv_register_intercept_result args;
+	long ret;
+
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+	ret = hv_call_register_intercept_result(vp->index,
+						vp->partition->id,
+						args.intercept_type,
+						&args.parameters);
+
+	return ret;
+}
+
+static long
 mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
 	struct mshv_vp *vp = filp->private_data;
@@ -474,6 +491,9 @@ mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		break;
 	case MSHV_TRANSLATE_GVA:
 		r = mshv_vp_ioctl_translate_gva(vp, (void __user *)arg);
+		break;
+	case MSHV_VP_REGISTER_INTERCEPT_RESULT:
+		r = mshv_vp_ioctl_register_intercept_result(vp, (void __user *)arg);
 		break;
 	default:
 		r = -ENOTTY;

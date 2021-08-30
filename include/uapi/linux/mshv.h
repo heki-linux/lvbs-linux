@@ -124,6 +124,11 @@ struct mshv_msi_routing {
 	struct mshv_msi_routing_entry entries[0];
 };
 
+struct mshv_register_intercept_result {
+	__u32 intercept_type; /* enum hv_intercept_type */
+	union hv_register_intercept_result_parameters parameters;
+};
+
 #define MSHV_IOCTL 0xB8
 
 /* mshv device */
@@ -152,6 +157,8 @@ struct mshv_msi_routing {
 #define MSHV_GET_VP_STATE	_IOWR(MSHV_IOCTL, 0x0A, struct mshv_vp_state)
 #define MSHV_SET_VP_STATE	_IOWR(MSHV_IOCTL, 0x0B, struct mshv_vp_state)
 #define MSHV_TRANSLATE_GVA	_IOWR(MSHV_IOCTL, 0x0E, struct mshv_translate_gva)
+#define MSHV_VP_REGISTER_INTERCEPT_RESULT \
+				_IOW(MSHV_IOCTL, 0x17, struct mshv_register_intercept_result)
 
 /* ioctl for device fd */
 #define MSHV_CREATE_DEVICE	  _IOWR(MSHV_IOCTL, 0x13, struct mshv_create_device)

@@ -972,3 +972,43 @@ hv_call_notify_port_ring_empty(u32 sint_index)
 
 	return 0;
 }
+
+int hv_call_register_intercept_result(u32 vp_index,
+				  u64 partition_id,
+				  enum hv_intercept_type intercept_type,
+				  union hv_register_intercept_result_parameters *params)
+{
+	u64 status;
+	unsigned long flags;
+	struct hv_input_register_intercept_result *in;
+	int ret = 0;
+
+	do {
+		local_irq_save(flags);
+		in = (struct hv_input_register_intercept_result *)(*this_cpu_ptr(
+			hyperv_pcpu_input_arg));
+		in->vp_index = vp_index;
+		in->partition_id = partition_id;
+		in->intercept_type = intercept_type;
+		in->parameters = *params;
+
+		status = hv_do_hypercall(HVCALL_REGISTER_INTERCEPT_RESULT, in, NULL);
+		local_irq_restore(flags);
+
+		if (hv_result_success(status)) {
+			break;
+		}
+
+		if (status != HV_STATUS_INSUFFICIENT_MEMORY) {
+			pr_err("%s: %s\n",
+			       __func__, hv_status_to_string(status));
+			ret = hv_status_to_errno(status);
+			break;
+		}
+
+		ret = hv_call_deposit_pages(NUMA_NO_NODE,
+				partition_id, 1);
+	} while (!ret);
+
+	return ret;
+}

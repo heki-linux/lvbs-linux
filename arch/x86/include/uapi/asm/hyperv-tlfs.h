@@ -1274,4 +1274,41 @@ union hv_partition_synthetic_processor_features {
 	} __packed;
 };
 
+struct hv_register_x64_cpuid_result_parameters {
+	struct {
+		__u32 eax;
+		__u32 ecx;
+		__u8 subleaf_specific;
+		__u8 always_override;
+		__u16 padding;
+	} __packed input;
+	struct {
+		__u32 eax;
+		__u32 eax_mask;
+		__u32 ebx;
+		__u32 ebx_mask;
+		__u32 ecx;
+		__u32 ecx_mask;
+		__u32 edx;
+		__u32 edx_mask;
+	} __packed result;
+} __packed;
+
+enum hv_unimplemented_msr_action {
+	HV_UNIMPLEMENTED_MSR_ACTION_FAULT = 0,
+	HV_UNIMPLEMENTED_MSR_ACTION_IGNORE_WRITE_READ_ZERO = 1,
+	HV_UNIMPLEMENTED_MSR_ACTION_COUNT = 2,
+};
+
+struct hv_register_x64_msr_result_parameters {
+	__u32 msr_index;
+	__u32 access_type;
+	__u32 action; /* enum hv_unimplemented_msr_action */
+} __packed;
+
+union hv_register_intercept_result_parameters {
+	struct hv_register_x64_cpuid_result_parameters cpuid;
+	struct hv_register_x64_msr_result_parameters msr;
+} __packed;
+
 #endif
