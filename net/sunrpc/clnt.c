@@ -33,6 +33,23 @@
 #include <linux/in6.h>
 #include <linux/un.h>
 
+/*
+ * Note #1:
+ * Accessing NFS structures inside sunrpc code is layering violation, but
+ * that's the best we can do w/o making changes to existing structures,
+ * which would prevent the updated module from being loaded into existing
+ * pre-built kernels.
+ *
+ * Note #2:
+ * We define __LINUX_NFSACL_H to prevent nfsacl.h from being included o/w
+ * some of the rpc* methods get different modversion than the kernel, due
+ * to some nfs acl structures being forward declared.
+ */
+#define __LINUX_NFSACL_H
+#include <linux/nfs_fs.h>
+#undef ifdebug
+#define ifdebug(fac)		if (0)
+
 #include <linux/sunrpc/clnt.h>
 #include <linux/sunrpc/addr.h>
 #include <linux/sunrpc/rpc_pipe_fs.h>
@@ -47,6 +64,28 @@
 #if IS_ENABLED(CONFIG_SUNRPC_DEBUG)
 # define RPCDBG_FACILITY	RPCDBG_CALL
 #endif
+
+/*
+ * If enable_azure_nconnect is true, RPC requests for a file are sent over
+ * one connection. RPC requests for different files may be sent over different
+ * connections.
+ */
+static bool enable_azure_nconnect __read_mostly = false;
+module_param(enable_azure_nconnect, bool, 0644);
+MODULE_PARM_DESC(enable_azure_nconnect,
+	"Send RPC requests for one file over one connection (requests for different files go over different connections)");
+
+/*
+ * By default read requests to one file are sent over one connection.
+ * azure_nconnect_readscaling module parameter can be used to control that
+ * behavior. By distributing READ RPCs for one file over multiple connections
+ * we can get much higher single-file READ throughput. This can be used if
+ * we have a readonly mount or if files are mostly read and not written.
+ */
+static bool azure_nconnect_readscaling __read_mostly = false;
+module_param(azure_nconnect_readscaling, bool, 0644);
+MODULE_PARM_DESC(azure_nconnect_readscaling,
+	"Scale single file reads by sending them round-robin over all the available connections. Use only for readonly mounts or for read-mostly workloads");
 
 /*
  * All RPC clients are linked into this list
@@ -1145,6 +1184,200 @@ rpc_task_get_next_xprt(struct rpc_clnt *clnt)
 	return rpc_task_get_xprt(clnt, xprt_iter_get_next(&clnt->cl_xpi));
 }
 
+/*
+ * For the given rpc_task, compute the hash for the target filehandle.
+ */
+static u32
+rpc_task_fh_hash(const struct rpc_task *task)
+{
+	const struct rpc_message *rpc_message = &task->tk_msg;
+	const struct rpc_procinfo *rpc_proc = rpc_message->rpc_proc;
+	const u32 p_proc = (rpc_proc ? rpc_proc->p_proc : NFS3PROC_NULL);
+	const struct nfs_fh *fh = NULL;
+
+	switch (p_proc) {
+	case NFS3PROC_GETATTR:
+	{
+		fh = rpc_message->rpc_argp;
+		break;
+	}
+	case NFS3PROC_SETATTR:
+	{
+		const struct nfs3_sattrargs *args = rpc_message->rpc_argp;
+		fh = args->fh;
+		break;
+	}
+	case NFS3PROC_LOOKUP:
+	case NFS3PROC_RMDIR:
+	{
+		const struct nfs3_diropargs *args = rpc_message->rpc_argp;
+		fh = args->fh;
+		break;
+	}
+	case NFS3PROC_ACCESS:
+	{
+		const struct nfs3_accessargs *args = rpc_message->rpc_argp;
+		fh = args->fh;
+		break;
+	}
+	case NFS3PROC_READLINK:
+	{
+		const struct nfs3_readlinkargs *args = rpc_message->rpc_argp;
+		fh = args->fh;
+		break;
+	}
+	case NFS3PROC_READ:
+	case NFS3PROC_WRITE:
+	{
+		const struct nfs_pgio_args *args = rpc_message->rpc_argp;
+		fh = args->fh;
+		break;
+	}
+	case NFS3PROC_COMMIT:
+	{
+		const struct nfs_commitargs *args = rpc_message->rpc_argp;
+		fh = args->fh;
+		break;
+	}
+	case NFS3PROC_CREATE:
+	{
+		const struct nfs3_createargs *args = rpc_message->rpc_argp;
+		fh = args->fh;
+		break;
+	}
+	case NFS3PROC_MKDIR:
+	{
+		const struct nfs3_mkdirargs *args = rpc_message->rpc_argp;
+		fh = args->fh;
+		break;
+	}
+	case NFS3PROC_SYMLINK:
+	{
+		const struct nfs3_symlinkargs *args = rpc_message->rpc_argp;
+		fh = args->fromfh;
+		break;
+	}
+	case NFS3PROC_MKNOD:
+	{
+		const struct nfs3_mknodargs *args = rpc_message->rpc_argp;
+		fh = args->fh;
+		break;
+	}
+	case NFS3PROC_REMOVE:
+	{
+		const struct nfs_removeargs *args = rpc_message->rpc_argp;
+		fh = args->fh;
+		break;
+	}
+	case NFS3PROC_RENAME:
+	{
+		const struct nfs_renameargs *args = rpc_message->rpc_argp;
+		/*
+		 * In case of cross-dir rename, we have to choose between
+		 * old and new dir to have the updated cache. We prefer
+		 * new_dir as that's where the user expects the file to
+		 * show up.
+		 */
+		fh = args->new_dir;
+		if (!fh)
+			fh = args->old_dir;
+		break;
+	}
+	case NFS3PROC_LINK:
+	{
+		const struct nfs3_linkargs *args = rpc_message->rpc_argp;
+		fh = args->tofh;
+		break;
+	}
+	case NFS3PROC_READDIR:
+	case NFS3PROC_READDIRPLUS:
+	{
+		const struct nfs3_readdirargs *args = rpc_message->rpc_argp;
+		fh = args->fh;
+		break;
+	}
+	/*
+	 * Rest are not targeted to a file and map to the first
+	 * transport connection.
+	 */
+	}
+
+	return (fh ? jhash(fh->data, fh->size, 0) : 0);
+}
+
+static
+bool xprt_is_active(const struct rpc_xprt *xprt)
+{
+	return kref_read(&xprt->kref) != 0;
+}
+
+/*
+ * For the given rpc_task return the hashed xprt to use.
+ * This will ensure RPCs targeted to the same file get the same xprt.
+ */
+static struct rpc_xprt *
+rpc_task_get_hashed_xprt(struct rpc_clnt *clnt, const struct rpc_task *task)
+{
+	const struct rpc_xprt_switch *xps = NULL;
+	struct rpc_xprt *xprt = NULL;
+	const u32 hash = rpc_task_fh_hash(task);
+
+	rcu_read_lock();
+	xps = rcu_dereference(clnt->cl_xpi.xpi_xpswitch);
+
+	if (xps && hash) {
+		const struct list_head *head = &xps->xps_xprt_list;
+		struct rpc_xprt *pos;
+		const u32 nactive = READ_ONCE(xps->xps_nactive);
+		const u32 xprt_idx = (hash % nactive);
+		u32 idx = 0;
+
+		list_for_each_entry_rcu(pos, head, xprt_switch) {
+			if (xprt_idx > idx++)
+				continue;
+			if (xprt_is_active(pos)) {
+				xprt = xprt_get(pos);
+				break;
+			} else {
+				if (printk_ratelimit())
+					printk(KERN_ERR "!xprt_is_active idx=%u, xprt_idx=%u, hash=%u\n",
+						idx, xprt_idx, hash);
+			}
+		}
+	}
+
+	/*
+	 * Use first transport, if not found any, or if RPC is not targeted
+	 * to a specific file, e.g., FSINFO.
+	 */
+	if (!xprt)
+		xprt = xprt_get(rcu_dereference(clnt->cl_xprt));
+	rcu_read_unlock();
+
+	return rpc_task_get_xprt(clnt, xprt);
+}
+
+static struct rpc_xprt *
+rpc_task_get_azure_xprt(struct rpc_clnt *clnt, const struct rpc_task *task)
+{
+	/*
+	 * Use special azure nconnect only for NFSv3 RPC requests.
+	 */
+	if (clnt->cl_prog != NFS_PROGRAM || clnt->cl_vers != NFS3_VERSION)
+		return rpc_task_get_next_xprt(clnt);
+
+	if (enable_azure_nconnect) {
+		if (azure_nconnect_readscaling) {
+			const struct rpc_procinfo *rpc_proc =
+				task->tk_msg.rpc_proc;
+			if (rpc_proc && rpc_proc->p_proc == NFS3PROC_READ)
+				return rpc_task_get_next_xprt(clnt);
+		}
+		return rpc_task_get_hashed_xprt(clnt, task);
+	} else
+		return rpc_task_get_next_xprt(clnt);
+}
+
 static
 void rpc_task_set_transport(struct rpc_task *task, struct rpc_clnt *clnt)
 {
@@ -1158,7 +1391,7 @@ void rpc_task_set_transport(struct rpc_task *task, struct rpc_clnt *clnt)
 	if (task->tk_flags & RPC_TASK_NO_ROUND_ROBIN)
 		task->tk_xprt = rpc_task_get_first_xprt(clnt);
 	else
-		task->tk_xprt = rpc_task_get_next_xprt(clnt);
+		task->tk_xprt = rpc_task_get_azure_xprt(clnt, task);
 }
 
 static
@@ -1219,8 +1452,8 @@ struct rpc_task *rpc_run_task(const struct rpc_task_setup *task_setup_data)
 	if (!RPC_IS_ASYNC(task))
 		task->tk_flags |= RPC_TASK_CRED_NOREF;
 
-	rpc_task_set_client(task, task_setup_data->rpc_client);
 	rpc_task_set_rpc_message(task, task_setup_data->rpc_message);
+	rpc_task_set_client(task, task_setup_data->rpc_client);
 
 	if (task->tk_action == NULL)
 		rpc_call_start(task);
