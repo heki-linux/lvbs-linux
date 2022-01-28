@@ -1,0 +1,18 @@
+repo_list=(
+	"http://ppa.launchpad.net/mhcerri/azure/ubuntu/pool/main/l/linux-azure"
+	"http://archive.ubuntu.com/ubuntu/pool/main/l/linux-azure"
+	"http://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux-azure"
+	"http://archive.ubuntu.com/ubuntu/pool/universe/l/linux-azure"
+	"http://ports.ubuntu.com/ubuntu-ports/pool/universe/l/linux-azure"
+	"http://ppa.launchpad.net/canonical-kernel-team/ppa/ubuntu/pool/main/l/linux-azure"
+	"http://ppa.launchpad.net/canonical-kernel-team/ppa/ubuntu/pool/main/l/linux-signed-azure"
+	"http://ppa.launchpad.net/canonical-kernel-team/unstable/ubuntu/pool/main/l/linux-azure"
+	"http://ppa.launchpad.net/canonical-kernel-team/bootstrap/ubuntu/pool/main/l/linux-azure"
+)
+
+package_prefixes linux-image linux-modules linux-modules-extra
+
+getall amd64 azure
+getall arm64 azure
+
+# Ports arches and flavours.

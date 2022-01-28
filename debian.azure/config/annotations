@@ -1,0 +1,295 @@
+# Menu: HEADER
+# FORMAT: 3
+# ARCH: x86
+
+include "../../debian.master/config/annotations"
+
+CONFIG_MICROSOFT_MANA                           policy<{'amd64': 'y'}>
+CONFIG_MICROSOFT_MANA                           mark<ENFORCED> note<LP:1949357>
+
+CONFIG_ACCESSIBILITY                            policy<{'amd64': 'n'}>
+
+CONFIG_SND_SOC_INTEL_USER_FRIENDLY_LONG_NAMES   policy<{'amd64': '-'}>
+CONFIG_SND_SOC_INTEL_USER_FRIENDLY_LONG_NAMES   mark<ENFORCED> note<LP:1921632>
+
+CONFIG_SND_SOC_INTEL_SOUNDWIRE_SOF_MACH         policy<{'amd64': '-'}>
+CONFIG_SND_SOC_INTEL_SOUNDWIRE_SOF_MACH         mark<ENFORCED> note<LP:1921632>
+
+CONFIG_ACPI_HOTPLUG_MEMORY                         policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_ACPI_HOTPLUG_MEMORY                         mark<ENFORCED> note<LP:#1671203>
+
+CONFIG_FPGA_MGR_XILINX_SPI                         mark<ENFORCED> note<LP:#1922582>
+CONFIG_FPGA_MGR_XILINX_SPI                         policy<{'amd64': 'm', 'arm64': 'm'}>
+
+CONFIG_ANDROID                                     policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_ANDROID                                     mark<ENFORCED> note<LP:#1914568>
+
+CONFIG_ASHMEM                                      policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_ASHMEM                                      mark<ENFORCED> note<LP:#1914568>
+
+CONFIG_ANDROID_BINDER_IPC                          policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_ANDROID_BINDER_IPC                          mark<ENFORCED> note<LP:#1914568>
+
+CONFIG_ANDROID_BINDERFS                            policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_ANDROID_BINDERFS                            mark<ENFORCED> note<LP:#1925246>
+
+CONFIG_MLX5_CORE                                   policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_MLX5_CORE                                   mark<ENFORCED> note<LP:#1837397>
+
+CONFIG_MLX4_CORE                                   policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_MLX4_CORE                                   mark<ENFORCED> note<LP:#1837397>
+
+CONFIG_MLX4_INFINIBAND                             policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_MLX4_INFINIBAND                             mark<ENFORCED> note<LP:#1837397>
+
+CONFIG_MLX5_INFINIBAND                             policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_MLX5_INFINIBAND                             mark<ENFORCED> note<LP:#1837397>
+
+CONFIG_INFINIBAND_USER_MAD                         policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_INFINIBAND_USER_MAD                         mark<ENFORCED> note<LP:#1837397>
+
+CONFIG_INFINIBAND_IPOIB                            policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_INFINIBAND_IPOIB                            mark<ENFORCED> note<LP:#1837397>
+
+CONFIG_BLK_DEV_NVME                                policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_BLK_DEV_NVME                                mark<ENFORCED> note<LP:#1793386> note<LP:#1908571>
+
+CONFIG_PCI_HYPERV                                  policy<{'amd64': 'y'}>
+CONFIG_PCI_HYPERV                                  mark<ENFORCED> note<LP:#1908571>
+
+CONFIG_EDAC_DECODE_MCE                             policy<{'amd64': 'y'}>
+CONFIG_EDAC_DECODE_MCE                             mark<ENFORCED> note<LP:#1793386>
+
+CONFIG_EDAC_AMD64                                  policy<{'amd64': 'm'}>
+CONFIG_EDAC_AMD64                                  mark<ENFORCED> note<LP:#1793386>
+
+CONFIG_INFINIBAND_IPOIB_DEBUG                      policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_INFINIBAND_IPOIB_DEBUG                      note<LP:#1818141> note<LP:#1798185> mark<ENFORCED>
+
+CONFIG_NO_HZ_FULL                                  policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_NO_HZ_FULL                                  note<LP:#1818138> mark<ENFORCED> note<Azure reports 10% of performance increase on NVMe>
+
+CONFIG_NO_HZ_IDLE                                  policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_NO_HZ_IDLE                                  note<LP:#1818138> mark<ENFORCED> note<Azure reports 10% of performance increase on NVMe>
+
+CONFIG_HOTPLUG_CPU                                 policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_HOTPLUG_CPU                                 note<LP:#1821934> mark<ENFORCED>
+
+
+CONFIG_HYPERV                                      policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_HYPERV                                      mark<ENFORCED> note<LP:#1690136>
+
+CONFIG_HYPERV_STORAGE                              policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_HYPERV_STORAGE                              mark<ENFORCED> note<LP:#1690136>
+
+CONFIG_EFI_VARS                                    policy<{'amd64': 'y'}>
+CONFIG_EFI_VARS                                    mark<ENFORCED> note<LP:#1692920>
+
+CONFIG_HYPERV_VSOCKETS                             policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_HYPERV_VSOCKETS                             mark<ENFORCED> note<LP:#1698425>
+
+
+CONFIG_DEV_DAX                                     policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_DEV_DAX                                     mark<ENFORCED> note<LP:#1711230>
+
+CONFIG_BLK_DEV_PMEM                                policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_BLK_DEV_PMEM                                mark<ENFORCED> note<LP:#1711230>
+
+CONFIG_OVERLAY_FS_REDIRECT_DIR                     policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_OVERLAY_FS_REDIRECT_DIR                     mark<ENFORCED> note<LP:#1711230>
+
+CONFIG_ND_BLK                                      policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_ND_BLK                                      mark<ENFORCED> note<LP:#1715755>
+
+CONFIG_ACPI_NFIT                                   policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_ACPI_NFIT                                   mark<ENFORCED> note<LP:#1715755>
+
+CONFIG_RTC_CLASS                                   policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_RTC_CLASS                                   mark<ENFORCED> note<LP:#1718262>
+
+CONFIG_I2C_PIIX4                                   policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_I2C_PIIX4                                   mark<ENFORCED> note<LP:#1752999>
+
+CONFIG_DRM_NOUVEAU                                 policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_DRM_NOUVEAU                                 mark<ENFORCED> note<LP:#1752999>
+
+CONFIG_BLK_DEV_DRBD                                policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_BLK_DEV_DRBD                                mark<ENFORCED> note<LP:#1780309>
+
+CONFIG_VBOXGUEST                                   policy<{'amd64': 'n'}>
+CONFIG_VBOXGUEST                                   mark<ENFORCED> note<LP:#1796647>
+
+CONFIG_XEN_ACPI_PROCESSOR                          policy<{'amd64': '-'}>
+CONFIG_XEN_ACPI_PROCESSOR                          mark<ENFORCED> note<LP:#1671203>
+
+CONFIG_USB_XHCI_HCD                                policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_USB_XHCI_HCD                                mark<ENFORCED> note<LP:#1867002> note<Enable xHCI for PCI passthrough>
+
+CONFIG_USB_XHCI_PCI                                policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_USB_XHCI_PCI                                mark<ENFORCED> note<LP:#1867002> note<Enable xHCI for PCI passthrough>
+
+CONFIG_USB_XHCI_PLATFORM                           policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_USB_XHCI_PLATFORM                           mark<ENFORCED> note<LP:#1867002> note<Enable xHCI for PCI passthrough>
+
+CONFIG_CONTEXT_TRACKING_FORCE                      policy<{'amd64': 'n'}>
+CONFIG_CONTEXT_TRACKING_FORCE                      flag<REVIEW> note<Likely VIRT_CPU_ACCOUNTING_GEN should be disabled>
+
+CONFIG_ATARI_PARTITION                             policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_ATARI_PARTITION                             mark<ENFORCED> note<LP:1908264>
+
+# From linux-azure initial packaging
+
+CONFIG_POWERCAP                                    policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_POWERCAP                                    mark<ENFORCED> note<kernel reduction>
+
+CONFIG_CHROME_PLATFORMS                            policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_CHROME_PLATFORMS                            mark<ENFORCED> note<kernel reduction>
+
+CONFIG_USB_UHCI_HCD                                policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_USB_UHCI_HCD                                mark<ENFORCED> note<kernel reduction>
+
+CONFIG_USB_EHCI_HCD                                policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_USB_EHCI_HCD                                mark<ENFORCED> note<kernel reduction>
+
+CONFIG_USB_EHCI_HCD_PLATFORM                       policy<{'amd64': '-'}>
+CONFIG_USB_EHCI_HCD_PLATFORM                       mark<ENFORCED> note<kernel reduction>
+
+CONFIG_TOUCHSCREEN_ELAN                            policy<{'amd64': '-', 'arm64': 'n'}>
+CONFIG_TOUCHSCREEN_ELAN                            mark<ENFORCED> note<kernel reduction>
+
+CONFIG_SOUND                                       policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_SOUND                                       mark<ENFORCED> note<modules reduction>
+
+CONFIG_FUJITSU_ES                                  policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_FUJITSU_ES                                  mark<ENFORCED> note<modules reduction>
+
+CONFIG_INPUT_LEDS                                  policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_INPUT_LEDS                                  mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_ACARD_AHCI                             policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_SATA_ACARD_AHCI                             mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_INIC162X                               policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_SATA_INIC162X                               mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_MV                                     policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_SATA_MV                                     mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_NV                                     policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_SATA_NV                                     mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_PROMISE                                policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_SATA_PROMISE                                mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_QSTOR                                  policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_SATA_QSTOR                                  mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_SIL                                    policy<{'amd64': 'n', 'arm64': 'm'}>
+CONFIG_SATA_SIL                                    mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_SIL24                                  policy<{'amd64': 'n', 'arm64': 'm'}>
+CONFIG_SATA_SIL24                                  mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_SIS                                    policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_SATA_SIS                                    mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_SVW                                    policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_SATA_SVW                                    mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_SX4                                    policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_SATA_SX4                                    mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_ULI                                    policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_SATA_ULI                                    mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_VIA                                    policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_SATA_VIA                                    mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_VITESSE                                policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_SATA_VITESSE                                mark<ENFORCED> note<modules reduction>
+
+CONFIG_SATA_ZPODD                                  policy<{'amd64': 'n', 'arm64': 'n'}>
+CONFIG_SATA_ZPODD                                  mark<ENFORCED> note<modules reduction>
+
+CONFIG_HYPERV_IOMMU                                policy<{'amd64': 'y'}>
+CONFIG_HYPERV_IOMMU                                mark<ENFORCED> note<LP:#1826447>
+
+CONFIG_LOOPBACK_TARGET                             policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_LOOPBACK_TARGET                             mark<ENFORCED> note<LP#1791794>
+
+# Changes made to the generic kernel that are not necessary in the Azure kernel
+
+CONFIG_REGULATOR_TWL4030                           policy<{'amd64': '-'}>
+CONFIG_REGULATOR_TWL4030                           note<Unnecessary for Azure>
+
+CONFIG_GPIO_TWL4030                                policy<{'amd64': '-'}>
+CONFIG_GPIO_TWL4030                                note<Unnecessary for Azure>
+
+CONFIG_SOUND_OSS_CORE_PRECLAIM                     policy<{'amd64': '-'}>
+CONFIG_SOUND_OSS_CORE_PRECLAIM                     note<Unnecessary for Azure>
+
+CONFIG_SND_SOC_SOF_HDA_AUDIO_CODEC                 policy<{'amd64': '-'}>
+CONFIG_SND_SOC_SOF_HDA_AUDIO_CODEC                 note<Unnecessary for Azure>
+
+CONFIG_SND_SOC_SOF_HDA_LINK                        policy<{'amd64': '-'}>
+CONFIG_SND_SOC_SOF_HDA_LINK                        note<Unnecessary for Azure>
+
+CONFIG_SND_SOC_SOF_NOCODEC_SUPPORT                 policy<{'amd64': '-'}>
+CONFIG_SND_SOC_SOF_NOCODEC_SUPPORT                 note<Unnecessary for Azure>
+
+CONFIG_SND_SOC_SOF_HDA_ALWAYS_ENABLE_DMI_L1        policy<{'amd64': '-'}>
+CONFIG_SND_SOC_SOF_HDA_ALWAYS_ENABLE_DMI_L1        note<Unnecessary for Azure>
+
+CONFIG_NETWORK_PHY_TIMESTAMPING                    policy<{'amd64': 'n'}>
+CONFIG_NETWORK_PHY_TIMESTAMPING                    note<Unnecessary for Azure>
+
+CONFIG_SND_SOC_INTEL_CML_H                         policy<{'amd64': '-'}>
+CONFIG_SND_SOC_INTEL_CML_H                         note<Not selectable for Azure>
+
+CONFIG_SND_SOC_SOF_HDA_COMMON_HDMI_CODEC           policy<{'amd64': '-'}>
+CONFIG_SND_SOC_SOF_HDA_COMMON_HDMI_CODEC           note<Not selectable for Azure>
+
+CONFIG_SND_SOC_INTEL_CML_LP                        policy<{'amd64': '-'}>
+CONFIG_SND_SOC_INTEL_CML_LP                        note<Not selectable for Azure>
+
+CONFIG_SND_SOC_INTEL_CFL                           policy<{'amd64': '-'}>
+CONFIG_SND_SOC_INTEL_CFL                           note<Not selectable for Azure>
+
+CONFIG_LATENCYTOP                                  policy<{'amd64': '-'}>
+CONFIG_LATENCYTOP                                  note<Unnecessary for Azure>
+
+CONFIG_USB_OHCI_HCD                                policy<{'amd64': '-'}>
+CONFIG_USB_OHCI_HCD                                note<Not selectable for Azure>
+
+CONFIG_SND_SOC_INTEL_SKYLAKE                       policy<{'amd64': '-'}>
+CONFIG_SND_SOC_INTEL_SKYLAKE                       note<Not selectable for Azure>
+
+CONFIG_SND_SOC_INTEL_SKYLAKE_HDAUDIO_CODEC         policy<{'amd64': '-'}>
+CONFIG_SND_SOC_INTEL_SKYLAKE_HDAUDIO_CODEC         note<Not selectable for Azure>
+
+CONFIG_SND_SOC_INTEL_CNL                           policy<{'amd64': '-'}>
+CONFIG_SND_SOC_INTEL_CNL                           note<Not selectable for Azure>
+
+CONFIG_X86_UV                                      policy<{'amd64': 'n'}>
+CONFIG_X86_UV                                      note<Unnecessary for Azure>
+
+CONFIG_SND_SOC_AMD_RENOIR                          policy<{'amd64': '-'}>
+CONFIG_SND_SOC_AMD_RENOIR                          note<Unnecessary for Azure>
+
+CONFIG_SND_SOC_AMD_RENOIR_MACH                     policy<{'amd64': '-'}>
+CONFIG_SND_SOC_AMD_RENOIR_MACH                     note<Unnecessary for Azure>
+
+CONFIG_BT_HS                                       policy<{'amd64': '-', 'arm64': 'y'}>
+CONFIG_BT_HS                                       mark<ENFORCED> note<https://www.intel.com/content/www/us/en/security-center/advisory/intel-sa-00435.html>
+
+CONFIG_SPI_INTEL_SPI_PCI                           policy<{'amd64': '-'}>
+CONFIG_SPI_INTEL_SPI_PCI                           note<Unnecessary for Azure>
+
+CONFIG_MTD_DOCG3                                   policy<{'amd64': '-'}>
+CONFIG_MTD_DOCG3                                   note<Unnecessary for Azure>
+
+CONFIG_SAMPLE_TRACE_PRINTK                         policy<{'amd64': '-'}>
+CONFIG_SAMPLE_TRACE_PRINTK                         note<Unnecessary for Azure>
+
+CONFIG_SPI_INTEL_SPI_PLATFORM                      policy<{'amd64': '-'}>
+CONFIG_SPI_INTEL_SPI_PLATFORM                      note<Unnecessary for Azure>
