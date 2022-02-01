@@ -67,7 +67,6 @@ CONFIG_ATA_PIIX=y
 # CONFIG_BLK_DEV_PCIESSD_MTIP32XX is not set
 # CONFIG_BLK_DEV_RSXX is not set
 # CONFIG_BLK_DEV_SX8 is not set
-# CONFIG_BPF_LSM is not set
 # CONFIG_BPQETHER is not set
 # CONFIG_BROADCOM_PHY is not set
 # CONFIG_BT is not set
