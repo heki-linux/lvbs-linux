@@ -4,6 +4,9 @@
 
 include "../../debian.master/config/annotations"
 
+CONFIG_FB_EFI                                   policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_FB_EFI                                   mark<ENFORCED> note<LP:1959216>
+
 CONFIG_MICROSOFT_MANA                           policy<{'amd64': 'y'}>
 CONFIG_MICROSOFT_MANA                           mark<ENFORCED> note<LP:1949357>
 
