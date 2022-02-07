@@ -36,7 +36,7 @@ Build-Depends:
  dkms <!stage1>,
  curl <!stage1>,
  zstd [amd64] <!stage1>,
- dwarves,
+ pahole [amd64 arm64] | dwarves (>= 1.21) [amd64 arm64] <!stage1>,
 Build-Depends-Indep:
  xmlto <!stage1>,
  docbook-utils <!stage1>,
