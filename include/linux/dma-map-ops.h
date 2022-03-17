@@ -269,12 +269,21 @@ static inline bool dev_is_dma_coherent(struct device *dev)
 {
 	return dev->dma_coherent;
 }
+static inline void dev_set_dma_coherent(struct device *dev,
+		bool coherent)
+{
+	dev->dma_coherent = coherent;
+}
 #else
 #define dma_default_coherent true
 
 static inline bool dev_is_dma_coherent(struct device *dev)
 {
 	return true;
+}
+static inline void dev_set_dma_coherent(struct device *dev,
+		bool coherent)
+{
 }
 #endif /* CONFIG_ARCH_HAS_DMA_COHERENCE_H */
 
