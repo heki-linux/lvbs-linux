@@ -88,7 +88,7 @@ CONFIG_ATA_PIIX=y
 # CONFIG_CAN_SOFTING is not set
 # CONFIG_CAN_UCAN is not set
 # CONFIG_CB710_CORE is not set
-CONFIG_CC_VERSION_TEXT="gcc (Ubuntu 11.2.0-16ubuntu1) 11.2.0"
+CONFIG_CC_VERSION_TEXT="gcc (Ubuntu 11.2.0-18ubuntu1) 11.2.0"
 # CONFIG_CEC_CH7322 is not set
 # CONFIG_CHARGER_BQ2415X is not set
 # CONFIG_CHARGER_BQ24257 is not set
