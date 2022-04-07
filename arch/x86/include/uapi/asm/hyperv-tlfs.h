@@ -532,8 +532,8 @@ enum hv_register_name {
 };
 
 struct hv_u128 {
-	__u64 high_part;
 	__u64 low_part;
+	__u64 high_part;
 } __packed;
 
 union hv_x64_fp_register {
