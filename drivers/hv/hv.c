@@ -9,6 +9,7 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/kernel.h>
+#include <linux/io.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
@@ -23,6 +24,12 @@
 
 /* The one and only */
 struct hv_context hv_context;
+
+#define REG_SIMP (hv_nested ? HV_REGISTER_NESTED_SIMP : HV_REGISTER_SIMP)
+#define REG_SIEFP (hv_nested ? HV_REGISTER_NESTED_SIEFP : HV_REGISTER_SIEFP)
+#define REG_SCTRL                                                              \
+	(hv_nested ? HV_REGISTER_NESTED_SCONTROL : HV_REGISTER_SCONTROL)
+#define REG_SINT0 (hv_nested ? HV_REGISTER_NESTED_SINT0 : HV_REGISTER_SINT0)
 
 /*
  * hv_init - Main initialization routine.
@@ -136,6 +143,15 @@ int hv_synic_alloc(void)
 		tasklet_init(&hv_cpu->msg_dpc,
 			     vmbus_on_msg_dpc, (unsigned long) hv_cpu);
 
+		hv_cpu->post_msg_page = (void *)get_zeroed_page(GFP_ATOMIC);
+		if (hv_cpu->post_msg_page == NULL) {
+			pr_err("Unable to allocate post msg page\n");
+			goto err;
+		}
+
+		if (hv_root_partition)
+			continue;
+
 		hv_cpu->synic_message_page =
 			(void *)get_zeroed_page(GFP_ATOMIC);
 		if (hv_cpu->synic_message_page == NULL) {
@@ -146,12 +162,6 @@ int hv_synic_alloc(void)
 		hv_cpu->synic_event_page = (void *)get_zeroed_page(GFP_ATOMIC);
 		if (hv_cpu->synic_event_page == NULL) {
 			pr_err("Unable to allocate SYNIC event page\n");
-			goto err;
-		}
-
-		hv_cpu->post_msg_page = (void *)get_zeroed_page(GFP_ATOMIC);
-		if (hv_cpu->post_msg_page == NULL) {
-			pr_err("Unable to allocate post msg page\n");
 			goto err;
 		}
 	}
@@ -174,8 +184,16 @@ void hv_synic_free(void)
 		struct hv_per_cpu_context *hv_cpu
 			= per_cpu_ptr(hv_context.cpu_context, cpu);
 
-		free_page((unsigned long)hv_cpu->synic_event_page);
-		free_page((unsigned long)hv_cpu->synic_message_page);
+		if (hv_root_partition) {
+			if (hv_cpu->synic_event_page != NULL)
+				memunmap(hv_cpu->synic_event_page);
+
+			if (hv_cpu->synic_message_page != NULL)
+				memunmap(hv_cpu->synic_message_page);
+		} else {
+			free_page((unsigned long)hv_cpu->synic_event_page);
+			free_page((unsigned long)hv_cpu->synic_message_page);
+		}
 		free_page((unsigned long)hv_cpu->post_msg_page);
 	}
 
@@ -199,27 +217,36 @@ void hv_synic_enable_regs(unsigned int cpu)
 	union hv_synic_scontrol sctrl;
 
 	/* Setup the Synic's message page */
-	simp.as_uint64 = hv_get_register(HV_REGISTER_SIMP);
+	simp.as_uint64 = hv_get_register(REG_SIMP);
 	simp.simp_enabled = 1;
-	simp.base_simp_gpa = virt_to_phys(hv_cpu->synic_message_page)
-		>> HV_HYP_PAGE_SHIFT;
+	if (hv_root_partition)
+		hv_cpu->synic_message_page =
+			memremap(simp.base_simp_gpa << HV_HYP_PAGE_SHIFT,
+				 HV_HYP_PAGE_SIZE, MEMREMAP_WB);
+	else
+		simp.base_simp_gpa = virt_to_phys(hv_cpu->synic_message_page) >>
+						  HV_HYP_PAGE_SHIFT;
 
-	hv_set_register(HV_REGISTER_SIMP, simp.as_uint64);
+	hv_set_register(REG_SIMP, simp.as_uint64);
 
 	/* Setup the Synic's event page */
-	siefp.as_uint64 = hv_get_register(HV_REGISTER_SIEFP);
+	siefp.as_uint64 = hv_get_register(REG_SIEFP);
 	siefp.siefp_enabled = 1;
-	siefp.base_siefp_gpa = virt_to_phys(hv_cpu->synic_event_page)
-		>> HV_HYP_PAGE_SHIFT;
+	if (hv_root_partition)
+		hv_cpu->synic_event_page =
+			memremap(siefp.base_siefp_gpa << HV_HYP_PAGE_SHIFT,
+				 HV_HYP_PAGE_SIZE, MEMREMAP_WB);
+	else
+		siefp.base_siefp_gpa = virt_to_phys(hv_cpu->synic_event_page) >>
+						    HV_HYP_PAGE_SHIFT;
 
-	hv_set_register(HV_REGISTER_SIEFP, siefp.as_uint64);
+	hv_set_register(REG_SIEFP, siefp.as_uint64);
 
 	/* Setup the shared SINT. */
 	if (vmbus_irq != -1)
 		enable_percpu_irq(vmbus_irq, 0);
-	shared_sint.as_uint64 = hv_get_register(HV_REGISTER_SINT0 +
-					VMBUS_MESSAGE_SINT);
 
+	shared_sint.as_uint64 = hv_get_register(REG_SINT0 + VMBUS_MESSAGE_SINT);
 	shared_sint.vector = vmbus_interrupt;
 	shared_sint.masked = false;
 
@@ -233,14 +260,13 @@ void hv_synic_enable_regs(unsigned int cpu)
 #else
 	shared_sint.auto_eoi = 0;
 #endif
-	hv_set_register(HV_REGISTER_SINT0 + VMBUS_MESSAGE_SINT,
-				shared_sint.as_uint64);
+	hv_set_register(REG_SINT0 + VMBUS_MESSAGE_SINT, shared_sint.as_uint64);
 
 	/* Enable the global synic bit */
-	sctrl.as_uint64 = hv_get_register(HV_REGISTER_SCONTROL);
+	sctrl.as_uint64 = hv_get_register(REG_SCTRL);
 	sctrl.enable = 1;
 
-	hv_set_register(HV_REGISTER_SCONTROL, sctrl.as_uint64);
+	hv_set_register(REG_SCTRL, sctrl.as_uint64);
 }
 
 int hv_synic_init(unsigned int cpu)
@@ -262,32 +288,32 @@ void hv_synic_disable_regs(unsigned int cpu)
 	union hv_synic_siefp siefp;
 	union hv_synic_scontrol sctrl;
 
-	shared_sint.as_uint64 = hv_get_register(HV_REGISTER_SINT0 +
-					VMBUS_MESSAGE_SINT);
+	shared_sint.as_uint64 = hv_get_register(REG_SINT0 + VMBUS_MESSAGE_SINT);
 
 	shared_sint.masked = 1;
 
 	/* Need to correctly cleanup in the case of SMP!!! */
 	/* Disable the interrupt */
-	hv_set_register(HV_REGISTER_SINT0 + VMBUS_MESSAGE_SINT,
-				shared_sint.as_uint64);
+	hv_set_register(REG_SINT0 + VMBUS_MESSAGE_SINT, shared_sint.as_uint64);
 
-	simp.as_uint64 = hv_get_register(HV_REGISTER_SIMP);
+	simp.as_uint64 = hv_get_register(REG_SIMP);
 	simp.simp_enabled = 0;
-	simp.base_simp_gpa = 0;
+	if (!hv_root_partition)
+		simp.base_simp_gpa = 0;
 
-	hv_set_register(HV_REGISTER_SIMP, simp.as_uint64);
+	hv_set_register(REG_SIMP, simp.as_uint64);
 
-	siefp.as_uint64 = hv_get_register(HV_REGISTER_SIEFP);
+	siefp.as_uint64 = hv_get_register(REG_SIEFP);
 	siefp.siefp_enabled = 0;
-	siefp.base_siefp_gpa = 0;
+	if (!hv_root_partition)
+		siefp.base_siefp_gpa = 0;
 
-	hv_set_register(HV_REGISTER_SIEFP, siefp.as_uint64);
+	hv_set_register(REG_SIEFP, siefp.as_uint64);
 
 	/* Disable the global synic bit */
-	sctrl.as_uint64 = hv_get_register(HV_REGISTER_SCONTROL);
+	sctrl.as_uint64 = hv_get_register(REG_SCTRL);
 	sctrl.enable = 0;
-	hv_set_register(HV_REGISTER_SCONTROL, sctrl.as_uint64);
+	hv_set_register(REG_SCTRL, sctrl.as_uint64);
 
 	if (vmbus_irq != -1)
 		disable_percpu_irq(vmbus_irq);
