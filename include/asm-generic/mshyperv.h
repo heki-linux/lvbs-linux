@@ -127,6 +127,27 @@ static inline  __u64 generate_guest_id(__u64 d_info1, __u64 kernel_version,
 	return guest_id;
 }
 
+void hv_setup_vmbus_handler(void (*handler)(void));
+void hv_remove_vmbus_handler(void);
+void hv_setup_stimer0_handler(void (*handler)(void));
+void hv_remove_stimer0_handler(void);
+
+void hv_setup_mshv_irq(void (*handler)(void));
+void hv_remove_mshv_irq(void);
+
+void hv_setup_kexec_handler(void (*handler)(void));
+void hv_remove_kexec_handler(void);
+void hv_setup_crash_handler(void (*handler)(struct pt_regs *regs));
+void hv_remove_crash_handler(void);
+
+extern int vmbus_interrupt;
+extern int vmbus_irq;
+
+extern bool hv_root_partition;
+extern bool hv_nested;
+
+#define REG_EOM (hv_nested ? HV_REGISTER_NESTED_EOM : HV_REGISTER_EOM)
+
 /* Free the message slot and signal end-of-message if required */
 static inline void vmbus_signal_eom(struct hv_message *msg, u32 old_msg_type)
 {
@@ -158,28 +179,9 @@ static inline void vmbus_signal_eom(struct hv_message *msg, u32 old_msg_type)
 		 * possibly deliver another msg from the
 		 * hypervisor
 		 */
-		hv_set_register(HV_REGISTER_EOM, 0);
+		hv_set_register(REG_EOM, 0);
 	}
 }
-
-void hv_setup_vmbus_handler(void (*handler)(void));
-void hv_remove_vmbus_handler(void);
-void hv_setup_stimer0_handler(void (*handler)(void));
-void hv_remove_stimer0_handler(void);
-
-void hv_setup_mshv_irq(void (*handler)(void));
-void hv_remove_mshv_irq(void);
-
-void hv_setup_kexec_handler(void (*handler)(void));
-void hv_remove_kexec_handler(void);
-void hv_setup_crash_handler(void (*handler)(struct pt_regs *regs));
-void hv_remove_crash_handler(void);
-
-extern int vmbus_interrupt;
-extern int vmbus_irq;
-
-extern bool hv_root_partition;
-extern bool hv_nested;
 
 #if IS_ENABLED(CONFIG_HYPERV)
 /*
