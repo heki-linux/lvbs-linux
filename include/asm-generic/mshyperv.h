@@ -179,6 +179,7 @@ extern int vmbus_interrupt;
 extern int vmbus_irq;
 
 extern bool hv_root_partition;
+extern bool hv_nested;
 
 #if IS_ENABLED(CONFIG_HYPERV)
 /*
