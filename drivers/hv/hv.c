@@ -86,8 +86,9 @@ void hv_free_hyperv_page(unsigned long addr)
  * This involves a hypercall.
  */
 int hv_post_message(union hv_connection_id connection_id,
-		  enum hv_message_type message_type,
-		  void *payload, size_t payload_size)
+		    enum hv_message_type message_type,
+		    void *payload, size_t payload_size,
+		    bool nested)
 {
 	struct hv_input_post_message *aligned_msg;
 	struct hv_per_cpu_context *hv_cpu;
@@ -104,7 +105,12 @@ int hv_post_message(union hv_connection_id connection_id,
 	aligned_msg->payload_size = payload_size;
 	memcpy((void *)aligned_msg->payload, payload, payload_size);
 
-	status = hv_do_hypercall(HVCALL_POST_MESSAGE, aligned_msg, NULL);
+	if (nested)
+		status = hv_do_nested_hypercall(HVCALL_POST_MESSAGE,
+						aligned_msg, NULL);
+	else
+		status = hv_do_hypercall(HVCALL_POST_MESSAGE,
+					 aligned_msg, NULL);
 
 	/* Preemption must remain disabled until after the hypercall
 	 * so some other thread can't get scheduled onto this cpu and

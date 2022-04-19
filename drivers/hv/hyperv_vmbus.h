@@ -157,8 +157,9 @@ extern struct hv_context hv_context;
 extern int hv_init(void);
 
 extern int hv_post_message(union hv_connection_id connection_id,
-			 enum hv_message_type message_type,
-			 void *payload, size_t payload_size);
+			   enum hv_message_type message_type,
+			   void *payload, size_t payload_size,
+			   bool nested);
 
 extern int hv_synic_alloc(void);
 
