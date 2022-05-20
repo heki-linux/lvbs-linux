@@ -129,6 +129,39 @@ struct mshv_register_intercept_result {
 	union hv_register_intercept_result_parameters parameters;
 };
 
+struct mshv_signal_event_direct {
+	__u32 vp;
+	__u8 vtl;
+	__u8 sint;
+	__u16 flag;
+	/* output */
+	__u8 newly_signaled;
+};
+
+struct mshv_post_message_direct {
+	__u32 vp;
+	__u8 vtl;
+	__u8 sint;
+	__u16 length;
+	__u8 __user const *message;
+};
+
+struct mshv_register_deliverabilty_notifications {
+	__u32 vp;
+	__u32 pad;
+	__u64 flag;
+};
+
+struct mshv_get_vp_cpuid_values {
+	__u32 function;
+	__u32 index;
+	/* output */
+	__u32 eax;
+	__u32 ebx;
+	__u32 ecx;
+	__u32 edx;
+};
+
 #define MSHV_IOCTL 0xB8
 
 /* mshv device */
@@ -159,6 +192,14 @@ struct mshv_register_intercept_result {
 #define MSHV_TRANSLATE_GVA	_IOWR(MSHV_IOCTL, 0x0E, struct mshv_translate_gva)
 #define MSHV_VP_REGISTER_INTERCEPT_RESULT \
 				_IOW(MSHV_IOCTL, 0x17, struct mshv_register_intercept_result)
+#define MSHV_SIGNAL_EVENT_DIRECT \
+	_IOWR(MSHV_IOCTL, 0x18, struct mshv_signal_event_direct)
+#define MSHV_POST_MESSAGE_DIRECT \
+	_IOW(MSHV_IOCTL, 0x19, struct mshv_post_message_direct)
+#define MSHV_REGISTER_DELIVERABILITY_NOTIFICATIONS \
+	_IOW(MSHV_IOCTL, 0x1A, struct mshv_register_deliverabilty_notifications)
+#define MSHV_GET_VP_CPUID_VALUES \
+        _IOWR(MSHV_IOCTL, 0x1B, struct mshv_get_vp_cpuid_values)	
 
 /* ioctl for device fd */
 #define MSHV_CREATE_DEVICE	  _IOWR(MSHV_IOCTL, 0x13, struct mshv_create_device)

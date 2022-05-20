@@ -190,6 +190,8 @@ struct ms_hyperv_tsc_page {
 #define HVCALL_ATTACH_DEVICE_DOMAIN		0x00b2
 #define HVCALL_MAP_DEVICE_GPA_PAGES		0x00b3
 #define HVCALL_UNMAP_DEVICE_GPA_PAGES		0x00b4
+#define HVCALL_SIGNAL_EVENT_DIRECT		0x00c0
+#define HVCALL_POST_MESSAGE_DIRECT		0x00c1
 #define HVCALL_DETACH_DEVICE_DOMAIN		0x00c4
 #define HVCALL_DELETE_DEVICE_DOMAIN		0x00c5
 #define HVCALL_QUERY_DEVICE_DOMAIN		0x00c6
@@ -200,6 +202,7 @@ struct ms_hyperv_tsc_page {
 #define HVCALL_MAP_VP_STATE_PAGE			0x00e1
 #define HVCALL_GET_VP_STATE				0x00e3
 #define HVCALL_SET_VP_STATE				0x00e4
+#define HVCALL_GET_VP_CPUID_VALUES		0x00f4
 
 /* Extended hypercalls */
 #define HV_EXT_CALL_QUERY_CAPABILITIES		0x8001
@@ -1054,6 +1057,64 @@ union hv_disconnect_port {
 		union hv_connection_id connection_id;
 		u32 is_doorbell: 1;
 		u32 reserved: 31;
+	};
+} __packed;
+
+struct hv_input_signal_event_direct {
+	u64 target_partition;
+	u32 target_vp;
+	u8  target_vtl;
+	u8  target_sint;
+	u16 flag_number;
+} __packed;
+
+struct hv_output_signal_event_direct {
+	u8	newly_signaled;
+	u8	reserved[7];
+} __packed;
+
+struct hv_input_post_message_direct {
+	u64 partition_id;
+	u32 vp_index;
+	u8  vtl;
+	u8  padding[3];
+	u32 sint_index;
+	u8  message[HV_MESSAGE_SIZE];
+	u32 padding2;
+} __packed;
+
+struct hv_cpuid_leaf_info {
+    u32 eax;
+    u32 ecx;
+    u64 xfem;
+    u64 xss;
+} __packed;
+
+union hv_get_vp_cpuid_values_flags {
+	u32 as_uint32;
+	struct {
+		u32 use_vp_xfem_xss: 1;
+		u32 apply_registered_values: 1;
+		u32 reserved: 30;
+	};
+} __packed;
+
+struct hv_input_get_vp_cpuid_values {
+	u64 partition_id;
+	u32 vp_index;
+	union hv_get_vp_cpuid_values_flags flags;
+	u32 reserved;
+	u32 padding;
+	struct hv_cpuid_leaf_info cpuid_leaf_info[];
+} __packed;
+
+union hv_output_get_vp_cpuid_values {
+	u32 as_uint32[4];
+	struct {
+		u32 eax;
+		u32 ebx;
+		u32 ecx;
+		u32 edx;
 	};
 } __packed;
 

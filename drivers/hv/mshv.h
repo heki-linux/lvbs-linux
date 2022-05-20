@@ -166,6 +166,12 @@ int hv_call_translate_virtual_address(
 		u64 gva,
 		u64 *gpa,
 		union hv_translate_gva_result *result);
+int hv_call_get_vp_cpuid_values(
+		u32 vp_index,
+		u64 partition_id,
+		union hv_get_vp_cpuid_values_flags values_flags,
+		struct hv_cpuid_leaf_info *info,
+		union hv_output_get_vp_cpuid_values *result);
 
 int hv_call_create_port(u64 port_partition_id, union hv_port_id port_id,
 			u64 connection_partition_id, struct hv_port_info *port_info,
@@ -183,4 +189,15 @@ int hv_call_register_intercept_result(u32 vp_index,
 				  u64 partition_id,
 				  enum hv_intercept_type intercept_type,
 				  union hv_register_intercept_result_parameters *params);
+int hv_call_signal_event_direct(u32 vp_index,
+				u64 partition_id,
+				u8 vtl,
+				u8 sint,
+				u16 flag_number,
+				u8* newly_signaled);
+int hv_call_post_message_direct(u32 vp_index,
+				u64 partition_id,
+				u8 vtl,
+				u32 sint_index,
+				u8* message);
 #endif /* _MSHV_H */

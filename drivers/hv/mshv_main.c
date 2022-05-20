@@ -464,6 +464,45 @@ mshv_vp_ioctl_register_intercept_result(struct mshv_vp *vp, void __user *user_ar
 	return ret;
 }
 
+static long 
+mshv_vp_ioctl_get_cpuid_values(struct mshv_vp *vp, void __user *user_args)
+{
+	struct mshv_get_vp_cpuid_values args;
+	union hv_get_vp_cpuid_values_flags flags;
+	struct hv_cpuid_leaf_info info;
+	union hv_output_get_vp_cpuid_values result;
+	long ret;
+
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+	flags.use_vp_xfem_xss = 1;
+	flags.apply_registered_values = 1;
+	flags.reserved = 0;
+
+	memset(&info, 0, sizeof(info));
+	info.eax = args.function;
+	info.ecx = args.index;
+
+	ret = hv_call_get_vp_cpuid_values(vp->index,
+					vp->partition->id,
+					flags,
+					&info,
+					&result);
+
+	if (ret)
+		return ret;
+
+	args.eax = result.eax;
+	args.ebx = result.ebx;
+	args.ecx = result.ecx;
+	args.edx = result.edx;
+	if (copy_to_user(user_args, &args, sizeof(args)))
+		return -EFAULT;
+
+	return 0;
+}
+
 static long
 mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
@@ -494,6 +533,9 @@ mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		break;
 	case MSHV_VP_REGISTER_INTERCEPT_RESULT:
 		r = mshv_vp_ioctl_register_intercept_result(vp, (void __user *)arg);
+		break;
+	case MSHV_GET_VP_CPUID_VALUES:
+		r = mshv_vp_ioctl_get_cpuid_values(vp, (void __user *)arg);
 		break;
 	default:
 		r = -ENOTTY;
@@ -949,6 +991,73 @@ mshv_partition_ioctl_set_msi_routing(struct mshv_partition *partition,
 	return ret;
 }
 
+static long
+mshv_partition_ioctl_signal_event_direct(struct mshv_partition *partition,
+		void __user *user_args)
+{
+	struct mshv_signal_event_direct args;
+	long ret;
+
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+	ret = hv_call_signal_event_direct(args.vp,
+					partition->id,
+					args.vtl,
+					args.sint,
+					args.flag,
+					&args.newly_signaled);
+
+	if (ret) 
+		return ret;
+	
+	if (copy_to_user(user_args, &args, sizeof(args)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static long
+mshv_partition_ioctl_post_message_direct(struct mshv_partition *partition,
+		void __user *user_args)
+{
+	struct mshv_post_message_direct args;
+	u8 message[HV_MESSAGE_SIZE];
+
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+	if (args.length > HV_MESSAGE_SIZE) 
+		return -E2BIG;
+
+	memset(&message[0], 0, sizeof(message));
+	if (copy_from_user(&message[0], args.message, args.length))
+		return -EFAULT;
+
+	return hv_call_post_message_direct(args.vp,
+					partition->id,
+					args.vtl,
+					args.sint,
+					&message[0]);
+}
+
+static long 
+mshv_partition_ioctl_register_deliverabilty_notifications(
+		struct mshv_partition *partition, void __user *user_args)
+{
+	struct mshv_register_deliverabilty_notifications args;
+	struct hv_register_assoc hv_reg;
+	
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+	memset(&hv_reg, 0, sizeof(hv_reg));
+	hv_reg.name = HV_X64_REGISTER_DELIVERABILITY_NOTIFICATIONS;
+	hv_reg.value.reg64 = args.flag;
+
+	return hv_call_set_vp_registers(args.vp, partition->id, 1, &hv_reg);
+}
+
 static int mshv_device_ioctl_attr(struct mshv_device *dev,
 				 int (*accessor)(struct mshv_device *dev,
 						 struct mshv_device_attr *attr),
@@ -1173,6 +1282,18 @@ mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		ret = mshv_partition_ioctl_create_device(partition,
 							 (void __user *)arg);
 		break;
+	case MSHV_SIGNAL_EVENT_DIRECT:
+		ret = mshv_partition_ioctl_signal_event_direct(partition,
+							 (void __user *)arg);
+		break;
+	case MSHV_POST_MESSAGE_DIRECT:
+		ret = mshv_partition_ioctl_post_message_direct(partition,
+							 (void __user *)arg);
+		break;
+	case MSHV_REGISTER_DELIVERABILITY_NOTIFICATIONS:
+		ret = mshv_partition_ioctl_register_deliverabilty_notifications(
+			partition, (void __user *)arg);
+		break;		
 	default:
 		ret = -ENOTTY;
 	}

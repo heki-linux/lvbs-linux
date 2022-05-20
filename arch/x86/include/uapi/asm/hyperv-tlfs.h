@@ -928,6 +928,13 @@ struct hv_x64_halt_message {
 	struct hv_x64_intercept_message_header header;
 } __packed;
 
+struct hv_x64_sint_deliverable_message {
+	struct hv_x64_intercept_message_header header;
+    __u16 deliverable_sints;
+    __u16 rsvd1;
+    __u32 rsvd2;
+} __packed;
+
 #define HV_X64_PENDING_INTERRUPT	0
 #define HV_X64_PENDING_NMI		2
 #define HV_X64_PENDING_EXCEPTION	3

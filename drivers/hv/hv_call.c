@@ -1012,3 +1012,106 @@ int hv_call_register_intercept_result(u32 vp_index,
 
 	return ret;
 }
+
+int hv_call_signal_event_direct(u32 vp_index,
+				u64 partition_id,
+				u8 vtl,
+				u8 sint,
+				u16 flag_number,
+				u8 *newly_signaled)
+{
+	u64 status;
+	unsigned long flags;
+	struct hv_input_signal_event_direct *in;
+	struct hv_output_signal_event_direct *out;
+
+	local_irq_save(flags);
+	in = (struct hv_input_signal_event_direct*)(*this_cpu_ptr(
+		hyperv_pcpu_input_arg));
+	out = (struct hv_output_signal_event_direct*)(*this_cpu_ptr(
+		hyperv_pcpu_output_arg));
+
+	in->target_partition = partition_id;
+	in->target_vp = vp_index;
+	in->target_vtl = vtl;
+	in->target_sint = sint;
+	in->flag_number = flag_number;
+
+	status = hv_do_hypercall(HVCALL_SIGNAL_EVENT_DIRECT, in, out);
+	if (hv_result_success(status))
+		*newly_signaled = out->newly_signaled;
+
+	local_irq_restore(flags);
+
+	if (!hv_result_success(status)) {
+		pr_err("%s: %s\n", __func__, hv_status_to_string(status));
+		return hv_status_to_errno(status);
+	}
+	return 0;
+}
+
+int hv_call_post_message_direct(u32 vp_index,
+				u64 partition_id,
+				u8 vtl,
+				u32 sint_index,
+				u8 *message)
+{
+	u64 status;
+	unsigned long flags;
+	struct hv_input_post_message_direct *in;
+
+	local_irq_save(flags);
+	in = (struct hv_input_post_message_direct*)(*this_cpu_ptr(
+		hyperv_pcpu_input_arg));
+
+	in->partition_id = partition_id;
+	in->vp_index = vp_index;
+	in->vtl = vtl;
+	in->sint_index = sint_index;
+	memcpy(&in->message, message, HV_MESSAGE_SIZE);
+
+	status = hv_do_hypercall(HVCALL_POST_MESSAGE_DIRECT, in, NULL);
+	local_irq_restore(flags);
+
+	if (!hv_result_success(status)) {
+		pr_err("%s: %s\n", __func__, hv_status_to_string(status));
+		return hv_status_to_errno(status);
+	}
+	return 0;
+}
+
+int hv_call_get_vp_cpuid_values(u32 vp_index,
+				u64 partition_id,
+				union hv_get_vp_cpuid_values_flags values_flags,
+				struct hv_cpuid_leaf_info *info,
+				union hv_output_get_vp_cpuid_values *result)
+{
+	u64 status;
+	unsigned long flags;
+	struct hv_input_get_vp_cpuid_values *in;
+	union hv_output_get_vp_cpuid_values *out;
+
+	local_irq_save(flags);
+	in = (struct hv_input_get_vp_cpuid_values*)(*this_cpu_ptr(
+		hyperv_pcpu_input_arg));
+	out = (union hv_output_get_vp_cpuid_values*)(*this_cpu_ptr(
+		hyperv_pcpu_output_arg));
+
+	memset(in, 0, sizeof(*in)+sizeof(*info));
+	in->partition_id = partition_id;
+	in->vp_index = vp_index;
+	in->flags = values_flags;
+	in->cpuid_leaf_info[0] = *info;
+
+	status = hv_do_rep_hypercall(HVCALL_GET_VP_CPUID_VALUES, 1, 0, in, out);
+	if (hv_result_success(status))
+		*result = *out;
+		
+	local_irq_restore(flags);
+
+	if (!hv_result_success(status)) {
+		pr_err("%s: %s\n", __func__, hv_status_to_string(status));
+		return hv_status_to_errno(status);
+	}
+	return 0;
+}
