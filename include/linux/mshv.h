@@ -24,7 +24,11 @@ struct mshv_vp {
 	struct page *register_page;
 	struct {
 		struct semaphore sem;
-		struct task_struct *task;
+		struct {
+			u64 explicit_suspend: 1;
+			u64 intercept_suspend: 1;
+			u64 reserved: 62;
+		} flags;
 		struct hv_message *intercept_message;
 	} run;
 };

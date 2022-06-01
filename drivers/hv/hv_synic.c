@@ -130,7 +130,6 @@ static bool
 mshv_intercept_isr(struct hv_message *msg)
 {
 	struct mshv_partition *partition;
-	struct task_struct *task;
 	bool handled = false;
 	unsigned long flags;
 	struct mshv_vp *vp;
@@ -193,28 +192,7 @@ mshv_intercept_isr(struct hv_message *msg)
 	}
 
 	memcpy(vp->run.intercept_message, msg, sizeof(struct hv_message));
-
-	if (unlikely(!vp->run.task)) {
-		pr_err("%s: vp run task not set\n", __func__);
-		goto unlock_out;
-	}
-
-	/* Save the task and reset it so we can wake without racing */
-	task = vp->run.task;
-	vp->run.task = NULL;
-
-	/*
-	 * up the semaphore before waking so that we don't race with
-	 * down_trylock
-	 */
 	up(&vp->run.sem);
-
-	/*
-	 * Finally, wake the process. If it wakes the vp and generates
-	 * another intercept then the message will be queued by the hypervisor
-	 */
-	wake_up_process(task);
-
 	handled = true;
 
 unlock_out:
