@@ -1544,8 +1544,14 @@ static void hv_irq_unmask(struct irq_data *data)
 		}
 	}
 
-	res = hv_do_hypercall(HVCALL_RETARGET_INTERRUPT | (var_size << 17),
-			      params, NULL);
+	if (hv_nested)
+		res = hv_do_nested_hypercall(HVCALL_RETARGET_INTERRUPT |
+					     (var_size << 17),
+					     params, NULL);
+	else
+		res = hv_do_hypercall(HVCALL_RETARGET_INTERRUPT |
+				      (var_size << 17),
+				      params, NULL);
 
 exit_unlock:
 	spin_unlock_irqrestore(&hbus->retarget_msi_interrupt_lock, flags);
