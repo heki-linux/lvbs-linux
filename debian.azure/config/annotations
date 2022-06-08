@@ -27,9 +27,6 @@ CONFIG_FPGA_MGR_XILINX_SPI                         policy<{'amd64': 'm', 'arm64'
 CONFIG_ANDROID                                     policy<{'amd64': 'y', 'arm64': 'y'}>
 CONFIG_ANDROID                                     mark<ENFORCED> note<LP:#1914568>
 
-CONFIG_ASHMEM                                      policy<{'amd64': 'm', 'arm64': 'm'}>
-CONFIG_ASHMEM                                      mark<ENFORCED> note<LP:#1914568>
-
 CONFIG_ANDROID_BINDER_IPC                          policy<{'amd64': 'm', 'arm64': 'm'}>
 CONFIG_ANDROID_BINDER_IPC                          mark<ENFORCED> note<LP:#1914568>
 
@@ -57,7 +54,7 @@ CONFIG_INFINIBAND_IPOIB                            mark<ENFORCED> note<LP:#18373
 CONFIG_BLK_DEV_NVME                                policy<{'amd64': 'y', 'arm64': 'y'}>
 CONFIG_BLK_DEV_NVME                                mark<ENFORCED> note<LP:#1793386> note<LP:#1908571>
 
-CONFIG_PCI_HYPERV                                  policy<{'amd64': 'y'}>
+CONFIG_PCI_HYPERV                                  policy<{'amd64': 'y', 'arm64': 'y'}>
 CONFIG_PCI_HYPERV                                  mark<ENFORCED> note<LP:#1908571>
 
 CONFIG_EDAC_DECODE_MCE                             policy<{'amd64': 'y'}>
@@ -100,9 +97,6 @@ CONFIG_BLK_DEV_PMEM                                mark<ENFORCED> note<LP:#17112
 
 CONFIG_OVERLAY_FS_REDIRECT_DIR                     policy<{'amd64': 'y', 'arm64': 'y'}>
 CONFIG_OVERLAY_FS_REDIRECT_DIR                     mark<ENFORCED> note<LP:#1711230>
-
-CONFIG_ND_BLK                                      policy<{'amd64': 'y', 'arm64': 'y'}>
-CONFIG_ND_BLK                                      mark<ENFORCED> note<LP:#1715755>
 
 CONFIG_ACPI_NFIT                                   policy<{'amd64': 'y', 'arm64': 'y'}>
 CONFIG_ACPI_NFIT                                   mark<ENFORCED> note<LP:#1715755>
