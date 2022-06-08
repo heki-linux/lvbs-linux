@@ -1,3 +1,9 @@
+linux-azure (5.18.0-1000.0) kinetic; urgency=medium
+
+  * Dummy entry
+
+ -- Paolo Pisati <paolo.pisati@canonical.com>  Wed, 08 Jun 2022 11:37:31 +0200
+
 linux-azure (5.15.0-1003.4) jammy; urgency=medium
 
   * jammy/linux-azure: 5.15.0-1003.4 -proposed tracker (LP: #1966481)
