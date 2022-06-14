@@ -951,7 +951,7 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 	long ret = 0;
 
 	/* Check we have enough slots*/
-	if (partition->regions.count == MSHV_MAX_MEM_REGIONS) {
+	if (partition->regions.count >= MSHV_MAX_MEM_REGIONS) {
 		pr_err("%s: not enough memory region slots\n", __func__);
 		return -ENOSPC;
 	}
