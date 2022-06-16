@@ -271,9 +271,10 @@ union hv_gpa_page_access_state_flags {
 		__u64 clear_dirty : 1;
 		__u64 set_dirty : 1;
 		__u64 reserved : 60;
-	};
+	} __packed;
 	__u64 as_uint64;
 } __packed;
+
 struct hv_input_get_gpa_pages_access_state {
 	__u64  partition_id;
 	union hv_gpa_page_access_state_flags flags;
@@ -294,7 +295,7 @@ union hv_partition_property_page_access_tracking_config {
 		__u64 enabled : 1;
 		__u64 granularity : 1;
 		__u64 reserved : 62;
-	};
+	} __packed;
 	__u64 as_uint64;
 } __packed;
 
