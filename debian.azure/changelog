@@ -1,3 +1,9 @@
+linux-azure (5.19.0-1000.0) kinetic; urgency=medium
+
+  * Dummy entry
+
+ -- Paolo Pisati <paolo.pisati@canonical.com>  Thu, 30 Jun 2022 13:18:21 +0200
+
 linux-azure (5.18.0-1001.1) kinetic; urgency=medium
 
   * kinetic/linux-azure: 5.18.0-1001.1 -proposed tracker (LP: #1975964)
