@@ -962,7 +962,6 @@ intel-xhci-usb-role-switch
 intel_atomisp2_led
 intel_bxt_pmic_thermal
 intel_bxtwc_tmu
-intel_ifs
 intel_int0002_vgpio
 intel_ips
 intel_mrfld_pwrbtn
