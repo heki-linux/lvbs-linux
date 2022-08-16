@@ -49,6 +49,7 @@ drivers/fpga/*
 drivers/gpu/drm/ast/ast.ko
 drivers/gpu/drm/drm_kms_helper.ko
 drivers/gpu/drm/drm.ko
+drivers/gpu/drm/hyperv/hyperv_drm.ko
 drivers/gpu/drm/ttm/ttm.ko
 drivers/hid/hid-generic.ko
 drivers/hid/hid-hyperv.ko
@@ -188,7 +189,7 @@ drivers/usb/storage/uas.ko
 drivers/usb/storage/usb-storage.ko
 drivers/vfio/*
 drivers/vhost/*
-drivers/video/fbdev/*
+! find drivers/video/fbdev -name "*.ko" | grep -v hyperv_fb
 drivers/video/vgastate.ko
 drivers/virtio/*
 drivers/watchdog/softdog.ko
