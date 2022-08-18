@@ -552,7 +552,6 @@ struct hv_add_logical_processor_in {
 	u32 lp_index;
 	u32 apic_id;
 	union hv_proximity_domain_info proximity_domain_info;
-	u64 flags;
 } __packed;
 
 struct hv_add_logical_processor_out {
@@ -899,10 +898,40 @@ struct hv_get_vp_state_in {
 	u64 output_data_pfns[];
 } __packed;
 
+struct hv_stimer_state
+{
+	struct
+	{
+		// Indicates if there is an undelivered timer expiry message.
+		u32 undelivered_msg_pending:1;
+		u32 reserved:31;
+	} flags;
+
+	u32 resvd;
+
+	// Timer configuration and count.
+	u64 config;
+	u64 count;
+
+	// Timer adjustment.
+	u64 adjustment;
+
+	// Expiration time of the undelivered message.
+	u64 undelivered_exp_time;
+
+} __packed;
+
+struct hv_synthetic_timers_state
+{
+	struct hv_stimer_state timers[HV_SYNIC_STIMER_COUNT];
+
+	// Reserved space for time unhalted timer.
+	u64 reserved[5];
+} __packed;
+
 union hv_get_vp_state_out {
 	struct hv_local_interrupt_controller_state interrupt_controller_state;
-	/* Not supported yet */
-	/* struct hv_synthetic_timers_state synthetic_timers_state; */
+	struct hv_synthetic_timers_state synthetictimersstate;
 } __packed;
 
 union hv_input_set_vp_state_data {
