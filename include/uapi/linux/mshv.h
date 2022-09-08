@@ -162,6 +162,11 @@ struct mshv_get_vp_cpuid_values {
 	__u32 edx;
 };
 
+struct mshv_vp_run_registers {
+	struct hv_message *message;
+	struct mshv_vp_registers registers;
+};
+
 #define MSHV_IOCTL 0xB8
 
 /* mshv device */
@@ -187,6 +192,7 @@ struct mshv_get_vp_cpuid_values {
 #define MSHV_GET_VP_REGISTERS   _IOWR(MSHV_IOCTL, 0x05, struct mshv_vp_registers)
 #define MSHV_SET_VP_REGISTERS   _IOW(MSHV_IOCTL, 0x06, struct mshv_vp_registers)
 #define MSHV_RUN_VP		_IOR(MSHV_IOCTL, 0x07, struct hv_message)
+#define MSHV_RUN_VP_REGISTERS	_IOWR(MSHV_IOCTL, 0x1C, struct mshv_vp_run_registers)
 #define MSHV_GET_VP_STATE	_IOWR(MSHV_IOCTL, 0x0A, struct mshv_vp_state)
 #define MSHV_SET_VP_STATE	_IOWR(MSHV_IOCTL, 0x0B, struct mshv_vp_state)
 #define MSHV_TRANSLATE_GVA	_IOWR(MSHV_IOCTL, 0x0E, struct mshv_translate_gva)

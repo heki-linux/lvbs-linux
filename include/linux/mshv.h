@@ -23,6 +23,7 @@ struct mshv_vp {
 	struct mshv_partition *partition;
 	struct mutex mutex;
 	struct page *register_page;
+	struct hv_register_assoc *registers;
 	struct {
 		struct semaphore sem;
 		wait_queue_head_t suspend_queue;

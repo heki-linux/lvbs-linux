@@ -291,6 +291,54 @@ mshv_vp_ioctl_run_vp(struct mshv_vp *vp, void __user *ret_message)
 }
 
 static long
+mshv_vp_ioctl_run_vp_regs(struct mshv_vp *vp,
+			  struct mshv_vp_run_registers __user *user_args)
+{
+	struct hv_register_assoc suspend_registers[2] = {
+		{ .name = HV_REGISTER_INTERCEPT_SUSPEND },
+		{ .name = HV_REGISTER_EXPLICIT_SUSPEND }
+	};
+	struct mshv_vp_run_registers run_regs;
+	struct hv_message __user *ret_message;
+	struct mshv_vp_registers __user *user_regs;
+	int i, regs_count;
+
+	if (copy_from_user(&run_regs, user_args, sizeof(run_regs)))
+		return -EFAULT;
+
+	ret_message = run_regs.message;
+	user_regs = &run_regs.registers;
+	regs_count = user_regs->count;
+
+	if (regs_count + ARRAY_SIZE(suspend_registers) > MSHV_VP_MAX_REGISTERS)
+		return -EINVAL;
+
+	if (copy_from_user(vp->registers, user_regs->regs,
+			   sizeof(*vp->registers) * regs_count))
+		return -EFAULT;
+
+	for (i = 0; i < regs_count; i++) {
+		/*
+		 * Disallow setting suspend registers to ensure run vp state
+		 * is consistent
+		 */
+		if (vp->registers[i].name == HV_REGISTER_EXPLICIT_SUSPEND ||
+		    vp->registers[i].name == HV_REGISTER_INTERCEPT_SUSPEND) {
+			pr_err("%s: not allowed to set suspend registers\n",
+			       __func__);
+			return -EINVAL;
+		}
+	}
+
+	/* Set the last registers to clear suspend */
+	memcpy(vp->registers + regs_count,
+	       suspend_registers, sizeof(suspend_registers));
+
+	return mshv_run_vp(vp, ret_message, vp->registers,
+			   regs_count + ARRAY_SIZE(suspend_registers));
+}
+
+static long
 mshv_vp_ioctl_get_set_state_pfn(struct mshv_vp *vp,
 				struct mshv_vp_state *args,
 				bool is_set)
@@ -506,6 +554,9 @@ mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 	case MSHV_RUN_VP:
 		r = mshv_vp_ioctl_run_vp(vp, (void __user *)arg);
 		break;
+	case MSHV_RUN_VP_REGISTERS:
+		r = mshv_vp_ioctl_run_vp_regs(vp, (void __user *)arg);
+		break;
 	case MSHV_GET_VP_REGISTERS:
 		r = mshv_vp_ioctl_get_regs(vp, (void __user *)arg);
 		break;
@@ -617,11 +668,18 @@ mshv_partition_ioctl_create_vp(struct mshv_partition *partition,
 		goto free_vp;
 	}
 
+	vp->registers = kmalloc_array(MSHV_VP_MAX_REGISTERS,
+				      sizeof(*vp->registers), GFP_KERNEL);
+	if (!vp->registers) {
+		ret = -ENOMEM;
+		goto free_message;
+	}
+
 	vp->index = args.vp_index;
 	vp->partition = mshv_partition_get(partition);
 	if (!vp->partition) {
 		ret = -EBADF;
-		goto free_message;
+		goto free_registers;
 	}
 
 	fd = get_unused_fd_flags(O_CLOEXEC);
@@ -659,6 +717,8 @@ put_fd:
 	put_unused_fd(fd);
 put_partition:
 	mshv_partition_put(partition);
+free_registers:
+	kfree(vp->registers);
 free_message:
 	free_page((unsigned long)vp->run.intercept_message);
 free_vp:
@@ -1336,6 +1396,7 @@ destroy_partition(struct mshv_partition *partition)
 		vp = partition->vps.array[i];
 		if (!vp)
 			continue;
+		kfree(vp->registers);
 		free_page((unsigned long)vp->run.intercept_message);
 		kfree(vp);
 	}
