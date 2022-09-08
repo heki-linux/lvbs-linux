@@ -166,6 +166,59 @@ free_return:
 }
 
 /*
+ * Explicit guest vCPU suspend is asynchronous by nature (as it is requested by
+ * dom0 vCPU for guest vCPU) and thus it can race with "intercept" suspend,
+ * done by the hypervisor.
+ * "Intercept" suspend leads to asynchronous message delivery to dom0 which
+ * should be awaited to keep the VP loop consistent (i.e. no message pending
+ * upon VP resume).
+ * VP intercept suspend can't be done when the VP is explicitly suspended
+ * already, and thus can be only two possible race scenarios:
+ *   1. implicit suspend bit set -> explicit suspend bit set -> message sent
+ *   2. implicit suspend bit set -> message sent -> explicit suspend bit set
+ * Checking for implicit suspend bit set after explicit suspend request has
+ * succeeded in either case allows us to reliably identify, if there is a
+ * message to receive and deliver to VMM.
+ */
+static long
+mshv_suspend_vp(const struct mshv_vp *vp, bool *message_in_flight)
+{
+	struct hv_register_assoc explicit_suspend = {
+		.name = HV_REGISTER_EXPLICIT_SUSPEND
+	};
+	struct hv_register_assoc intercept_suspend = {
+		.name = HV_REGISTER_INTERCEPT_SUSPEND
+	};
+	union hv_explicit_suspend_register *es =
+		&explicit_suspend.value.explicit_suspend;
+	union hv_intercept_suspend_register *is =
+		&intercept_suspend.value.intercept_suspend;
+	int ret;
+
+	es->suspended = 1;
+
+	ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
+				       1, &explicit_suspend);
+	if (ret) {
+		pr_err("%s: failed to explicitly suspend vCPU#%d in partition %lld\n",
+				__func__, vp->index, vp->partition->id);
+		return ret;
+	}
+
+	ret = hv_call_get_vp_registers(vp->index, vp->partition->id,
+				       1, &intercept_suspend);
+	if (ret) {
+		pr_err("%s: failed to get intercept suspend state vCPU#%d in partition %lld\n",
+			__func__, vp->index, vp->partition->id);
+		return ret;
+	}
+
+	*message_in_flight = is->suspended;
+
+	return 0;
+}
+
+/*
  * Caller has to make sure the registers contain cleared
  * HV_REGISTER_INTERCEPT_SUSPEND and HV_REGISTER_EXPLICIT_SUSPEND registers
  * exactly in this order (the hypervisor clears them sequentially) to avoid
@@ -190,10 +243,27 @@ mshv_run_vp(struct mshv_vp *vp, void __user *ret_message,
 		return ret;
 	}
 
-	ret = wait_event_killable(vp->run.suspend_queue,
-				  msg->header.message_type != HVMSG_NONE);
-	if (ret)
-		return ret;
+	ret = wait_event_interruptible(vp->run.suspend_queue,
+				       msg->header.message_type != HVMSG_NONE);
+	if (ret) {
+		bool message_in_flight;
+
+		/*
+		 * Otherwise the waiting was interrupted by a signal: suspend
+		 * the vCPU explicitly and copy message in flight (if any).
+		 */
+		ret = mshv_suspend_vp(vp, &message_in_flight);
+		if (ret)
+			return ret;
+
+		/* Return if no message in flight */
+		if (!message_in_flight)
+			return -EINTR;
+
+		/* Wait for the message in flight. */
+		wait_event(vp->run.suspend_queue,
+			   msg->header.message_type != HVMSG_NONE);
+	}
 
 	if (copy_to_user(ret_message, vp->run.intercept_message,
 			 sizeof(struct hv_message)))
