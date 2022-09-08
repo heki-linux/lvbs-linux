@@ -11,6 +11,7 @@
 #include <linux/semaphore.h>
 #include <linux/sched.h>
 #include <linux/srcu.h>
+#include <linux/wait.h>
 #include <uapi/linux/mshv.h>
 
 #define MSHV_MAX_PARTITIONS		128
@@ -24,11 +25,7 @@ struct mshv_vp {
 	struct page *register_page;
 	struct {
 		struct semaphore sem;
-		struct {
-			u64 explicit_suspend: 1;
-			u64 intercept_suspend: 1;
-			u64 reserved: 62;
-		} flags;
+		wait_queue_head_t suspend_queue;
 		struct hv_message *intercept_message;
 	} run;
 };

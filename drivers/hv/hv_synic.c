@@ -192,7 +192,9 @@ mshv_intercept_isr(struct hv_message *msg)
 	}
 
 	memcpy(vp->run.intercept_message, msg, sizeof(struct hv_message));
-	up(&vp->run.sem);
+
+	wake_up(&vp->run.suspend_queue);
+
 	handled = true;
 
 unlock_out:

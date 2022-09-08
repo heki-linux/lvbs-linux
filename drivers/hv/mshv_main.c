@@ -78,115 +78,6 @@ static struct miscdevice mshv_dev = {
 };
 
 static long
-mshv_vp_ioctl_run_vp(struct mshv_vp *vp, void __user *ret_message)
-{
-	long ret;
-	u32 register_count;
-	struct hv_register_assoc *first_register;
-	struct hv_register_assoc suspend_registers[2] = {
-		{ .name = HV_REGISTER_EXPLICIT_SUSPEND },
-		{ .name = HV_REGISTER_INTERCEPT_SUSPEND }
-	};
-	/* Pointers to values for convenience */
-	union hv_explicit_suspend_register *explicit_suspend =
-				&suspend_registers[0].value.explicit_suspend;
-	union hv_intercept_suspend_register *intercept_suspend =
-				&suspend_registers[1].value.intercept_suspend;
-	explicit_suspend->suspended = 0;
-	intercept_suspend->suspended = 0;
-
-	/* Resume vp execution based on the vp flags/state */
-	if (vp->run.flags.explicit_suspend) {
-		first_register = &suspend_registers[0];
-		if (vp->run.flags.intercept_suspend)
-			register_count = 2;
-		else
-			register_count = 1;
-	} else if (vp->run.flags.intercept_suspend) {
-		first_register = &suspend_registers[1];
-		register_count = 1;
-	} else {
-		pr_err("%s: vp not suspended!\n", __func__);
-		return -EBADFD;
-	}
-
-	ret = hv_call_set_vp_registers(
-			vp->index,
-			vp->partition->id,
-			register_count,
-			first_register);
-	if (ret) {
-		pr_err("%s: failed to clear suspend bits\n", __func__);
-		return ret;
-	}
-
-	/* vp execution has been resumed */
-	vp->run.flags.explicit_suspend = 0;
-	vp->run.flags.intercept_suspend = 0;
-
-	/* Wait for a message from mshv_isr */
-	if (down_interruptible(&vp->run.sem)) {
-		pr_debug("%s: woke up, received signal\n", __func__);
-
-		/* Suspend the vp */
-		explicit_suspend->suspended = 1;
-		ret = hv_call_set_vp_registers(
-				vp->index,
-				vp->partition->id,
-				1,
-				&suspend_registers[0]);
-		if (ret) {
-			pr_err("%s: failed to set explicit suspend bit\n", __func__);
-			return ret;
-		}
-		vp->run.flags.explicit_suspend = 1;
-
-		/* Check if mshv_isr has been triggered too */
-		ret = hv_call_get_vp_registers(
-				vp->index,
-				vp->partition->id,
-				1,
-				&suspend_registers[1]);
-		if (ret) {
-			pr_err("%s: failed to get intercept suspend bit\n", __func__);
-			return ret;
-		}
-
-		if (intercept_suspend->suspended) {
-			/*
-			 * mshv_isr either provided a message or will provide one very soon.
-			 * Wait for the message and return it to the caller.
-			 */
-			pr_debug("%s: waiting for message from mshv_isr\n", __func__);
-			down(&vp->run.sem);
-			pr_debug("%s: message is ready\n", __func__);
-
-			/*
-			 * mshv_isr provided a message, so the value of the intercept suspend
-			 * register has been set.
-			 */
-			vp->run.flags.intercept_suspend = 1;
-		} else {
-			return -EINTR;
-		}
-	} else {
-		/*
-		 * mshv_isr provided a message, so the value of the intercept suspend
-		 * register has been set.
-		 */
-		vp->run.flags.intercept_suspend = 1;
-	}
-
-	/* Return the message from mshv_isr to the caller */
-	WARN_ON(vp->run.intercept_message->header.message_type == HVMSG_NONE);
-	if (copy_to_user(ret_message, vp->run.intercept_message,
-			 sizeof(struct hv_message)))
-		return -EFAULT;
-
-	return 0;
-}
-
-static long
 mshv_vp_ioctl_get_regs(struct mshv_vp *vp, void __user *user_args)
 {
 	struct mshv_vp_registers args;
@@ -272,6 +163,61 @@ mshv_vp_ioctl_set_regs(struct mshv_vp *vp, void __user *user_args)
 free_return:
 	kfree(registers);
 	return ret;
+}
+
+/*
+ * Caller has to make sure the registers contain cleared
+ * HV_REGISTER_INTERCEPT_SUSPEND and HV_REGISTER_EXPLICIT_SUSPEND registers
+ * exactly in this order (the hypervisor clears them sequentially) to avoid
+ * potential invalid clearing a newly arrived HV_REGISTER_INTERCEPT_SUSPEND
+ * after VP is released from HV_REGISTER_EXPLICIT_SUSPEND in case of the
+ * opposite order.
+ */
+static long
+mshv_run_vp(struct mshv_vp *vp, void __user *ret_message,
+	    struct hv_register_assoc *registers, size_t count)
+
+{
+	struct hv_message *msg = vp->run.intercept_message;
+	long ret;
+
+	/* Resume VP execution */
+	ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
+				       count, registers);
+	if (ret) {
+		pr_err("%s: failed to resume vCPU#%d in partition %lld\n",
+		       __func__, vp->index, vp->partition->id);
+		return ret;
+	}
+
+	ret = wait_event_killable(vp->run.suspend_queue,
+				  msg->header.message_type != HVMSG_NONE);
+	if (ret)
+		return ret;
+
+	if (copy_to_user(ret_message, vp->run.intercept_message,
+			 sizeof(struct hv_message)))
+		return -EFAULT;
+
+	/*
+	 * Reset the message type to make the wait_event call above work
+	 * next time.
+	 */
+	msg->header.message_type = HVMSG_NONE;
+
+	return 0;
+}
+
+static long
+mshv_vp_ioctl_run_vp(struct mshv_vp *vp, void __user *ret_message)
+{
+	struct hv_register_assoc suspend_registers[2] = {
+		{ .name = HV_REGISTER_INTERCEPT_SUSPEND },
+		{ .name = HV_REGISTER_EXPLICIT_SUSPEND }
+	};
+
+	return mshv_run_vp(vp, ret_message,
+			   suspend_registers, ARRAY_SIZE(suspend_registers));
 }
 
 static long
@@ -591,9 +537,8 @@ mshv_partition_ioctl_create_vp(struct mshv_partition *partition,
 	if (!vp)
 		return -ENOMEM;
 
-	vp->run.flags.explicit_suspend = 1;
 	mutex_init(&vp->mutex);
-	sema_init(&vp->run.sem, 0);
+	init_waitqueue_head(&vp->run.suspend_queue);
 
 	vp->run.intercept_message =
 		(struct hv_message *)get_zeroed_page(GFP_KERNEL);
