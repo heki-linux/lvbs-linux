@@ -481,7 +481,7 @@ static long
 mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
 	struct mshv_vp *vp = filp->private_data;
-	long r = 0;
+	long r = -ENOTTY;
 
 	if (mutex_lock_killable(&vp->mutex))
 		return -EINTR;
@@ -512,7 +512,7 @@ mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		r = mshv_vp_ioctl_get_cpuid_values(vp, (void __user *)arg);
 		break;
 	default:
-		r = -ENOTTY;
+		printk("%s: invalid ioctl: %#x\n", __func__, ioctl);
 		break;
 	}
 	mutex_unlock(&vp->mutex);
