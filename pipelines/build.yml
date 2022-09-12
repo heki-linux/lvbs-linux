@@ -19,7 +19,7 @@ pr:
       - msft/mshv-stable
 
 jobs:
-- job: KERNEL_CONFIG
+- job: KERNEL
   timeoutInMinutes: 30
   pool:
     name: 'lsg-virt-amd64-1es-agent-pool-2'
@@ -31,15 +31,21 @@ jobs:
       set -x
       sudo systemctl enable --now docker
       $(CONTAINER_RT) pull $(CONTAINER_IMAGE)
-      $(CONTAINER_RT) run -d -t --name $(CONTAINER_NAME) --volume $PWD:$(CONTAINER_VOL) $(CONTAINER_IMAGE) || exit $?
-      $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/mariner-prepare || exit $?
+      $(CONTAINER_RT) run -d -t --name $(CONTAINER_NAME) --volume $PWD:$(CONTAINER_VOL) $(CONTAINER_IMAGE)
+      $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/mariner-prepare
     displayName: 'Prepare Container'
 
   - bash: |
       set -e
       set -x
-      $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/config-validate || exit $?
+      $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/config-validate
     displayName: 'Validate Config'
+
+  - bash: |
+      set -e
+      set -x
+      $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/kernel-compile
+    displayName: 'Compile Kernel'
 
   - bash: |
       set -e
