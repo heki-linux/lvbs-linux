@@ -16,7 +16,7 @@ linux-azure (5.19.0-1005.5) kinetic; urgency=medium
     - [Config] updateconfigs following Ubuntu-5.19.0-16.16 rebase
 
   * Miscellaneous upstream changes
-    - jjj
+    - skip ABI and modules checks
 
  -- Paolo Pisati <paolo.pisati@canonical.com>  Tue, 06 Sep 2022 13:41:31 +0200
 
