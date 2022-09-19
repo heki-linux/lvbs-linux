@@ -175,6 +175,7 @@ struct ms_hyperv_tsc_page {
 #define HVCALL_RETRIEVE_DEBUG_DATA		0x006a
 #define HVCALL_RESET_DEBUG_SESSION		0x006b
 #define HVCALL_ADD_LOGICAL_PROCESSOR		0x0076
+#define HVCALL_GET_SYSTEM_PROPERTY		0x007b
 #define HVCALL_MAP_DEVICE_INTERRUPT		0x007c
 #define HVCALL_UNMAP_DEVICE_INTERRUPT		0x007d
 #define HVCALL_RETARGET_INTERRUPT		0x007e
@@ -1335,6 +1336,33 @@ struct hv_input_unmap_vp_state_page {
 	u64 partition_id;
 	u32 vp_index;
 	u32 type; /* enum hv_vp_state_page_type */
+} __packed;
+
+enum hv_system_property {
+	/* Add more values when needed */
+	HV_SYSTEM_PROPERTY_SCHEDULER_TYPE = 15,
+};
+
+enum hv_scheduler_type {
+	HV_SCHEDULER_TYPE_LP = 1, /* Classic scheduler w/o SMT */
+	HV_SCHEDULER_TYPE_LP_SMT = 2, /* Classic scheduler w/ SMT */
+	HV_SCHEDULER_TYPE_CORE_SMT = 3, /* Core scheduler */
+	HV_SCHEDULER_TYPE_ROOT = 4, /* Root / integrated scheduler */
+	HV_SCHEDULER_TYPE_MAX
+};
+
+struct hv_input_get_system_property {
+	u32 property_id; /* enum hv_system_property */
+	union {
+		u32 as_uint32;
+		/* More fields to be filled in when needed */
+	};
+} __packed;
+
+struct hv_output_get_system_property {
+	union {
+		u32 scheduler_type; /* enum hv_scheduler_type */
+	};
 } __packed;
 
 #endif
