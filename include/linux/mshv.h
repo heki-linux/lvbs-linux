@@ -14,7 +14,7 @@
 #include <linux/wait.h>
 #include <uapi/linux/mshv.h>
 
-#define MSHV_MAX_PARTITIONS		128
+#define MSHV_MAX_PARTITIONS		512
 #define MSHV_MAX_MEM_REGIONS		64
 #define MSHV_MAX_VPS			256
 
