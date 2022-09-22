@@ -293,3 +293,6 @@ CONFIG_SAMPLE_TRACE_PRINTK                         note<Unnecessary for Azure>
 
 CONFIG_SPI_INTEL_SPI_PLATFORM                      policy<{'amd64': '-'}>
 CONFIG_SPI_INTEL_SPI_PLATFORM                      note<Unnecessary for Azure>
+
+CONFIG_IWLMEI                                      policy<{'amd64': '-'}>
+CONFIG_IWLMEI                                      mark<ENFORCED> note<LP: #1987312>
