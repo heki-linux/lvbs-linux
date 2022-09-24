@@ -811,6 +811,7 @@ struct hv_memory_hint {
 
 /* Non-userspace-visible partition creation flags */
 #define HV_PARTITION_CREATION_FLAG_EXO_PARTITION                    BIT(8)
+#define HV_PARTITION_CREATION_FLAG_INTERCEPT_MESSAGE_PAGE_ENABLED   BIT(19)
 
 #define HV_MAKE_COMPATIBILITY_VERSION(major_, minor_)	\
 	((u32)((major_) << 8 | (minor_)))
