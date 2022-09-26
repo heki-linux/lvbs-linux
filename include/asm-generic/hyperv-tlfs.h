@@ -193,6 +193,7 @@ struct ms_hyperv_tsc_page {
 #define HVCALL_UNMAP_DEVICE_GPA_PAGES		0x00b4
 #define HVCALL_SIGNAL_EVENT_DIRECT		0x00c0
 #define HVCALL_POST_MESSAGE_DIRECT		0x00c1
+#define HVCALL_DISPATCH_VP			0x00c2
 #define HVCALL_DETACH_DEVICE_DOMAIN		0x00c4
 #define HVCALL_DELETE_DEVICE_DOMAIN		0x00c5
 #define HVCALL_QUERY_DEVICE_DOMAIN		0x00c6
@@ -1363,6 +1364,131 @@ struct hv_output_get_system_property {
 	union {
 		u32 scheduler_type; /* enum hv_scheduler_type */
 	};
+} __packed;
+
+/*
+ * Dispatch state for the VP communicated by the hypervisor to the
+ * VP-dispatching thread in the root on return from HVCALL_DISPATCH_VP.
+ */
+enum hv_vp_dispatch_state {
+	HV_VP_DISPATCH_STATE_INVALID = 0,
+	HV_VP_DISPATCH_STATE_BLOCKED = 1,
+	HV_VP_DISPATCH_STATE_READY = 2,
+};
+
+/*
+ * Dispatch event that caused the current dispatch state on return from
+ * HVCALL_DISPATCH_VP.
+ *
+ * The following are the only valid combinations for dispatch states and
+ * events:
+ *
+ *      HV_VP_DISPATCH_STATE_BLOCKED
+ *
+ *          HV_VP_DISPATCH_EVENT_SUSPEND
+ *          HV_VP_DISPATCH_EVENT_HALT
+ *          HV_VP_DISPATCH_EVENT_STARTUP
+ *          HV_VP_DISPATCH_EVENT_DELETE
+ *          HV_VP_DISPATCH_EVENT_MACHINECHECK
+ *          HV_VP_DISPATCH_EVENT_IDLE
+ *          HV_VP_DISPATCH_EVENT_SYSTEM
+ *          HV_VP_DISPATCH_EVENT_PARTITION
+ *          HV_VP_DISPATCH_EVENT_TERMINATE
+ *          HV_VP_DISPATCH_EVENT_SERVICING
+ *          HV_VP_DISPATCH_EVENT_TIMEFREEZE
+ *
+ *      HV_VP_DISPATCH_STATE_READY
+ *
+ *          HV_VP_DISPATCH_EVENT_INTERCEPT
+ *          HV_VP_DISPATCH_EVENT_PREEMPTED
+ *          HV_VP_DISPATCH_EVENT_CANCELLED
+ *          HV_VP_DISPATCH_EVENT_SCHEDULER
+ *          HV_VP_DISPATCH_EVENT_LONGSPINWAIT
+ *          HV_VP_DISPATCH_EVENT_TIMESLICEEND
+ */
+enum hv_vp_dispatch_event {
+	HV_VP_DISPATCH_EVENT_INVALID =	0x00000000,
+
+	HV_VP_DISPATCH_EVENT_SUSPEND = 0x00000001,
+	HV_VP_DISPATCH_EVENT_INTERCEPT = 0x00000002,
+	HV_VP_DISPATCH_EVENT_HALT = 0x00000004,
+	HV_VP_DISPATCH_EVENT_STARTUP = 0x00000008,
+	HV_VP_DISPATCH_EVENT_DELETE = 0x00000020,
+	HV_VP_DISPATCH_EVENT_MACHINECHECK = 0x00000040,
+	HV_VP_DISPATCH_EVENT_IDLE = 0x00000080,
+	HV_VP_DISPATCH_EVENT_SYSTEM = 0x00000100,
+	HV_VP_DISPATCH_EVENT_PARTITION = 0x00000200,
+	HV_VP_DISPATCH_EVENT_TERMINATE = 0x00004000,
+	HV_VP_DISPATCH_EVENT_SERVICING = 0x00008000,
+	HV_VP_DISPATCH_EVENT_TIMEFREEZE = 0x00010000,
+
+	HV_VP_DISPATCH_EVENT_INTERNAL = 0x10000001,
+	HV_VP_DISPATCH_EVENT_PREEMPTED = 0x10000002,
+	HV_VP_DISPATCH_EVENT_CANCELLED = 0x10000003,
+	HV_VP_DISPATCH_EVENT_SCHEDULER = 0x10000004,
+	HV_VP_DISPATCH_EVENT_LONGSPINWAIT = 0x10000005,
+	HV_VP_DISPATCH_EVENT_TIMESLICEEND = 0x10000006,
+};
+
+#define HV_ROOT_SCHEDULER_MAX_VPS_PER_CHILD_PARTITION   1024
+/* The maximum array size of HV_GENERIC_SET (vp_set) buffer */
+#define HV_GENERIC_SET_QWORD_COUNT(max) (((((max) - 1) >> 6) + 1) + 2)
+
+struct hv_vp_signal_bitset_scheduler_message {
+	u64 partition_id;
+	u32 overflow_count;
+	u16 vp_count;
+	u16 reserved;
+
+#define BITSET_BUFFER_SIZE \
+	HV_GENERIC_SET_QWORD_COUNT(HV_ROOT_SCHEDULER_MAX_VPS_PER_CHILD_PARTITION)
+	union {
+		struct hv_vpset bitset;
+		u64 bitset_buffer[BITSET_BUFFER_SIZE];
+	} vp_bitset;
+#undef BITSET_BUFFER_SIZE
+} __packed;
+
+static_assert(sizeof(struct hv_vp_signal_bitset_scheduler_message) <=
+	(sizeof(struct hv_message) - sizeof(struct hv_message_header)));
+
+#define HV_MESSAGE_MAX_PARTITION_VP_PAIR_COUNT \
+	(((sizeof(struct hv_message) - sizeof(struct hv_message_header)) / \
+	 (sizeof(u64 /* partition id */) + sizeof(u32 /* vp index */))) - 1)
+
+struct hv_vp_signal_pair_scheduler_message {
+	u32 overflow_count;
+	u8 vp_count;
+	u8 reserved1[3];
+
+	u64 partition_ids[HV_MESSAGE_MAX_PARTITION_VP_PAIR_COUNT];
+	u32 vp_indexes[HV_MESSAGE_MAX_PARTITION_VP_PAIR_COUNT];
+
+	u8 reserved2[4];
+} __packed;
+
+static_assert(sizeof(struct hv_vp_signal_pair_scheduler_message) ==
+	(sizeof(struct hv_message) - sizeof(struct hv_message_header)));
+
+/* Input and output structures for HVCALL_DISPATCH_VP */
+#define HV_DISPATCH_VP_FLAG_CLEAR_INTERCEPT_SUSPEND 0x1
+#define HV_DISPATCH_VP_FLAG_ENABLE_CALLER_INTERRUPTS 0x2
+#define HV_DISPATCH_VP_FLAG_SET_CALLER_SPEC_CTRL 0x4
+#define HV_DISPATCH_VP_FLAG_SKIP_VP_SPEC_FLUSH 0x8
+#define HV_DISPATCH_VP_FLAG_SKIP_CALLER_SPEC_FLUSH 0x10
+#define HV_DISPATCH_VP_FLAG_SKIP_CALLER_USER_SPEC_FLUSH 0x20
+
+struct hv_input_dispatch_vp {
+	u64 partition_id;
+	u32 vp_index;
+	u32 flags;
+	u64 time_slice; /* in 100ns */
+	u64 spec_ctrl;
+} __packed;
+
+struct hv_output_dispatch_vp {
+	u32 dispatch_state; /* enum hv_vp_dispatch_state */
+	u32 dispatch_event; /* enum hv_vp_dispatch_event */
 } __packed;
 
 #endif
