@@ -1901,6 +1901,7 @@ static int __init mshv_retrieve_scheduler_type(void)
 	switch (hv_scheduler_type) {
 		case HV_SCHEDULER_TYPE_CORE_SMT:
 		case HV_SCHEDULER_TYPE_LP_SMT:
+		case HV_SCHEDULER_TYPE_ROOT:
 			/* Supported scheduler, nothing to do */
 			break;
 		default:
