@@ -221,6 +221,9 @@ mshv_suspend_vp(const struct mshv_vp *vp, bool *message_in_flight)
 }
 
 /*
+ * This function is used when VPs are scheduled by the hypervisor's
+ * scheduler.
+ *
  * Caller has to make sure the registers contain cleared
  * HV_REGISTER_INTERCEPT_SUSPEND and HV_REGISTER_EXPLICIT_SUSPEND registers
  * exactly in this order (the hypervisor clears them sequentially) to avoid
@@ -229,7 +232,7 @@ mshv_suspend_vp(const struct mshv_vp *vp, bool *message_in_flight)
  * opposite order.
  */
 static long
-mshv_run_vp(struct mshv_vp *vp, void __user *ret_message,
+mshv_run_vp_with_hv_scheduler(struct mshv_vp *vp, void __user *ret_message,
 	    struct hv_register_assoc *registers, size_t count)
 
 {
@@ -282,13 +285,17 @@ mshv_run_vp(struct mshv_vp *vp, void __user *ret_message,
 static long
 mshv_vp_ioctl_run_vp(struct mshv_vp *vp, void __user *ret_message)
 {
-	struct hv_register_assoc suspend_registers[2] = {
-		{ .name = HV_REGISTER_INTERCEPT_SUSPEND },
-		{ .name = HV_REGISTER_EXPLICIT_SUSPEND }
-	};
+	if (hv_scheduler_type != HV_SCHEDULER_TYPE_ROOT) {
+		struct hv_register_assoc suspend_registers[2] = {
+			{ .name = HV_REGISTER_INTERCEPT_SUSPEND },
+			{ .name = HV_REGISTER_EXPLICIT_SUSPEND }
+		};
 
-	return mshv_run_vp(vp, ret_message,
-			   suspend_registers, ARRAY_SIZE(suspend_registers));
+		return mshv_run_vp_with_hv_scheduler(vp, ret_message,
+				suspend_registers, ARRAY_SIZE(suspend_registers));
+	}
+
+	return -EOPNOTSUPP;
 }
 
 static long
@@ -303,6 +310,9 @@ mshv_vp_ioctl_run_vp_regs(struct mshv_vp *vp,
 	struct hv_message __user *ret_message;
 	struct mshv_vp_registers __user *user_regs;
 	int i, regs_count;
+
+	if (hv_scheduler_type == HV_SCHEDULER_TYPE_ROOT)
+		return -EOPNOTSUPP;
 
 	if (copy_from_user(&run_regs, user_args, sizeof(run_regs)))
 		return -EFAULT;
@@ -335,7 +345,7 @@ mshv_vp_ioctl_run_vp_regs(struct mshv_vp *vp,
 	memcpy(vp->registers + regs_count,
 	       suspend_registers, sizeof(suspend_registers));
 
-	return mshv_run_vp(vp, ret_message, vp->registers,
+	return mshv_run_vp_with_hv_scheduler(vp, ret_message, vp->registers,
 			   regs_count + ARRAY_SIZE(suspend_registers));
 }
 
