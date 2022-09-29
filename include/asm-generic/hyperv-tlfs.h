@@ -805,15 +805,6 @@ struct hv_memory_hint {
 	union hv_gpa_page_range ranges[];
 } __packed;
 
-union hv_partition_isolation_properties {
-	u64 as_uint64;
-	struct {
-		u64 isolation_type: 5;
-		u64 rsvd_z: 7;
-		u64 shared_gpa_boundary_page_number: 52;
-	};
-} __packed;
-
 /* Non-userspace-visible partition creation flags */
 #define HV_PARTITION_CREATION_FLAG_EXO_PARTITION                    BIT(8)
 
@@ -831,7 +822,6 @@ struct hv_create_partition_in {
 	u32 compatibility_version;
 	u32 padding;
 	struct hv_partition_creation_properties partition_creation_properties;
-	union hv_partition_isolation_properties isolation_properties;
 } __packed;
 
 struct hv_create_partition_out {

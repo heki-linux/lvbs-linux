@@ -115,10 +115,20 @@ union hv_partition_processor_xsave_features {
 	__u64 as_uint64;
 };
 
+union hv_partition_isolation_properties {
+	__u64 as_uint64;
+	struct {
+		__u64 isolation_type: 5;
+		__u64 rsvd_z: 7;
+		__u64 shared_gpa_boundary_page_number: 52;
+	} __packed;
+};
+
 struct hv_partition_creation_properties {
 	union hv_partition_processor_features disabled_processor_features;
 	union hv_partition_processor_xsave_features
 		disabled_processor_xsave_features;
+	union hv_partition_isolation_properties isolation_properties;
 } __packed;
 
 enum hv_register_name {

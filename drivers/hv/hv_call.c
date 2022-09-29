@@ -99,7 +99,9 @@ int hv_call_create_partition(
 			.disabled_processor_xsave_features.as_uint64 =
 			creation_properties.disabled_processor_xsave_features
 				.as_uint64;
-		input->isolation_properties.as_uint64 = 0;
+		input->partition_creation_properties.isolation_properties
+			.as_uint64 =
+			creation_properties.isolation_properties.as_uint64;
 
 		status = hv_do_hypercall(HVCALL_CREATE_PARTITION,
 					 input, output);
