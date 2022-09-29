@@ -92,9 +92,13 @@ int hv_call_create_partition(
 		input->compatibility_version = HV_COMPATIBILITY_20_H1;
 		for (i = 0; i < HV_PARTITION_PROCESSOR_FEATURE_BANKS; ++i)
 			input->partition_creation_properties
-				.disabled_processor_features.as_uint64[i] = 0;
+				.disabled_processor_features.as_uint64[i] =
+				creation_properties.disabled_processor_features
+					.as_uint64[i];
 		input->partition_creation_properties
-			.disabled_processor_xsave_features.as_uint64 = 0;
+			.disabled_processor_xsave_features.as_uint64 =
+			creation_properties.disabled_processor_xsave_features
+				.as_uint64;
 		input->isolation_properties.as_uint64 = 0;
 
 		status = hv_do_hypercall(HVCALL_CREATE_PARTITION,
