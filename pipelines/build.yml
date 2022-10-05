@@ -10,6 +10,10 @@ trigger:
   branches:
     include:
       - msft/mshv-stable
+      - msft/mshv-rolling
+  tags:
+    include:
+      - msft/mshv-rolling/*
 
 pr:
   autoCancel: false
