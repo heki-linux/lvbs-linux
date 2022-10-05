@@ -21,6 +21,7 @@ pr:
   branches:
     include:
       - msft/mshv-stable
+      - msft/mshv-rolling
 
 jobs:
 - job: KERNEL
