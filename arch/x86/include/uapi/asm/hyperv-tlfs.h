@@ -535,6 +535,9 @@ enum hv_register_name {
 	HV_X64_REGISTER_EMULATED_TIMER_CONTROL	= 0x00090031,
 	HV_X64_REGISTER_PM_TIMER_ASSIST		= 0x00090032,
 
+	/* AMD SEV SNP configuration register */
+	HV_X64_REGISTER_SEV_CONTROL		= 0x00090040,
+
 	/* Intercept Control Registers */
 	HV_X64_REGISTER_CR_INTERCEPT_CONTROL			= 0x000E0000,
 	HV_X64_REGISTER_CR_INTERCEPT_CR0_MASK			= 0x000E0001,
@@ -1341,6 +1344,15 @@ union hv_snp_guest_policy
 		__u64 reserved : 44;
 	} __packed;
 	__u64 as_uint64;
+};
+
+union hv_x64_register_sev_control {
+	__u64 as_uint64;
+	struct {
+		__u64 enable_encrypted_state : 1;
+		__u64 reserved_z : 11;
+		__u64 vmsa_gpa_page_number : 52;
+	} __packed;
 };
 
 #endif
