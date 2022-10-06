@@ -331,4 +331,19 @@ enum {
 	 | HV_MODIFY_SPA_PAGE_HOST_ACCESS_HUGE_PAGE	\
 	)
 
+enum hv_isolated_page_type {
+	hv_isolated_page_type_normal = 0,
+	hv_isolated_page_type_vmsa = 1,
+	hv_isolated_page_type_zero = 2,
+	hv_isolated_page_type_unmeasured = 3,
+	hv_isolated_page_type_secrets = 4,
+	hv_isolated_page_type_cpuid = 5,
+	hv_isolated_page_type_count = 6
+};
+
+enum hv_isolated_page_size {
+	hv_isolated_page_size4_kb = 0,
+	hv_isolated_page_size2_mb = 1
+};
+
 #endif
