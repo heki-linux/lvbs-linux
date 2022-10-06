@@ -199,6 +199,8 @@ struct ms_hyperv_tsc_page {
 #define HVCALL_UNMAP_SPARSE_DEVICE_GPA_PAGES	0x00c8
 #define HVCALL_CONFIGURE_DEVICE_DOMAIN		0x00ce
 #define HVCALL_FLUSH_DEVICE_DOMAIN		0x00d0
+#define HVCALL_ACQUIRE_SPARSE_SPA_PAGE_HOST_ACCESS	0x00d7
+#define HVCALL_RELEASE_SPARSE_SPA_PAGE_HOST_ACCESS	0x00d8
 #define HVCALL_MAP_VP_STATE_PAGE			0x00e1
 #define HVCALL_GET_VP_STATE				0x00e3
 #define HVCALL_SET_VP_STATE				0x00e4
@@ -1261,5 +1263,22 @@ struct hv_input_configure_device_domain {
 	struct hv_input_device_domain device_domain;
 	struct hv_device_domain_settings settings;
 } __packed;
+
+struct hv_input_modify_sparse_spa_page_host_access {
+	u32 host_access:2;
+	u32 reserved:30;
+	u32 flags;
+	u64 partition_id;
+	u64 spa_page_list[];
+} __packed;
+
+/*
+ * Maximum number of pages that can be specified in a single
+ * HVCALL_ACQUIRE_SPARSE_SPA_PAGE_HOST_ACCESS or
+ * HVCALL_RELEASE_SPARSE_SPA_PAGE_HOST_ACCESS hypercall.
+ */
+#define HV_MODIFY_SPARSE_SPA_PAGE_HOST_ACCESS_MAX_PAGE_COUNT \
+	((HV_PAGE_SIZE - sizeof(hv_input_modify_sparse_spa_page_host_access)) / \
+	sizeof(u64))
 
 #endif
