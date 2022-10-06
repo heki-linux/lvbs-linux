@@ -25,23 +25,26 @@
 #define HV_PARTITION_ISOLATION_TYPE_TDX             3
 
 /*
- * Definition of the partition isolation state. Used for HV_PARTITION_PROPERTY_ISOLATION_STATE.
+ * Definition of the partition isolation state. Used for
+ * HV_PARTITION_PROPERTY_ISOLATION_STATE.
  *
  *
- * The isolation states (hv_partition_isolation_state) are sub-states of ObPartitionActive that
- * apply to VBS and hardware isolated partitions. For VBS isolation, the trusted host VTL 1
- * component uses the isolation state to establish a binding between a hypervisor partition and its
+ * The isolation states (hv_partition_isolation_state) are sub-states of
+ * ObPartitionActive that apply to VBS and hardware isolated partitions.
+ * For VBS isolation, the trusted host VTL 1 component uses the isolation
+ * state to establish a binding between a hypervisor partition and its
  * own partition context, and to enforce certain invariants.
  *
- * Hardware-isolated partitions (including partitions that simulate hardware isolation) also use
- * isolation states to track the progression of the partition security state through the
- * architectural state machine. Insecure states indicate that there is no architectural state
- * associated with the partition, and Secure indicates that the partition has secure architectural
- * state.
+ * Hardware-isolated partitions (including partitions that simulate
+ * hardware isolation) also use isolation states to track the progression
+ * of the partition security state through the architectural state machine.
+ * Insecure states indicate that there is no architectural state
+ * associated with the partition, and Secure indicates that the partition
+ * has secure architectural state.
  *
- * ObPartitionRestoring is treated differently for isolated partitions. Only the trusted host
- * component is allowed to restore partition state, and ObPartitionRestoring can only transition
- * directly to/from secure.
+ * ObPartitionRestoring is treated differently for isolated partitions.
+ * Only the trusted host component is allowed to restore partition state,
+ * and ObPartitionRestoring can only transition directly to/from secure.
  *
  *
  * ..................................................................
@@ -71,55 +74,58 @@
  */
 enum hv_partition_isolation_state
 {
-    /*
-     * Initial and final state for all non-isolated partitions.
-     */
-    HV_PARTITION_ISOLATION_INVALID             = 0,
+	/*
+	 * Initial and final state for all non-isolated partitions.
+	 */
+	HV_PARTITION_ISOLATION_INVALID             = 0,
 
-    /*
-     * An "Insecure" partition is not being used by the trusted host component. In this state, VPs
-     * can be created and deleted. VPs cannot be started, and VP registers cannot be modified.
+	/*
+	 * An "Insecure" partition is not being used by the trusted host
+	 * component. In this state, VPs can be created and deleted. VPs cannot
+	 * be started, and VP registers cannot be modified.
 
-     * Initial state of an isolated partition as result of Initialize or Scrub hypercalls.
-     * Guest-visible partition and VP state is considered "clean", in the sense that a call
-     * to ObScrubPartition should not result in any changes. Also, there are no accepted or
-     * confidential pages assigned to the partition.
-     * InsecureRundown is enabled.
-     */
-    HV_PARTITION_ISOLATION_INSECURE_CLEAN       = 1,
+	 * Initial state of an isolated partition as result of Initialize or
+	 * Scrub hypercalls. Guest-visible partition and VP state is considered
+	 * "clean", in the sense that a call to ObScrubPartition should not
+	 * result in any changes. Also, there are no accepted or confidential
+	 * pages assigned to the partition. InsecureRundown is enabled.
+	 */
+	HV_PARTITION_ISOLATION_INSECURE_CLEAN       = 1,
 
-    /*
-     * Guest-visible partition and VP state is not "clean". Hence it must be scrubbed first. One of
-     * 2 explicit states the trusted host component can request. It cannot transition the state to
-     * Secure. In this state,
-     *  - IsolationControl is clear.
-     *  - Secure rundowns are completely disabled.
-     *  - No assigned pages exist.
-     */
-    HV_PARTITION_ISOLATION_INSECURE_DIRTY       = 2,
+	/*
+	 * Guest-visible partition and VP state is not "clean". Hence it must
+	 * be scrubbed first. One of 2 explicit states the trusted host
+	 * component can request. It cannot transition the state to Secure. In
+	 * this state,
+	 *  - IsolationControl is clear.
+	 *  - Secure rundowns are completely disabled.
+	 *  - No assigned pages exist.
+	 */
+	HV_PARTITION_ISOLATION_INSECURE_DIRTY       = 2,
 
-    /*
-     * The partition is being used by the trusted host component (and is typically bound to a single
-     * partition context in that component). One of 2 explicit states the trusted host component can
-     * request. In this state,
-     *  - VPs cannot be created or deleted.
-     *  - Partition cannot be finalized, scrubbed.
-     *  - Insecure rundowns are completely disabled.
-     */
-    HV_PARTITION_ISOLATION_SECURE              = 3,
+	/*
+	 * The partition is being used by the trusted host component (and is
+	 * typically bound to a single partition context in that component).
+	 * One of 2 explicit states the trusted host component can request. In
+	 * this state,
+	 *  - VPs cannot be created or deleted.
+	 *  - Partition cannot be finalized, scrubbed.
+	 *  - Insecure rundowns are completely disabled.
+	 */
+	HV_PARTITION_ISOLATION_SECURE              = 3,
 
-    /*
-     * Represents a failed attempt to transition to Secure state. Partition in this state
-     * cannot be finalized, scrubbed since one or more pages may be assigned.
-     */
-    HV_PARTITION_ISOLATION_SECURE_DIRTY         = 4,
+	/*
+	 * Represents a failed attempt to transition to Secure state. Partition
+	 * in this state cannot be finalized, scrubbed since one or more pages
+	 * may be assigned.
+	 */
+	HV_PARTITION_ISOLATION_SECURE_DIRTY         = 4,
 
-    /*
-     * An internal state indicating that a partition is in the process of transitioning from
-     * Secure to InsecureDirty.
-     */
-    HV_PARTITION_ISOLATION_SECURE_TERMINATING   = 5,
-
+	/*
+	 * An internal state indicating that a partition is in the process of
+	 * transitioning from Secure to InsecureDirty.
+	 */
+	HV_PARTITION_ISOLATION_SECURE_TERMINATING   = 5,
 };
 
 struct mshv_create_partition {

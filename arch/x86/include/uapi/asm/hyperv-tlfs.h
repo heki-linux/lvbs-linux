@@ -1331,17 +1331,16 @@ union hv_register_intercept_result_parameters {
 
 union hv_snp_guest_policy
 {
-    struct
-    {
-        __u64 minor_version : 8;
-        __u64 major_version : 8;
-        __u64 smt_allowed : 1;
-        __u64 vmpls_required : 1;
-        __u64 migration_agent_allowed : 1;
-        __u64 debug_allowed : 1;
-        __u64 reserved : 44;
-    } __packed;
-    __u64 as_uint64;
+	struct {
+		__u64 minor_version : 8;
+		__u64 major_version : 8;
+		__u64 smt_allowed : 1;
+		__u64 vmpls_required : 1;
+		__u64 migration_agent_allowed : 1;
+		__u64 debug_allowed : 1;
+		__u64 reserved : 44;
+	} __packed;
+	__u64 as_uint64;
 };
 
 #endif
