@@ -195,14 +195,26 @@ irqfd_wakeup(wait_queue_entry_t *wait, unsigned int mode,
 	struct mshv_kernel_irqfd *irqfd =
 		container_of(wait, struct mshv_kernel_irqfd, wait);
 	unsigned long flags = (unsigned long)key;
+	int idx;
+	unsigned int seq;
+	struct mshv_partition *partition = irqfd->partition;
 
-	if (flags & POLLIN)
+	if (flags & POLLIN) {
+		u64 cnt;
+
+		eventfd_ctx_do_read(irqfd->eventfd, &cnt);
+		idx = srcu_read_lock(&partition->irq_srcu);
+		do {
+			seq = read_seqcount_begin(&irqfd->msi_entry_sc);
+		} while (read_seqcount_retry(&irqfd->msi_entry_sc, seq));
+
 		/* An event has been signaled, inject an interrupt */
 		irqfd_inject(irqfd);
+		srcu_read_unlock(&partition->irq_srcu, idx);
+	}
 
 	if (flags & POLLHUP) {
 		/* The eventfd is closing, detach from Partition */
-		struct mshv_partition *partition = irqfd->partition;
 		unsigned long flags;
 
 		spin_lock_irqsave(&partition->irqfds.lock, flags);
@@ -293,31 +305,6 @@ mshv_irqfd_assign(struct mshv_partition *partition,
 
 	irqfd->eventfd = eventfd;
 
-
-	spin_lock_irq(&partition->irqfds.lock);
-	idx = srcu_read_lock(&partition->irq_srcu);
-	irqfd_update(partition, irqfd);
-	srcu_read_unlock(&partition->irq_srcu, idx);
-
-	if (args->flags & MSHV_IRQFD_FLAG_RESAMPLE &&
-	    !irqfd->lapic_irq.control.level_triggered) {
-		spin_unlock_irq(&partition->irqfds.lock);
-		ret = -EINVAL;
-		goto fail;
-	}
-
-	ret = 0;
-	list_for_each_entry(tmp, &partition->irqfds.items, list) {
-		if (irqfd->eventfd != tmp->eventfd)
-			continue;
-		/* This fd is used for another irq already. */
-		ret = -EBUSY;
-		spin_unlock_irq(&partition->irqfds.lock);
-		goto fail;
-	}
-	list_add_tail(&irqfd->list, &partition->irqfds.items);
-	spin_unlock_irq(&partition->irqfds.lock);
-
 	if (args->flags & MSHV_IRQFD_FLAG_RESAMPLE) {
 		struct mshv_kernel_irqfd_resampler *resampler;
 
@@ -373,6 +360,32 @@ mshv_irqfd_assign(struct mshv_partition *partition,
 	init_waitqueue_func_entry(&irqfd->wait, irqfd_wakeup);
 	init_poll_funcptr(&irqfd->pt, irqfd_ptable_queue_proc);
 
+	spin_lock_irq(&partition->irqfds.lock);
+	if (args->flags & MSHV_IRQFD_FLAG_RESAMPLE &&
+	    !irqfd->lapic_irq.control.level_triggered) {
+		/*
+		 * Resample Fd must be for level triggered interrupt
+		 * Otherwise return with failure
+		 */
+		spin_unlock_irq(&partition->irqfds.lock);
+		ret = -EINVAL;
+		goto fail;
+	}
+	ret = 0;
+	list_for_each_entry(tmp, &partition->irqfds.items, list) {
+		if (irqfd->eventfd != tmp->eventfd)
+			continue;
+		/* This fd is used for another irq already. */
+		ret = -EBUSY;
+		spin_unlock_irq(&partition->irqfds.lock);
+		goto fail;
+	}
+
+	idx = srcu_read_lock(&partition->irq_srcu);
+	irqfd_update(partition, irqfd);
+	list_add_tail(&irqfd->list, &partition->irqfds.items);
+	spin_unlock_irq(&partition->irqfds.lock);
+
 	/*
 	 * Check if there was an event already pending on the eventfd
 	 * before we registered, and trigger it as if we didn't miss it.
@@ -382,6 +395,7 @@ mshv_irqfd_assign(struct mshv_partition *partition,
 	if (events & POLLIN)
 		irqfd_inject(irqfd);
 
+	srcu_read_unlock(&partition->irq_srcu, idx);
 	/*
 	 * do not drop the file until the irqfd is fully initialized, otherwise
 	 * we might race against the POLLHUP
