@@ -32,6 +32,8 @@ MODULE_LICENSE("GPL");
 
 struct mshv mshv = {};
 
+enum hv_scheduler_type hv_scheduler_type;
+
 static int mshv_vp_release(struct inode *inode, struct file *filp);
 static long mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg);
 static struct mshv_partition *mshv_partition_get(struct mshv_partition *partition);
@@ -1618,6 +1620,63 @@ mshv_dev_release(struct inode *inode, struct file *filp)
 
 static int mshv_cpuhp_online;
 
+static const char *scheduler_type_to_string(enum hv_scheduler_type type)
+{
+	switch (type) {
+		case HV_SCHEDULER_TYPE_LP:
+			return "classic scheduler without SMT";
+		case HV_SCHEDULER_TYPE_LP_SMT:
+			return "classic scheduler with SMT";
+		case HV_SCHEDULER_TYPE_CORE_SMT:
+			return "core scheduler";
+		case HV_SCHEDULER_TYPE_ROOT:
+			return "root scheduler";
+		default:
+			return "unknown scheduler";
+	};
+}
+
+/* Retrieve and stash the supported scheduler type */
+static int __init mshv_retrieve_scheduler_type(void)
+{
+	struct hv_input_get_system_property *input;
+	struct hv_output_get_system_property *output;
+	unsigned long flags;
+	u64 status;
+
+	local_irq_save(flags);
+	input = *this_cpu_ptr(hyperv_pcpu_input_arg);
+	output = *this_cpu_ptr(hyperv_pcpu_output_arg);
+
+	memset(input, 0, sizeof(*input));
+	memset(output, 0, sizeof(*output));
+	input->property_id = HV_SYSTEM_PROPERTY_SCHEDULER_TYPE;
+
+	status = hv_do_hypercall(HVCALL_GET_SYSTEM_PROPERTY, input, output);
+	if (!hv_result_success(status)) {
+		local_irq_restore(flags);
+		pr_err("%s: %s\n", __func__, hv_status_to_string(status));
+		return hv_status_to_errno(status);
+	}
+
+	hv_scheduler_type = output->scheduler_type;
+	local_irq_restore(flags);
+
+	pr_info("mshv: hypervisor using %s\n", scheduler_type_to_string(hv_scheduler_type));
+
+	switch (hv_scheduler_type) {
+		case HV_SCHEDULER_TYPE_CORE_SMT:
+		case HV_SCHEDULER_TYPE_LP_SMT:
+			/* Supported scheduler, nothing to do */
+			break;
+		default:
+			pr_info("mshv: unsupported scheduler, bailing.\n");
+			return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
 static int
 __init mshv_init(void)
 {
@@ -1627,6 +1686,9 @@ __init mshv_init(void)
 		return -ENODEV;
 
 	if (!hv_root_partition)
+		return -ENODEV;
+
+	if (mshv_retrieve_scheduler_type())
 		return -ENODEV;
 
 	ret = misc_register(&mshv_dev);
