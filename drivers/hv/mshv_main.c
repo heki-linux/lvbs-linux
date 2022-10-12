@@ -1620,6 +1620,9 @@ __init mshv_init(void)
 	if (!hv_is_hyperv_initialized())
 		return -ENODEV;
 
+	if (!hv_root_partition)
+		return -ENODEV;
+
 	ret = misc_register(&mshv_dev);
 	if (ret) {
 		pr_err("%s: misc device register failed\n", __func__);
