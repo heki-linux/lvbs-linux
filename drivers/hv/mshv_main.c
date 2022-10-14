@@ -253,7 +253,7 @@ mshv_run_vp_with_hv_scheduler(struct mshv_vp *vp, void __user *ret_message,
 	}
 
 	ret = wait_event_interruptible(vp->run.suspend_queue,
-				       msg->header.message_type != HVMSG_NONE);
+				       vp->run.flags.kicked_by_hv == 1);
 	if (ret) {
 		bool message_in_flight;
 
@@ -270,18 +270,17 @@ mshv_run_vp_with_hv_scheduler(struct mshv_vp *vp, void __user *ret_message,
 			return -EINTR;
 
 		/* Wait for the message in flight. */
-		wait_event(vp->run.suspend_queue,
-			   msg->header.message_type != HVMSG_NONE);
+		wait_event(vp->run.suspend_queue, vp->run.flags.kicked_by_hv == 1);
 	}
 
 	if (copy_to_user(ret_message, msg, sizeof(struct hv_message)))
 		return -EFAULT;
 
 	/*
-	 * Reset the message type to make the wait_event call above work
+	 * Reset the flag to make the wait_event call above work
 	 * next time.
 	 */
-	msg->header.message_type = HVMSG_NONE;
+	vp->run.flags.kicked_by_hv = 0;
 
 	return 0;
 }
@@ -1580,14 +1579,13 @@ destroy_partition(struct mshv_partition *partition)
 	struct mshv_vp *vp;
 	struct mshv_mem_region *region;
 	int i;
-	bool root_sched = hv_scheduler_type == HV_SCHEDULER_TYPE_ROOT;
 
 	/*
 	 * VPs are reachable from ISR. It is safe to not take the partition
 	 * lock because nobody else can enter this function and drop the
 	 * partition from the list.
 	 */
-	for (i = 0; root_sched && i < MSHV_MAX_VPS; ++i) {
+	for (i = 0; i < MSHV_MAX_VPS; ++i) {
 		vp = partition->vps.array[i];
 		if (!vp)
 			continue;

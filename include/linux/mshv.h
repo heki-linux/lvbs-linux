@@ -26,7 +26,7 @@ struct mshv_vp {
 	struct hv_message *intercept_message_page;
 	struct hv_register_assoc *registers;
 	struct {
-		atomic64_t signaled_count; /* root scheduler only */
+		atomic64_t signaled_count;
 		struct {
 			u64 explicit_suspend: 1;
 			u64 blocked_by_explicit_suspend: 1; /* root scheduler only */

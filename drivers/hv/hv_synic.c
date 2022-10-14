@@ -373,7 +373,7 @@ mshv_intercept_isr(struct hv_message *msg)
 	memcpy(&vp->run.intercept_message, vp->intercept_message_page,
 			sizeof(struct hv_message));
 
-	wake_up(&vp->run.suspend_queue);
+	kick_vp(vp);
 
 	handled = true;
 
