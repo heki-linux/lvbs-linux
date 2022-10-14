@@ -1742,7 +1742,7 @@ mshv_ioctl_create_partition(void __user *user_arg)
 
 	mutex_init(&partition->mutex);
 
-	spin_lock_init(&partition->irq_lock);
+	mutex_init(&partition->irq_lock);
 
 	INIT_HLIST_HEAD(&partition->irq_ack_notifier_list);
 

@@ -26,18 +26,18 @@ void
 mshv_register_irq_ack_notifier(struct mshv_partition *partition,
 			       struct mshv_irq_ack_notifier *mian)
 {
-	spin_lock(&partition->irq_lock);
+	mutex_lock(&partition->irq_lock);
 	hlist_add_head_rcu(&mian->link, &partition->irq_ack_notifier_list);
-	spin_unlock(&partition->irq_lock);
+	mutex_unlock(&partition->irq_lock);
 }
 
 void
 mshv_unregister_irq_ack_notifier(struct mshv_partition *partition,
 				 struct mshv_irq_ack_notifier *mian)
 {
-	spin_lock(&partition->irq_lock);
+	mutex_lock(&partition->irq_lock);
 	hlist_del_init_rcu(&mian->link);
-	spin_unlock(&partition->irq_lock);
+	mutex_unlock(&partition->irq_lock);
 	synchronize_rcu();
 }
 

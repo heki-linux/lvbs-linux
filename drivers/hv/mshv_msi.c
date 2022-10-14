@@ -68,11 +68,11 @@ int mshv_set_msi_routing(struct mshv_partition *partition,
 	}
 
 swap_routes:
-	spin_lock(&partition->irq_lock);
+	mutex_lock(&partition->irq_lock);
 	old = rcu_dereference_protected(partition->msi_routing, 1);
 	rcu_assign_pointer(partition->msi_routing, new);
 	mshv_irqfd_routing_update(partition);
-	spin_unlock(&partition->irq_lock);
+	mutex_unlock(&partition->irq_lock);
 
 	synchronize_srcu_expedited(&partition->irq_srcu);
 	new = old;
