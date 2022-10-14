@@ -1642,6 +1642,8 @@ __init mshv_init(void)
 	if (ret < 0) {
 		pr_err("%s: failed to setup cpu hotplug state: %i\n",
 		       __func__, ret);
+		free_percpu(mshv.synic_pages);
+		misc_deregister(&mshv_dev);
 		return ret;
 	}
 
