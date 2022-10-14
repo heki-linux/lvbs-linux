@@ -228,6 +228,9 @@ enum HV_GENERIC_SET_FORMAT {
 	HV_GENERIC_SET_ALL,
 };
 
+/* Each generic set contains 64 elements */
+#define HV_GENERIC_SET_SHIFT 6
+
 #define HV_PARTITION_ID_SELF		((u64)-1)
 #define HV_VP_INDEX_SELF		((u32)-2)
 

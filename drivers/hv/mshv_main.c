@@ -34,6 +34,10 @@ struct mshv mshv = {};
 
 enum hv_scheduler_type hv_scheduler_type;
 
+/* Once we implement the fast extended hypercall ABI they can go away. */
+static void __percpu **root_scheduler_input;
+static void __percpu **root_scheduler_output;
+
 static int mshv_vp_release(struct inode *inode, struct file *filp);
 static long mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg);
 static struct mshv_partition *mshv_partition_get(struct mshv_partition *partition);
@@ -283,6 +287,144 @@ mshv_run_vp_with_hv_scheduler(struct mshv_vp *vp, void __user *ret_message,
 }
 
 static long
+mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
+{
+	struct hv_input_dispatch_vp *input;
+	struct hv_output_dispatch_vp *output;
+	long ret = 0;
+	u64 status;
+	bool complete = false;
+	bool got_intercept_message = false;
+
+	while (!complete) {
+		if (vp->run.flags.blocked_by_explicit_suspend) {
+			/* Need to clear explicit suspend before dispatching */
+			struct hv_register_assoc explicit_suspend = {
+				.name = HV_REGISTER_EXPLICIT_SUSPEND,
+				.value.explicit_suspend.suspended = 0,
+			};
+
+			ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
+					1, &explicit_suspend);
+			if (ret) {
+				pr_err("%s: failed to unsuspend partition %llu vp %u\n",
+					__func__, vp->partition->id, vp->index);
+				complete = true;
+				break;
+			}
+
+			vp->run.flags.explicit_suspend = 0;
+
+			/* Wait for the hypervisor to clear the blocked state */
+			ret = wait_event_interruptible(vp->run.suspend_queue,
+					vp->run.flags.kicked_by_hv == 1);
+			if (ret == -EINTR) {
+				complete = true;
+				break;
+			}
+			vp->run.flags.kicked_by_hv = 0;
+			vp->run.flags.blocked_by_explicit_suspend = 0;
+		}
+
+		preempt_disable();
+
+		while (!vp->run.flags.blocked_by_explicit_suspend && !got_intercept_message) {
+			u32 flags = 0;
+			unsigned long irq_flags, ti_work;
+			const unsigned long work_flags = _TIF_NEED_RESCHED | \
+				_TIF_SIGPENDING | \
+				_TIF_NOTIFY_SIGNAL | \
+				_TIF_NOTIFY_RESUME;
+
+			if (vp->run.flags.intercept_suspend)
+				flags |= HV_DISPATCH_VP_FLAG_CLEAR_INTERCEPT_SUSPEND;
+
+			local_irq_save(irq_flags);
+
+			ti_work = READ_ONCE(current_thread_info()->flags);
+			if (unlikely(ti_work & work_flags) || need_resched()) {
+				local_irq_restore(irq_flags);
+				preempt_enable();
+
+				if (xfer_to_guest_mode_handle_work(ti_work) == -EINTR) {
+					complete = true;
+					ret = -EINTR;
+					break;
+				}
+
+				preempt_disable();
+				continue;
+			}
+
+			/*
+			 * Note the lack of local_irq_restore after the dipatch
+			 * call. We rely on the hypervisor to do that for us.
+			 *
+			 * Thread context should always have interrupt enabled,
+			 * but we try to be defensive here by testing what it
+			 * truly was before we disabled interrupt.
+			 */
+			if (!irqs_disabled_flags(irq_flags))
+				flags |= HV_DISPATCH_VP_FLAG_ENABLE_CALLER_INTERRUPTS;
+
+			/* Preemption is disabled at this point */
+			input = *this_cpu_ptr(root_scheduler_input);
+			output = *this_cpu_ptr(root_scheduler_output);
+
+			memset(input, 0, sizeof(*input));
+			memset(output, 0, sizeof(*output));
+
+			input->partition_id = vp->partition->id;
+			input->vp_index = vp->index;
+			input->time_slice = 0; /* Run forever until something happens */
+			input->spec_ctrl = 0; /* TODO: set sensible flags */
+			input->flags = flags;
+
+			status = hv_do_hypercall(HVCALL_DISPATCH_VP, input, output);
+
+			if (!hv_result_success(status)) {
+				pr_err("%s: status %s\n", __func__, hv_status_to_string(status));
+				ret = hv_status_to_errno(status);
+				complete = true;
+				break;
+			}
+
+			vp->run.flags.intercept_suspend = 0;
+
+			if (output->dispatch_state == HV_VP_DISPATCH_STATE_BLOCKED) {
+				if (output->dispatch_event == HV_VP_DISPATCH_EVENT_SUSPEND) {
+					vp->run.flags.blocked_by_explicit_suspend = 1;
+				} else {
+					ret = wait_event_interruptible(vp->run.suspend_queue,
+							vp->run.flags.kicked_by_hv == 1);
+					if (ret == -EINTR) {
+						complete = true;
+						break;
+					}
+					vp->run.flags.kicked_by_hv = 0;
+				}
+			} else {
+				/* HV_VP_DISPATCH_STATE_READY */
+				if (output->dispatch_event == HV_VP_DISPATCH_EVENT_INTERCEPT)
+					got_intercept_message = 1;
+			}
+		}
+
+		preempt_enable();
+
+		if (got_intercept_message) {
+			vp->run.flags.intercept_suspend = 1;
+			if (copy_to_user(ret_message, vp->intercept_message_page,
+					sizeof(struct hv_message)))
+				ret =  -EFAULT;
+			complete = true;
+		}
+	}
+
+	return ret;
+}
+
+static long
 mshv_vp_ioctl_run_vp(struct mshv_vp *vp, void __user *ret_message)
 {
 	if (hv_scheduler_type != HV_SCHEDULER_TYPE_ROOT) {
@@ -295,7 +437,7 @@ mshv_vp_ioctl_run_vp(struct mshv_vp *vp, void __user *ret_message)
 				suspend_registers, ARRAY_SIZE(suspend_registers));
 	}
 
-	return -EOPNOTSUPP;
+	return mshv_run_vp_with_root_scheduler(vp, ret_message);
 }
 
 static long
@@ -673,6 +815,8 @@ mshv_partition_ioctl_create_vp(struct mshv_partition *partition,
 
 	mutex_init(&vp->mutex);
 	init_waitqueue_head(&vp->run.suspend_queue);
+
+	atomic64_set(&vp->run.signaled_count, 0);
 
 	vp->registers = kmalloc_array(MSHV_VP_MAX_REGISTERS,
 				      sizeof(*vp->registers), GFP_KERNEL);
@@ -1364,6 +1508,71 @@ mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 	return ret;
 }
 
+static int
+disable_vp_dispatch(struct mshv_vp *vp)
+{
+	int ret;
+	struct hv_register_assoc dispatch_suspend = {
+		.name = HV_REGISTER_DISPATCH_SUSPEND,
+		.value.dispatch_suspend.suspended = 1,
+	};
+
+	ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
+					1, &dispatch_suspend);
+	if (ret)
+		pr_err("%s: failed to suspend partition %llu vp %u\n",
+			__func__, vp->partition->id, vp->index);
+
+	return ret;
+}
+
+static int
+get_vp_signaled_count(struct mshv_vp *vp, u64 *count)
+{
+	int ret;
+	struct hv_register_assoc root_signal_count = {
+		.name = HV_REGISTER_VP_ROOT_SIGNAL_COUNT,
+	};
+
+	ret = hv_call_get_vp_registers(vp->index, vp->partition->id,
+			1, &root_signal_count);
+
+	if (ret) {
+		pr_err("%s: failed to get root signal count for partition %llu vp %u",
+			__func__, vp->partition->id, vp->index);
+		*count = 0;
+	}
+
+	*count = root_signal_count.value.reg64;
+
+	return ret;
+}
+
+static void
+drain_vp_signals(struct mshv_vp *vp)
+{
+	u64 hv_signal_count;
+	u64 vp_signal_count;
+
+	get_vp_signaled_count(vp, &hv_signal_count);
+
+	vp_signal_count = atomic64_read(&vp->run.signaled_count);
+
+	/*
+	 * There should be at most 1 outstanding notification, but be extra
+	 * careful anyway.
+	 */
+	while (hv_signal_count != vp_signal_count) {
+		WARN_ON(hv_signal_count - vp_signal_count != 1);
+
+		if (wait_event_interruptible(vp->run.suspend_queue,
+						vp->run.flags.kicked_by_hv == 1))
+			break;
+		vp->run.flags.kicked_by_hv = 0;
+		vp_signal_count = atomic64_read(&vp->run.signaled_count);
+	}
+}
+
 static void
 destroy_partition(struct mshv_partition *partition)
 {
@@ -1371,6 +1580,25 @@ destroy_partition(struct mshv_partition *partition)
 	struct mshv_vp *vp;
 	struct mshv_mem_region *region;
 	int i;
+	bool root_sched = hv_scheduler_type == HV_SCHEDULER_TYPE_ROOT;
+
+	/*
+	 * VPs are reachable from ISR. It is safe to not take the partition
+	 * lock because nobody else can enter this function and drop the
+	 * partition from the list.
+	 */
+	for (i = 0; root_sched && i < MSHV_MAX_VPS; ++i) {
+		vp = partition->vps.array[i];
+		if (!vp)
+			continue;
+		/*
+		 * Disable dispatching of the VP in the hypervisor. After this
+		 * the hypervisor guarantees it won't generate any signals for
+		 * the VP and the hypervisor's VP signal count won't change.
+		 */
+		disable_vp_dispatch(vp);
+		drain_vp_signals(vp);
+	}
 
 	/* Remove from list of partitions */
 	spin_lock_irqsave(&mshv.partitions.lock, flags);
@@ -1391,11 +1619,6 @@ destroy_partition(struct mshv_partition *partition)
 		hv_remove_mshv_irq();
 
 	spin_unlock_irqrestore(&mshv.partitions.lock, flags);
-
-	/*
-	 * There are no remaining references to the partition,
-	 * so the remaining cleanup can be lockless
-	 */
 
 	/* Remove vps */
 	for (i = 0; i < MSHV_MAX_VPS; ++i) {
@@ -1629,6 +1852,7 @@ mshv_dev_release(struct inode *inode, struct file *filp)
 }
 
 static int mshv_cpuhp_online;
+static int mshv_root_sched_online;
 
 static const char *scheduler_type_to_string(enum hv_scheduler_type type)
 {
@@ -1687,6 +1911,91 @@ static int __init mshv_retrieve_scheduler_type(void)
 	return 0;
 }
 
+static int mshv_root_scheduler_init(unsigned int cpu)
+{
+	void **inputarg, **outputarg, *p;
+
+	inputarg = (void **)this_cpu_ptr(root_scheduler_input);
+	outputarg = (void **)this_cpu_ptr(root_scheduler_output);
+
+	/* Allocate two consecutive pages. One for input, one for output. */
+	p = kmalloc(2 * HV_HYP_PAGE_SIZE, GFP_KERNEL);
+	if (!p)
+		return -ENOMEM;
+
+	*inputarg = p;
+	*outputarg = (char *)p + HV_HYP_PAGE_SIZE;
+
+	return 0;
+}
+
+static int mshv_root_scheduler_cleanup(unsigned int cpu)
+{
+	void *p, **inputarg, **outputarg;
+
+	inputarg = (void **)this_cpu_ptr(root_scheduler_input);
+	outputarg = (void **)this_cpu_ptr(root_scheduler_output);
+
+	p = *inputarg;
+
+	*inputarg = NULL;
+	*outputarg = NULL;
+
+	kfree(p);
+
+	return 0;
+}
+
+/* Must be called after retrieving the scheduler type */
+static int
+root_scheduler_init(void)
+{
+	int ret;
+
+	if (hv_scheduler_type != HV_SCHEDULER_TYPE_ROOT)
+		return 0;
+
+	root_scheduler_input = alloc_percpu(void *);
+	root_scheduler_output = alloc_percpu(void *);
+
+	if (!root_scheduler_input || !root_scheduler_output) {
+		pr_err("%s: failed to allocate root scheduler buffers\n",
+			__func__);
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "mshv_root_sched",
+				mshv_root_scheduler_init,
+				mshv_root_scheduler_cleanup);
+
+	if (ret < 0) {
+		pr_err("%s: failed to setup root scheduler state: %i\n",
+			__func__, ret);
+		goto out;
+	}
+
+	mshv_root_sched_online = ret;
+
+	return 0;
+
+out:
+	free_percpu(root_scheduler_input);
+	free_percpu(root_scheduler_output);
+	return ret;
+}
+
+static void
+root_scheduler_deinit(void)
+{
+	if (hv_scheduler_type != HV_SCHEDULER_TYPE_ROOT)
+		return;
+
+	cpuhp_remove_state(mshv_root_sched_online);
+	free_percpu(root_scheduler_input);
+	free_percpu(root_scheduler_output);
+}
+
 static int
 __init mshv_init(void)
 {
@@ -1701,17 +2010,21 @@ __init mshv_init(void)
 	if (mshv_retrieve_scheduler_type())
 		return -ENODEV;
 
+	ret = root_scheduler_init();
+	if (ret)
+		goto out;
+
 	ret = misc_register(&mshv_dev);
 	if (ret) {
 		pr_err("%s: misc device register failed\n", __func__);
-		return ret;
+		goto root_sched_deinit;
 	}
 
 	mshv.synic_pages = alloc_percpu(struct hv_synic_pages);
 	if (!mshv.synic_pages) {
 		pr_err("%s: failed to allocate percpu synic page\n", __func__);
-		misc_deregister(&mshv_dev);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto deregister_dev;
 	}
 
 	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "mshv_synic",
@@ -1720,12 +2033,11 @@ __init mshv_init(void)
 	if (ret < 0) {
 		pr_err("%s: failed to setup cpu hotplug state: %i\n",
 		       __func__, ret);
-		free_percpu(mshv.synic_pages);
-		misc_deregister(&mshv_dev);
-		return ret;
+		goto free_synic_pages;
 	}
 
 	mshv_cpuhp_online = ret;
+
 	spin_lock_init(&mshv.partitions.lock);
 
 	if (mshv_irqfd_wq_init())
@@ -1734,12 +2046,23 @@ __init mshv_init(void)
 	mshv_vfio_ops_init();
 
 	return 0;
+
+free_synic_pages:
+	free_percpu(mshv.synic_pages);
+deregister_dev:
+	misc_deregister(&mshv_dev);
+root_sched_deinit:
+	root_scheduler_deinit();
+out:
+	return ret;
 }
 
 static void
 __exit mshv_exit(void)
 {
 	mshv_irqfd_wq_cleanup();
+
+	root_scheduler_deinit();
 
 	cpuhp_remove_state(mshv_cpuhp_online);
 	free_percpu(mshv.synic_pages);
