@@ -231,7 +231,7 @@ mshv_run_vp(struct mshv_vp *vp, void __user *ret_message,
 	    struct hv_register_assoc *registers, size_t count)
 
 {
-	struct hv_message *msg = vp->run.intercept_message;
+	struct hv_message *msg = &vp->run.intercept_message;
 	long ret;
 
 	/* Resume VP execution */
@@ -265,8 +265,7 @@ mshv_run_vp(struct mshv_vp *vp, void __user *ret_message,
 			   msg->header.message_type != HVMSG_NONE);
 	}
 
-	if (copy_to_user(ret_message, vp->run.intercept_message,
-			 sizeof(struct hv_message)))
+	if (copy_to_user(ret_message, msg, sizeof(struct hv_message)))
 		return -EFAULT;
 
 	/*
@@ -644,6 +643,7 @@ mshv_partition_ioctl_create_vp(struct mshv_partition *partition,
 	struct file *file;
 	int fd;
 	long ret;
+	struct page *intercept_message_page;
 
 	if (copy_from_user(&args, arg, sizeof(args)))
 		return -EFAULT;
@@ -662,18 +662,11 @@ mshv_partition_ioctl_create_vp(struct mshv_partition *partition,
 	mutex_init(&vp->mutex);
 	init_waitqueue_head(&vp->run.suspend_queue);
 
-	vp->run.intercept_message =
-		(struct hv_message *)get_zeroed_page(GFP_KERNEL);
-	if (!vp->run.intercept_message) {
-		ret = -ENOMEM;
-		goto free_vp;
-	}
-
 	vp->registers = kmalloc_array(MSHV_VP_MAX_REGISTERS,
 				      sizeof(*vp->registers), GFP_KERNEL);
 	if (!vp->registers) {
 		ret = -ENOMEM;
-		goto free_message;
+		goto free_vp;
 	}
 
 	vp->index = args.vp_index;
@@ -704,6 +697,14 @@ mshv_partition_ioctl_create_vp(struct mshv_partition *partition,
 	if (ret)
 		goto release_file;
 
+	ret = hv_call_map_vp_state_page(partition->id, vp->index,
+					HV_VP_STATE_PAGE_INTERCEPT_MESSAGE,
+					&intercept_message_page);
+	if (ret)
+		goto release_file;
+
+	vp->intercept_message_page = page_to_virt(intercept_message_page);
+
 	/* already exclusive with the partition mutex for all ioctls */
 	partition->vps.count++;
 	partition->vps.array[args.vp_index] = vp;
@@ -720,8 +721,6 @@ put_partition:
 	mshv_partition_put(partition);
 free_registers:
 	kfree(vp->registers);
-free_message:
-	free_page((unsigned long)vp->run.intercept_message);
 free_vp:
 	kfree(vp);
 
@@ -1386,21 +1385,25 @@ destroy_partition(struct mshv_partition *partition)
 	 * so the remaining cleanup can be lockless
 	 */
 
-	/* Deallocates and unmaps everything including vcpus, GPA mappings etc */
-	hv_call_finalize_partition(partition->id);
-	/* Withdraw and free all pages we deposited */
-	hv_call_withdraw_memory(U64_MAX, NUMA_NO_NODE, partition->id);
-	hv_call_delete_partition(partition->id);
-
 	/* Remove vps */
 	for (i = 0; i < MSHV_MAX_VPS; ++i) {
 		vp = partition->vps.array[i];
 		if (!vp)
 			continue;
 		kfree(vp->registers);
-		free_page((unsigned long)vp->run.intercept_message);
+		if (vp->intercept_message_page) {
+			(void)hv_call_unmap_vp_state_page(partition->id, vp->index,
+					HV_VP_STATE_PAGE_INTERCEPT_MESSAGE);
+			vp->intercept_message_page = NULL;
+		}
 		kfree(vp);
 	}
+
+	/* Deallocates and unmaps everything including vcpus, GPA mappings etc */
+	hv_call_finalize_partition(partition->id);
+	/* Withdraw and free all pages we deposited */
+	hv_call_withdraw_memory(U64_MAX, NUMA_NO_NODE, partition->id);
+	hv_call_delete_partition(partition->id);
 
 	/* Remove regions and unpin the pages */
 	for (i = 0; i < MSHV_MAX_MEM_REGIONS; ++i) {
@@ -1497,6 +1500,8 @@ mshv_ioctl_create_partition(void __user *user_arg)
 
 	/* Only support EXO partitions */
 	args.flags |= HV_PARTITION_CREATION_FLAG_EXO_PARTITION;
+	/* Enable intercept message page */
+	args.flags |= HV_PARTITION_CREATION_FLAG_INTERCEPT_MESSAGE_PAGE_ENABLED;
 
 	partition = kzalloc(sizeof(*partition), GFP_KERNEL);
 	if (!partition)

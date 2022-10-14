@@ -23,10 +23,11 @@ struct mshv_vp {
 	struct mshv_partition *partition;
 	struct mutex mutex;
 	struct page *register_page;
+	struct hv_message *intercept_message_page;
 	struct hv_register_assoc *registers;
 	struct {
 		wait_queue_head_t suspend_queue;
-		struct hv_message *intercept_message;
+		struct hv_message intercept_message;
 	} run;
 };
 

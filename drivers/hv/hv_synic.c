@@ -180,18 +180,34 @@ mshv_intercept_isr(struct hv_message *msg)
 	}
 
 	/*
+	 * We should get an opaque intercept message here for all intercept
+	 * messages, since we're using the mapped VP intercept message page.
+	 *
+	 * The intercept message will have been placed in intercept message
+	 * page at this point.
+	 *
+	 * Make sure the message type matches our expectation.
+	 */
+	if (msg->header.message_type != HVMSG_OPAQUE_INTERCEPT) {
+		pr_debug("%s: wrong message type %d", __func__,
+			msg->header.message_type);
+		goto unlock_out;
+	}
+
+	/*
 	 * Since we directly index the vp, and it has to exist for us to be here
 	 * (because the vp is only deleted when the partition is), no additional
 	 * locking is needed here
 	 */
-	vp_index = ((struct hv_x64_intercept_message_header *)msg->u.payload)->vp_index;
+	vp_index = ((struct hv_opaque_intercept_message *)msg->u.payload)->vp_index;
 	vp = partition->vps.array[vp_index];
 	if (unlikely(!vp)) {
 		pr_err("%s: failed to find vp\n", __func__);
 		goto unlock_out;
 	}
 
-	memcpy(vp->run.intercept_message, msg, sizeof(struct hv_message));
+	memcpy(&vp->run.intercept_message, vp->intercept_message_page,
+			sizeof(struct hv_message));
 
 	wake_up(&vp->run.suspend_queue);
 
