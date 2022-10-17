@@ -4,6 +4,9 @@
 
 include "../../debian.master/config/annotations"
 
+CONFIG_BLK_DEV_FD                                policy<{'amd64': 'n'}>
+CONFIG_BLK_DEV_FD                               mark<ENFORCED> note<LP: #1972017>
+
 CONFIG_HIBERNATION                              policy<{'amd64': 'y', 'arm64': 'y'}>
 CONFIG_HIBERNATION                              mark<ENFORCED> note<LP: #1980981>
 
