@@ -202,6 +202,7 @@ struct ms_hyperv_tsc_page {
 #define HVCALL_ACQUIRE_SPARSE_SPA_PAGE_HOST_ACCESS	0x00d7
 #define HVCALL_RELEASE_SPARSE_SPA_PAGE_HOST_ACCESS	0x00d8
 #define HVCALL_MAP_VP_STATE_PAGE			0x00e1
+#define HVCALL_UNMAP_VP_STATE_PAGE		0x00e2
 #define HVCALL_GET_VP_STATE				0x00e3
 #define HVCALL_SET_VP_STATE				0x00e4
 #define HVCALL_IMPORT_ISOLATED_PAGES		0x00ef
@@ -944,16 +945,6 @@ struct hv_set_vp_state_in {
 	union hv_input_set_vp_state_data data[];
 } __packed;
 
-struct hv_map_vp_state_page_in {
-	u64 partition_id;
-	u32 vp_index;
-	u32 type; /* enum hv_vp_state_page_type */
-} __packed;
-
-struct hv_map_vp_state_page_out {
-	u64 map_location; /* page number */
-} __packed;
-
 struct hv_get_partition_property_in {
 	u64 partition_id;
 	u32 property_code; /* enum hv_partition_property_code */
@@ -1328,6 +1319,22 @@ union hv_partition_complete_isolated_import_data {
 struct hv_input_complete_isolated_import {
 	u64 partition_id;
 	union hv_partition_complete_isolated_import_data import_data;
+} __packed;
+
+struct hv_input_map_vp_state_page {
+	u64 partition_id;
+	u32 vp_index;
+	u32 type; /* enum hv_vp_state_page_type */
+} __packed;
+
+struct hv_output_map_vp_state_page {
+	u64 map_location; /* GPA page number */
+} __packed;
+
+struct hv_input_unmap_vp_state_page {
+	u64 partition_id;
+	u32 vp_index;
+	u32 type; /* enum hv_vp_state_page_type */
 } __packed;
 
 #endif

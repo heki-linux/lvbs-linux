@@ -609,8 +609,9 @@ static int mshv_vp_mmap(struct file *file, struct vm_area_struct *vma)
 		return -EINTR;
 
 	if (!vp->register_page) {
-		ret = hv_call_map_vp_state_page(vp->index,
-						vp->partition->id,
+		ret = hv_call_map_vp_state_page(vp->partition->id,
+						vp->index,
+						HV_VP_STATE_PAGE_REGISTERS,
 						&vp->register_page);
 		if (ret) {
 			mutex_unlock(&vp->mutex);

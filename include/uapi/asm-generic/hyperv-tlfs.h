@@ -175,6 +175,7 @@ enum hv_get_set_vp_state_type {
 
 enum hv_vp_state_page_type {
 	HV_VP_STATE_PAGE_REGISTERS = 0,
+	HV_VP_STATE_PAGE_INTERCEPT_MESSAGE = 1,
 	HV_VP_STATE_PAGE_COUNT
 };
 
