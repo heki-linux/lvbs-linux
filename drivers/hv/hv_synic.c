@@ -418,6 +418,9 @@ void mshv_isr(void)
 		wrmsrl(HV_X64_MSR_EOM, 0);
 
 		add_interrupt_randomness(HYPERVISOR_CALLBACK_VECTOR);
+	} else {
+		pr_warn_once("%s: unknown message type 0x%x\n", __func__,
+				msg->header.message_type);
 	}
 }
 
