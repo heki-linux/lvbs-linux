@@ -28,6 +28,12 @@ enum hv_message_type {
 	HVMSG_UNRECOVERABLE_EXCEPTION		= 0x80000021,
 	HVMSG_UNSUPPORTED_FEATURE		= 0x80000022,
 
+	/*
+	 * Opaque intercept message. The original intercept message is only
+	 * accessible from the mapped intercept message page.
+	 */
+	HVMSG_OPAQUE_INTERCEPT			= 0x8000003F,
+
 	/* Trace buffer complete messages. */
 	HVMSG_EVENTLOG_BUFFERCOMPLETE		= 0x80000040,
 
@@ -345,5 +351,9 @@ enum hv_isolated_page_size {
 	hv_isolated_page_size4_kb = 0,
 	hv_isolated_page_size2_mb = 1
 };
+
+struct hv_opaque_intercept_message {
+	__u32 vp_index;
+} __packed;
 
 #endif
