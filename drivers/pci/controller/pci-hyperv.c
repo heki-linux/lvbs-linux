@@ -604,6 +604,12 @@ static unsigned int hv_msi_get_int_vector(struct irq_data *data)
 	return cfg->vector;
 }
 
+static void hv_set_msi_entry_from_desc(union hv_msi_entry *msi_entry,
+				       struct msi_desc *msi_desc)
+{
+	msi_entry->address.as_uint32 = msi_desc->msg.address_lo;
+	msi_entry->data.as_uint32 = msi_desc->msg.data;
+}
 static int hv_msi_prepare(struct irq_domain *domain, struct device *dev,
 			  int nvec, msi_alloc_info_t *info)
 {
@@ -769,6 +775,14 @@ static struct irq_chip hv_arm64_msi_irq_chip = {
 static unsigned int hv_msi_get_int_vector(struct irq_data *irqd)
 {
 	return irqd->parent_data->hwirq;
+}
+
+static void hv_set_msi_entry_from_desc(union hv_msi_entry *msi_entry,
+				       struct msi_desc *msi_desc)
+{
+	msi_entry->address = ((u64)msi_desc->msg.address_hi << 32) |
+			      msi_desc->msg.address_lo;
+	msi_entry->data = msi_desc->msg.data;
 }
 
 /*
