@@ -655,29 +655,26 @@ int hv_call_set_vp_state(
 	return ret;
 }
 
-int hv_call_map_vp_state_page(
-		u32 vp_index,
-		u64 partition_id,
-		struct page **state_page)
+int hv_call_map_vp_state_page(u64 partition_id, u32 vp_index, u32 type,
+				struct page **state_page)
 {
-	struct hv_map_vp_state_page_in *input;
-	struct hv_map_vp_state_page_out *output;
+	struct hv_input_map_vp_state_page *input;
+	struct hv_output_map_vp_state_page *output;
 	u64 status;
 	int ret;
 	unsigned long flags;
 
 	do {
 		local_irq_save(flags);
-		input = (struct hv_map_vp_state_page_in *)(*this_cpu_ptr(
-			hyperv_pcpu_input_arg));
-		output = (struct hv_map_vp_state_page_out *)(*this_cpu_ptr(
-			hyperv_pcpu_output_arg));
+
+		input = *this_cpu_ptr(hyperv_pcpu_input_arg);
+		output = *this_cpu_ptr(hyperv_pcpu_output_arg);
 
 		input->partition_id = partition_id;
 		input->vp_index = vp_index;
-		input->type = HV_VP_STATE_PAGE_REGISTERS;
-		status = hv_do_hypercall(HVCALL_MAP_VP_STATE_PAGE,
-						   input, output);
+		input->type = type;
+
+		status = hv_do_hypercall(HVCALL_MAP_VP_STATE_PAGE, input, output);
 
 		if (hv_result(status) != HV_STATUS_INSUFFICIENT_MEMORY) {
 			if (hv_result_success(status))
@@ -689,12 +686,41 @@ int hv_call_map_vp_state_page(
 			ret = hv_status_to_errno(status);
 			break;
 		}
+
 		local_irq_restore(flags);
 
 		ret = hv_call_deposit_pages(NUMA_NO_NODE, partition_id, 1);
 	} while (!ret);
 
 	return ret;
+}
+
+int hv_call_unmap_vp_state_page(u64 partition_id, u32 vp_index, u32 type)
+{
+        unsigned long flags;
+        u64 status;
+        struct hv_input_unmap_vp_state_page *input;
+
+        local_irq_save(flags);
+
+        input = *this_cpu_ptr(hyperv_pcpu_input_arg);
+
+        memset(input, 0, sizeof(*input));
+
+        input->partition_id = partition_id;
+        input->vp_index = vp_index;
+        input->type = type;
+
+        status = hv_do_hypercall(HVCALL_UNMAP_VP_STATE_PAGE, input, NULL);
+
+        local_irq_restore(flags);
+
+        if (!hv_result_success(status)) {
+                pr_err("%s: %s\n", __func__, hv_status_to_string(status));
+                return hv_status_to_errno(status);
+        }
+
+        return 0;
 }
 
 int hv_call_get_partition_property(

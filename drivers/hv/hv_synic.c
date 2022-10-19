@@ -126,6 +126,170 @@ mshv_doorbell_isr(struct hv_message *msg)
 	return true;
 }
 
+static void kick_vp(struct mshv_vp *vp)
+{
+	atomic64_inc(&vp->run.signaled_count);
+	vp->run.flags.kicked_by_hv = 1;
+	wake_up(&vp->run.suspend_queue);
+}
+
+static void
+handle_bitset_message(const struct hv_vp_signal_bitset_scheduler_message *msg)
+{
+	unsigned long flags;
+	int i, bank_idx, vp_signaled, bank_mask_size;
+	struct mshv_partition *partition;
+	const struct hv_vpset *vpset;
+	const u64 *bank_contents;
+	u64 partition_id = msg->partition_id;
+
+	if (msg->vp_bitset.bitset.format != HV_GENERIC_SET_SPARSE_4K) {
+		pr_debug("%s: scheduler message format is not HV_GENERIC_SET_SPARSE_4K",
+			__func__);
+		return;
+	}
+
+	if (msg->vp_count == 0) {
+		pr_debug("%s: scheduler message with no VP specified", __func__);
+		return;
+	}
+
+	spin_lock_irqsave(&mshv.partitions.lock, flags);
+
+	for (i = 0; i < MSHV_MAX_PARTITIONS; i++) {
+		partition = mshv.partitions.array[i];
+		if (partition && partition->id == partition_id)
+			break;
+	}
+
+	if (unlikely(i == MSHV_MAX_PARTITIONS)) {
+		pr_err("%s: failed to find partition %llu\n", __func__,
+			partition_id);
+		goto unlock_out;
+	}
+
+	vpset = &msg->vp_bitset.bitset;
+
+	bank_idx = -1;
+	bank_contents = vpset->bank_contents;
+	bank_mask_size = sizeof(vpset->valid_bank_mask) * BITS_PER_BYTE;
+
+	vp_signaled = 0;
+
+	while (true) {
+		int vp_bank_idx = -1;
+		int vp_bank_size = sizeof(*bank_contents) * BITS_PER_BYTE;
+		int vp_index;
+
+		bank_idx = find_next_bit((unsigned long *)&vpset->valid_bank_mask,
+				bank_mask_size, bank_idx + 1);
+		if (bank_idx == bank_mask_size)
+			break;
+
+		while (true) {
+			struct mshv_vp *vp;
+
+			vp_bank_idx = find_next_bit((unsigned long *)bank_contents,
+					vp_bank_size, vp_bank_idx + 1);
+			if (vp_bank_idx == vp_bank_size)
+				break;
+
+			vp_index = (bank_idx << HV_GENERIC_SET_SHIFT) + vp_bank_idx;
+
+			/* This shouldn't happen, but just in case. */
+			if (unlikely(vp_index >= MSHV_MAX_VPS)) {
+				pr_err("%s: VP index %u out of bounds\n",
+					__func__, vp_index);
+				goto unlock_out;
+			}
+
+			vp = partition->vps.array[vp_index];
+			if (unlikely(!vp)) {
+				pr_err("%s: failed to find vp\n", __func__);
+				goto unlock_out;
+			}
+
+			kick_vp(vp);
+			vp_signaled++;
+		}
+
+		bank_contents++;
+	}
+
+unlock_out:
+	spin_unlock_irqrestore(&mshv.partitions.lock, flags);
+
+	if (vp_signaled != msg->vp_count)
+		pr_debug("%s: asked to signal %u VPs but only did %u\n",
+			__func__, msg->vp_count, vp_signaled);
+}
+
+static void
+handle_pair_message(const struct hv_vp_signal_pair_scheduler_message *msg)
+{
+	struct mshv_partition *partition = NULL;
+	struct mshv_vp *vp;
+	int idx;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mshv.partitions.lock, flags);
+
+	for (idx = 0; idx < msg->vp_count; idx++) {
+		u64 partition_id = msg->partition_ids[idx];
+		u32 vp_index = msg->vp_indexes[idx];
+
+		if (idx == 0 || partition->id != partition_id) {
+			int i;
+
+			for (i = 0; i < MSHV_MAX_PARTITIONS; i++) {
+				partition = mshv.partitions.array[i];
+				if (partition && partition->id == partition_id)
+					break;
+			}
+
+			if (!partition) {
+				pr_err("%s: failed to find partition %llu\n",
+					__func__, partition_id);
+				break;
+			}
+		}
+
+		/* This shouldn't happen, but just in case. */
+		if (unlikely(vp_index >= MSHV_MAX_VPS)) {
+			pr_err("%s: VP index %u out of bounds\n", __func__,
+				vp_index);
+			break;
+		}
+
+		vp = partition->vps.array[vp_index];
+		if (!vp) {
+			pr_err("%s: failed to find VP\n", __func__);
+			break;
+		}
+
+		kick_vp(vp);
+	}
+
+	spin_unlock_irqrestore(&mshv.partitions.lock, flags);
+}
+
+static bool
+mshv_scheduler_isr(struct hv_message *msg)
+{
+	if (msg->header.message_type != HVMSG_SCHEDULER_VP_SIGNAL_BITSET &&
+		msg->header.message_type != HVMSG_SCHEDULER_VP_SIGNAL_PAIR)
+		return false;
+
+	if (msg->header.message_type == HVMSG_SCHEDULER_VP_SIGNAL_BITSET)
+		handle_bitset_message(
+			(struct hv_vp_signal_bitset_scheduler_message *)msg->u.payload);
+	else
+		handle_pair_message(
+			(struct hv_vp_signal_pair_scheduler_message *)msg->u.payload);
+
+	return true;
+}
+
 static bool
 mshv_intercept_isr(struct hv_message *msg)
 {
@@ -180,20 +344,36 @@ mshv_intercept_isr(struct hv_message *msg)
 	}
 
 	/*
+	 * We should get an opaque intercept message here for all intercept
+	 * messages, since we're using the mapped VP intercept message page.
+	 *
+	 * The intercept message will have been placed in intercept message
+	 * page at this point.
+	 *
+	 * Make sure the message type matches our expectation.
+	 */
+	if (msg->header.message_type != HVMSG_OPAQUE_INTERCEPT) {
+		pr_debug("%s: wrong message type %d", __func__,
+			msg->header.message_type);
+		goto unlock_out;
+	}
+
+	/*
 	 * Since we directly index the vp, and it has to exist for us to be here
 	 * (because the vp is only deleted when the partition is), no additional
 	 * locking is needed here
 	 */
-	vp_index = ((struct hv_x64_intercept_message_header *)msg->u.payload)->vp_index;
+	vp_index = ((struct hv_opaque_intercept_message *)msg->u.payload)->vp_index;
 	vp = partition->vps.array[vp_index];
 	if (unlikely(!vp)) {
 		pr_err("%s: failed to find vp\n", __func__);
 		goto unlock_out;
 	}
 
-	memcpy(vp->run.intercept_message, msg, sizeof(struct hv_message));
+	memcpy(&vp->run.intercept_message, vp->intercept_message_page,
+			sizeof(struct hv_message));
 
-	wake_up(&vp->run.suspend_queue);
+	kick_vp(vp);
 
 	handled = true;
 
@@ -227,6 +407,9 @@ void mshv_isr(void)
 	handled = mshv_doorbell_isr(msg);
 
 	if (!handled)
+		handled = mshv_scheduler_isr(msg);
+
+	if (!handled)
 		handled = mshv_intercept_isr(msg);
 
 	if (handled) {
@@ -235,6 +418,9 @@ void mshv_isr(void)
 		wrmsrl(HV_X64_MSR_EOM, 0);
 
 		add_interrupt_randomness(HYPERVISOR_CALLBACK_VECTOR);
+	} else {
+		pr_warn_once("%s: unknown message type 0x%x\n", __func__,
+				msg->header.message_type);
 	}
 }
 
