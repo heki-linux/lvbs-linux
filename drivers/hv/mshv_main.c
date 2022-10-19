@@ -240,7 +240,7 @@ mshv_run_vp_with_hv_scheduler(struct mshv_vp *vp, void __user *ret_message,
 	    struct hv_register_assoc *registers, size_t count)
 
 {
-	struct hv_message *msg = &vp->run.intercept_message;
+	struct hv_message *msg = vp->intercept_message_page;
 	long ret;
 
 	/* Resume VP execution */

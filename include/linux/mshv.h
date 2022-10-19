@@ -35,7 +35,6 @@ struct mshv_vp {
 			u64 reserved: 60;
 		} flags;
 		wait_queue_head_t suspend_queue;
-		struct hv_message intercept_message;
 	} run;
 };
 

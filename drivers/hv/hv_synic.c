@@ -370,9 +370,6 @@ mshv_intercept_isr(struct hv_message *msg)
 		goto unlock_out;
 	}
 
-	memcpy(&vp->run.intercept_message, vp->intercept_message_page,
-			sizeof(struct hv_message));
-
 	kick_vp(vp);
 
 	handled = true;
