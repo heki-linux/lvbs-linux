@@ -345,13 +345,15 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 				local_irq_restore(irq_flags);
 				preempt_enable();
 
-				if (xfer_to_guest_mode_handle_work(ti_work) == -EINTR) {
+				ret = xfer_to_guest_mode_handle_work(ti_work);
+
+				preempt_disable();
+
+				if (ret) {
 					complete = true;
-					ret = -EINTR;
 					break;
 				}
 
-				preempt_disable();
 				continue;
 			}
 
