@@ -345,13 +345,15 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 				local_irq_restore(irq_flags);
 				preempt_enable();
 
-				if (xfer_to_guest_mode_handle_work(ti_work) == -EINTR) {
+				ret = xfer_to_guest_mode_handle_work(ti_work);
+
+				preempt_disable();
+
+				if (ret) {
 					complete = true;
-					ret = -EINTR;
 					break;
 				}
 
-				preempt_disable();
 				continue;
 			}
 
@@ -1572,20 +1574,17 @@ drain_vp_signals(struct mshv_vp *vp)
 	}
 }
 
-static void
-destroy_partition(struct mshv_partition *partition)
+static void drain_all_vps(const struct mshv_partition *partition)
 {
-	unsigned long flags, page_count;
-	struct mshv_vp *vp;
-	struct mshv_mem_region *region;
 	int i;
+	struct mshv_vp *vp;
 
 	/*
 	 * VPs are reachable from ISR. It is safe to not take the partition
 	 * lock because nobody else can enter this function and drop the
 	 * partition from the list.
 	 */
-	for (i = 0; i < MSHV_MAX_VPS; ++i) {
+	for (i = 0; i < MSHV_MAX_VPS; i++) {
 		vp = partition->vps.array[i];
 		if (!vp)
 			continue;
@@ -1597,6 +1596,22 @@ destroy_partition(struct mshv_partition *partition)
 		disable_vp_dispatch(vp);
 		drain_vp_signals(vp);
 	}
+}
+
+static void
+destroy_partition(struct mshv_partition *partition)
+{
+	unsigned long flags, page_count;
+	struct mshv_vp *vp;
+	struct mshv_mem_region *region;
+	int i;
+
+	/*
+	 * We only need to drain signals for root scheduler. This should be
+	 * done before removing the partition from the partition list.
+	 */
+	if (hv_scheduler_type == HV_SCHEDULER_TYPE_ROOT)
+		drain_all_vps(partition);
 
 	/* Remove from list of partitions */
 	spin_lock_irqsave(&mshv.partitions.lock, flags);
@@ -1742,7 +1757,7 @@ mshv_ioctl_create_partition(void __user *user_arg)
 
 	mutex_init(&partition->mutex);
 
-	spin_lock_init(&partition->irq_lock);
+	mutex_init(&partition->irq_lock);
 
 	INIT_HLIST_HEAD(&partition->irq_ack_notifier_list);
 

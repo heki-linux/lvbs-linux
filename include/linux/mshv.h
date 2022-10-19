@@ -65,7 +65,7 @@ struct mshv_partition {
 		struct mshv_vp *array[MSHV_MAX_VPS];
 	} vps;
 
-	spinlock_t irq_lock;
+	struct mutex irq_lock;
 	struct srcu_struct irq_srcu;
 	struct hlist_head irq_ack_notifier_list;
 

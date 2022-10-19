@@ -68,11 +68,11 @@ int mshv_set_msi_routing(struct mshv_partition *partition,
 	}
 
 swap_routes:
-	spin_lock(&partition->irq_lock);
+	mutex_lock(&partition->irq_lock);
 	old = rcu_dereference_protected(partition->msi_routing, 1);
 	rcu_assign_pointer(partition->msi_routing, new);
 	mshv_irqfd_routing_update(partition);
-	spin_unlock(&partition->irq_lock);
+	mutex_unlock(&partition->irq_lock);
 
 	synchronize_srcu_expedited(&partition->irq_srcu);
 	new = old;
@@ -104,8 +104,10 @@ mshv_msi_map_gsi(struct mshv_partition *partition, u32 gsi)
 					&partition->irq_srcu,
 					lockdep_is_held(&partition->irq_lock));
 	if (!msi_rt) {
-		pr_warn("No valid routing information found for gsi: %u\n",
-			gsi);
+		/*
+		 * Premature register_irqfd, setting valid_entry = 0
+		 * would ignore this entry anyway
+		 */
 		entry.gsi = gsi;
 		return entry;
 	}
