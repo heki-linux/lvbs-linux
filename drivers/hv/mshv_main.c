@@ -1574,20 +1574,17 @@ drain_vp_signals(struct mshv_vp *vp)
 	}
 }
 
-static void
-destroy_partition(struct mshv_partition *partition)
+static void drain_all_vps(const struct mshv_partition *partition)
 {
-	unsigned long flags, page_count;
-	struct mshv_vp *vp;
-	struct mshv_mem_region *region;
 	int i;
+	struct mshv_vp *vp;
 
 	/*
 	 * VPs are reachable from ISR. It is safe to not take the partition
 	 * lock because nobody else can enter this function and drop the
 	 * partition from the list.
 	 */
-	for (i = 0; i < MSHV_MAX_VPS; ++i) {
+	for (i = 0; i < MSHV_MAX_VPS; i++) {
 		vp = partition->vps.array[i];
 		if (!vp)
 			continue;
@@ -1599,6 +1596,22 @@ destroy_partition(struct mshv_partition *partition)
 		disable_vp_dispatch(vp);
 		drain_vp_signals(vp);
 	}
+}
+
+static void
+destroy_partition(struct mshv_partition *partition)
+{
+	unsigned long flags, page_count;
+	struct mshv_vp *vp;
+	struct mshv_mem_region *region;
+	int i;
+
+	/*
+	 * We only need to drain signals for root scheduler. This should be
+	 * done before removing the partition from the partition list.
+	 */
+	if (hv_scheduler_type == HV_SCHEDULER_TYPE_ROOT)
+		drain_all_vps(partition);
 
 	/* Remove from list of partitions */
 	spin_lock_irqsave(&mshv.partitions.lock, flags);
