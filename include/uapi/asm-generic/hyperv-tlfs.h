@@ -28,6 +28,12 @@ enum hv_message_type {
 	HVMSG_UNRECOVERABLE_EXCEPTION		= 0x80000021,
 	HVMSG_UNSUPPORTED_FEATURE		= 0x80000022,
 
+	/*
+	 * Opaque intercept message. The original intercept message is only
+	 * accessible from the mapped intercept message page.
+	 */
+	HVMSG_OPAQUE_INTERCEPT			= 0x8000003F,
+
 	/* Trace buffer complete messages. */
 	HVMSG_EVENTLOG_BUFFERCOMPLETE		= 0x80000040,
 
@@ -38,6 +44,10 @@ enum hv_message_type {
 	HVMSG_SYNIC_EVENT_INTERCEPT		= 0x80000060,
 	HVMSG_SYNIC_SINT_INTERCEPT		= 0x80000061,
 	HVMSG_SYNIC_SINT_DELIVERABLE	= 0x80000062,
+
+	/* Root scheduler messages */
+	HVMSG_SCHEDULER_VP_SIGNAL_BITSET	= 0x80000100,
+	HVMSG_SCHEDULER_VP_SIGNAL_PAIR		= 0x80000101,
 
 	/* Platform-specific processor intercept messages. */
 	HVMSG_X64_IO_PORT_INTERCEPT		= 0x80010000,
@@ -67,7 +77,6 @@ enum hv_port_type {
 	HV_PORT_TYPE_MONITOR = 3,
 	HV_PORT_TYPE_DOORBELL = 4	// Root Partition only
 };
-
 
 /*
  * Doorbell connection_info flags.
@@ -170,6 +179,7 @@ enum hv_get_set_vp_state_type {
 
 enum hv_vp_state_page_type {
 	HV_VP_STATE_PAGE_REGISTERS = 0,
+	HV_VP_STATE_PAGE_INTERCEPT_MESSAGE = 1,
 	HV_VP_STATE_PAGE_COUNT
 };
 
@@ -211,6 +221,7 @@ enum hv_partition_property_code {
 	HV_PARTITION_PROPERTY_IMPLEMENTED_PHYSICAL_ADDRESS_BITS		= 0x00050010,
 	HV_PARTITION_PROPERTY_NON_ARCHITECTURAL_CORE_SHARING		= 0x00050011,
 	HV_PARTITION_PROPERTY_HYPERCALL_DOORBELL_PAGE			= 0x00050012,
+	HV_PARTITION_PROPERTY_ISOLATION_POLICY				= 0x00050014,
 	HV_PARTITION_PROPERTY_UNIMPLEMENTED_MSR_ACTION                  = 0x00050017,
 
 	/* Compatibility properties */
@@ -317,5 +328,37 @@ enum {
 #define HV_TRANSLATE_GVA_SET_PAGE_TABLE_BITS	0x0010
 #define HV_TRANSLATE_GVA_TLB_FLUSH_INHIBIT	0x0020
 #define HV_TRANSLATE_GVA_CONTROL_MASK		0x003f
+
+/* hv_modify_spa_page_host_access flags */
+#define HV_MODIFY_SPA_PAGE_HOST_ACCESS_MAKE_EXCLUSIVE	0x1
+#define HV_MODIFY_SPA_PAGE_HOST_ACCESS_MAKE_SHARED	0x2
+#define HV_MODIFY_SPA_PAGE_HOST_ACCESS_LARGE_PAGE	0x4
+#define HV_MODIFY_SPA_PAGE_HOST_ACCESS_HUGE_PAGE	0x8
+
+#define HV_MODIFY_SPA_PAGE_HOST_ACCESS_FLAGS_MASK	\
+	(HV_MODIFY_SPA_PAGE_HOST_ACCESS_MAKE_EXCLUSIVE	\
+	 | HV_MODIFY_SPA_PAGE_HOST_ACCESS_MAKE_SHARED	\
+	 | HV_MODIFY_SPA_PAGE_HOST_ACCESS_LARGE_PAGE	\
+	 | HV_MODIFY_SPA_PAGE_HOST_ACCESS_HUGE_PAGE	\
+	)
+
+enum hv_isolated_page_type {
+	hv_isolated_page_type_normal = 0,
+	hv_isolated_page_type_vmsa = 1,
+	hv_isolated_page_type_zero = 2,
+	hv_isolated_page_type_unmeasured = 3,
+	hv_isolated_page_type_secrets = 4,
+	hv_isolated_page_type_cpuid = 5,
+	hv_isolated_page_type_count = 6
+};
+
+enum hv_isolated_page_size {
+	hv_isolated_page_size4_kb = 0,
+	hv_isolated_page_size2_mb = 1
+};
+
+struct hv_opaque_intercept_message {
+	__u32 vp_index;
+} __packed;
 
 #endif

@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/x86_64 5.15.72.mshv1 Kernel Configuration
+# Linux/x86_64 5.15.72.mshv2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="gcc (GCC) 11.2.0"
 CONFIG_CC_IS_GCC=y
@@ -5546,6 +5546,7 @@ CONFIG_VHOST_VSOCK=m
 # Microsoft Hyper-V guest support
 #
 CONFIG_MSHV_VFIO=y
+CONFIG_MSHV_XFER_TO_GUEST_WORK=y
 CONFIG_HYPERV=y
 CONFIG_HYPERV_VMM_API=y
 CONFIG_HYPERV_TIMER=y

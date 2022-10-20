@@ -5,6 +5,9 @@ menu "Microsoft Hyper-V guest support"
 config MSHV_VFIO
 	bool
 
+config MSHV_XFER_TO_GUEST_WORK
+	bool
+
 config HYPERV
 	tristate "Microsoft Hyper-V client drivers"
 	depends on ACPI && ((X86 && X86_LOCAL_APIC && HYPERVISOR_GUEST) \
@@ -20,6 +23,7 @@ config HYPERV_VMM_API
 	depends on HYPERV
 	select EVENTFD
 	select MSHV_VFIO
+	select MSHV_XFER_TO_GUEST_WORK
 	help
 	  Provides access to interfaces for managing guest virtual machines
 	  running under the Microsoft Hypervisor.

@@ -23,11 +23,19 @@ struct mshv_vp {
 	struct mshv_partition *partition;
 	struct mutex mutex;
 	struct page *register_page;
+	struct hv_message *intercept_message_page;
 	struct hv_register_assoc *registers;
 	struct {
-		struct semaphore sem;
+		atomic64_t signaled_count;
+		struct {
+			u64 explicit_suspend: 1;
+			u64 blocked_by_explicit_suspend: 1; /* root scheduler only */
+			u64 intercept_suspend: 1;
+			u64 kicked_by_hv: 1;
+			u64 reserved: 60;
+		} flags;
 		wait_queue_head_t suspend_queue;
-		struct hv_message *intercept_message;
+		struct hv_message intercept_message;
 	} run;
 };
 
@@ -57,7 +65,7 @@ struct mshv_partition {
 		struct mshv_vp *array[MSHV_MAX_VPS];
 	} vps;
 
-	spinlock_t irq_lock;
+	struct mutex irq_lock;
 	struct srcu_struct irq_srcu;
 	struct hlist_head irq_ack_notifier_list;
 
