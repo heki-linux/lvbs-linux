@@ -1915,10 +1915,12 @@ static int __init mshv_retrieve_scheduler_type(void)
 		case HV_SCHEDULER_TYPE_CORE_SMT:
 		case HV_SCHEDULER_TYPE_LP_SMT:
 		case HV_SCHEDULER_TYPE_ROOT:
+		case HV_SCHEDULER_TYPE_LP:
 			/* Supported scheduler, nothing to do */
 			break;
 		default:
-			pr_info("mshv: unsupported scheduler, bailing.\n");
+			pr_err("mshv: unsupported scheduler 0x%x, bailing.\n",
+				hv_scheduler_type);
 			return -EOPNOTSUPP;
 	}
 
