@@ -6,10 +6,17 @@ set -e
 SOURCE_ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 cd "${SOURCE_ROOT}"
 
+ARCH=$(uname -p)
+if [ "$ARCH" == "aarch64" ];
+then
+    ARCH="arm64"
+fi
+
 make mrproper
 
-cp arch/x86/configs/mshv_defconfig .config
-make LC_ALL= ARCH=x86_64 olddefconfig
+make LC_ALL= ARCH=$ARCH mshv_defconfig
+cp .config oldconfig
+make LC_ALL= ARCH=$ARCH olddefconfig
 
-diff -u arch/x86/configs/mshv_defconfig .config
+diff -u oldconfig .config
 

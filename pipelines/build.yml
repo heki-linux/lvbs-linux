@@ -24,10 +24,16 @@ pr:
       - msft/mshv-rolling
 
 jobs:
-- job: KERNEL
+- job: Kernel
   timeoutInMinutes: 30
+  strategy:
+    matrix:
+      'x86':
+        machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
+      'arm64':
+        machinePool: 'lsg-virt-aarch64-1es-agent-pool-2'
   pool:
-    name: 'lsg-virt-amd64-1es-agent-pool-2'
+    name: $(machinePool)
 
   steps:
   - checkout: self
@@ -37,7 +43,12 @@ jobs:
   - bash: |
       set -e
       set -x
+
       sudo systemctl enable --now docker
+
+      # Allow agent to run docker operations without sudo
+      sudo chmod a+rw /run/docker.sock
+
       $(CONTAINER_RT) pull $(CONTAINER_IMAGE)
       $(CONTAINER_RT) run -d -t --name $(CONTAINER_NAME) --volume $PWD:$(CONTAINER_VOL) $(CONTAINER_IMAGE)
       $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/mariner-prepare
