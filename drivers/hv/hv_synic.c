@@ -410,9 +410,11 @@ void mshv_isr(void)
 	if (handled) {
 		/* Acknowledge message with hypervisor */
 		msg->header.message_type = HVMSG_NONE;
-		wrmsrl(HV_X64_MSR_EOM, 0);
+		hv_set_register(HV_REGISTER_EOM, 0);
 
+#ifdef HYPERVISOR_CALLBACK_VECTOR
 		add_interrupt_randomness(HYPERVISOR_CALLBACK_VECTOR);
+#endif
 	} else {
 		pr_warn_once("%s: unknown message type 0x%x\n", __func__,
 				msg->header.message_type);
@@ -433,7 +435,9 @@ int mshv_synic_init(unsigned int cpu)
 	union hv_synic_simp simp;
 	union hv_synic_siefp siefp;
 	union hv_synic_sirbp sirbp;
+#ifdef HYPERVISOR_CALLBACK_VECTOR
 	union hv_synic_sint sint;
+#endif
 	union hv_synic_scontrol sctrl;
 	struct hv_synic_pages *spages = this_cpu_ptr(mshv.synic_pages);
 	struct hv_message_page **msg_page = &spages->synic_message_page;
@@ -478,6 +482,7 @@ int mshv_synic_init(unsigned int cpu)
 	}
 	hv_set_register(HV_REGISTER_SIRBP, sirbp.as_uint64);
 
+#ifdef HYPERVISOR_CALLBACK_VECTOR
 	/* Enable intercepts */
 	sint.as_uint64 = 0;
 	sint.vector = HYPERVISOR_CALLBACK_VECTOR;
@@ -494,6 +499,7 @@ int mshv_synic_init(unsigned int cpu)
 	sint.auto_eoi = hv_recommend_using_aeoi();
 	hv_set_register(HV_REGISTER_SINT0 + HV_SYNIC_DOORBELL_SINT_INDEX,
 			sint.as_uint64);
+#endif
 
 	/* Enable global synic bit */
 	sctrl.as_uint64 = hv_get_register(HV_REGISTER_SCONTROL);
