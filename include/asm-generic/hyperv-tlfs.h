@@ -1295,45 +1295,6 @@ struct hv_input_import_isolated_pages {
 	u64 page_number[];
 } __packed;
 
-
-struct hv_snp_id_block {
-	u8 launch_digest[48];
-	u8 family_id[16];
-	u8 image_id[16];
-	u32 version;
-	u32 guest_svn;
-	union hv_snp_guest_policy policy;
-} __packed;
-
-struct hv_snp_id_auth_info {
-	u32 id_key_algorithm;
-	u32 auth_key_algorithm;
-	u8 reserved0[56];
-	u8 id_block_signature[512];
-	u8 id_key[1028];
-	u8 reserved1[60];
-	u8 id_key_signature[512];
-	u8 author_key[1028];
-} __packed;
-
-struct hv_psp_launch_finish_data {
-	struct hv_snp_id_block id_block;
-	struct hv_snp_id_auth_info id_auth_info;
-	u8 host_data[32];
-	bool id_block_enabled;
-	bool author_key_enabled;
-} __packed;
-
-union hv_partition_complete_isolated_import_data {
-	u64 reserved;
-	struct hv_psp_launch_finish_data psp_parameters;
-} __packed;
-
-struct hv_input_complete_isolated_import {
-	u64 partition_id;
-	union hv_partition_complete_isolated_import_data import_data;
-} __packed;
-
 struct hv_input_map_vp_state_page {
 	u64 partition_id;
 	u32 vp_index;
