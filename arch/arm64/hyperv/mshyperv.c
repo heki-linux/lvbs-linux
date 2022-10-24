@@ -18,6 +18,28 @@
 #include <asm/mshyperv.h>
 
 static bool hyperv_initialized;
+bool hv_nested;
+
+u64 hv_current_partition_id = ~0ull;
+EXPORT_SYMBOL_GPL(hv_current_partition_id);
+
+static void __init hv_get_partition_id(void)
+{
+	struct hv_get_partition_id *output_page;
+	u64 status;
+	unsigned long flags;
+
+	local_irq_save(flags);
+	output_page = *this_cpu_ptr(hyperv_pcpu_output_arg);
+	status = hv_do_hypercall(HVCALL_GET_PARTITION_ID, NULL, output_page);
+	if (!hv_result_success(status)) {
+		/* No point in proceeding if this failed */
+		pr_err("Failed to get partition ID: %s\n", hv_status_to_string(status));
+		BUG();
+	}
+	hv_current_partition_id = output_page->partition_id;
+	local_irq_restore(flags);
+}
 
 static int __init hyperv_init(void)
 {
@@ -25,6 +47,9 @@ static int __init hyperv_init(void)
 	u32	a, b, c, d;
 	u64	guest_id;
 	int	ret;
+
+	// Not supported on ARM64 yet
+	hv_nested = false;
 
 	/*
 	 * Allow for a kernel built with CONFIG_HYPERV to be running in
@@ -73,6 +98,9 @@ static int __init hyperv_init(void)
 		hv_common_free();
 		return ret;
 	}
+
+	if (ms_hyperv.features & HV_ACCESS_PARTITION_ID)
+		hv_get_partition_id();
 
 	hyperv_initialized = true;
 	return 0;
