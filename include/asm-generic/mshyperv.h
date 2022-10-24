@@ -65,6 +65,8 @@ extern u8 __percpu **hv_synic_eventring_tail;
 extern u64 hv_do_hypercall(u64 control, void *inputaddr, void *outputaddr);
 extern u64 hv_do_nested_hypercall(u64 control, void *inputaddr, void *outputaddr);
 extern u64 hv_do_fast_hypercall8(u16 control, u64 input8);
+extern u64 hv_do_fast_hypercall16(u16 control, u64 input1, u64 input2);
+extern u64 hv_do_fast_nested_hypercall8(u16 control, u64 input8);
 
 /* Helper functions that provide a consistent pattern for checking Hyper-V hypercall status. */
 static inline int hv_result(u64 status)
