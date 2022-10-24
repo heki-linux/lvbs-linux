@@ -37,7 +37,7 @@
 		/ sizeof(union hv_gpa_page_access_state))
 extern struct mshv mshv;
 
-int xfer_to_guest_mode_handle_work(unsigned long ti_work);
+int mshv_xfer_to_guest_mode_handle_work(unsigned long ti_work);
 
 void mshv_isr(void);
 int mshv_synic_init(unsigned int cpu);
