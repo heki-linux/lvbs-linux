@@ -25,7 +25,6 @@
  * These Hyper-V registers provide information equivalent to the CPUID
  * instruction on x86/x64.
  */
-#define HV_REGISTER_HYPERVISOR_VERSION		0x00000100 /*CPUID 0x40000002 */
 #define HV_REGISTER_FEATURES			0x00000200 /*CPUID 0x40000003 */
 #define HV_REGISTER_ENLIGHTENMENTS		0x00000201 /*CPUID 0x40000004 */
 
@@ -51,18 +50,9 @@
 #define HV_REGISTER_CRASH_CTL		0x00000215
 
 #define HV_REGISTER_GUEST_OSID		0x00090002
-#define HV_REGISTER_VP_INDEX		0x00090003
-#define HV_REGISTER_TIME_REF_COUNT	0x00090004
-#define HV_REGISTER_REFERENCE_TSC	0x00090017
 
-#define HV_REGISTER_SINT0		0x000A0000
-#define HV_REGISTER_SCONTROL		0x000A0010
 #define HV_REGISTER_SIEFP		0x000A0012
 #define HV_REGISTER_SIMP		0x000A0013
-#define HV_REGISTER_EOM			0x000A0014
-
-#define HV_REGISTER_STIMER0_CONFIG	0x000B0000
-#define HV_REGISTER_STIMER0_COUNT	0x000B0001
 
 union hv_msi_entry {
 	u64 as_uint64[2];
@@ -73,6 +63,7 @@ union hv_msi_entry {
 	} __packed;
 };
 
+#include <uapi/asm/hyperv-tlfs.h>
 #include <asm-generic/hyperv-tlfs.h>
 
 #endif
