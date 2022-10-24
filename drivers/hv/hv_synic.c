@@ -328,8 +328,6 @@ mshv_intercept_isr(struct hv_message *msg)
 		 * ack_notifier list and invoke the callback
 		 * if registered.
 		 */
-		struct hv_x64_apic_eoi_message *eoi_msg =
-			(struct hv_x64_apic_eoi_message *)msg->u.payload;
 
 		/*
 		 * If there is a notifier, the ack callback is supposed
@@ -337,7 +335,7 @@ mshv_intercept_isr(struct hv_message *msg)
 		 * to vcpu thread.
 		 */
 		if (mshv_notify_acked_gsi(partition,
-					eoi_msg->interrupt_vector)) {
+				hv_get_interrupt_vector_from_payload(msg->u.payload[0]))) {
 			handled = true;
 			goto unlock_out;
 		}

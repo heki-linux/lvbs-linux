@@ -764,6 +764,14 @@ struct hv_x64_apic_eoi_message {
 	__u32 interrupt_vector;
 } __packed;
 
+static inline int hv_get_interrupt_vector_from_payload(u64 payload)
+{
+	struct hv_x64_apic_eoi_message *eoi_msg =
+		(struct hv_x64_apic_eoi_message *)payload;
+
+	return eoi_msg->interrupt_vector;
+}
+
 enum hv_intercept_type {
 	HV_INTERCEPT_TYPE_X64_IO_PORT			= 0X00000000,
 	HV_INTERCEPT_TYPE_X64_MSR			= 0X00000001,
@@ -818,6 +826,11 @@ enum hv_interrupt_type {
 	HV_X64_INTERRUPT_TYPE_LOCALINT1         = 0x0009,
 	HV_X64_INTERRUPT_TYPE_MAXIMUM           = 0x000A
 };
+
+static inline bool hv_should_clear_interrupt(enum hv_interrupt_type type)
+{
+	return type == HV_X64_INTERRUPT_TYPE_EXTINT;
+}
 
 #define HV_INTERRUPT_VECTOR_NONE 0xFFFFFFFF
 

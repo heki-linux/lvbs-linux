@@ -256,4 +256,14 @@ enum hv_interrupt_type {
 	HV_ARM64_INTERRUPT_TYPE_FIXED             = 0x0000
 };
 
+static inline bool hv_should_clear_interrupt(enum hv_interrupt_type type)
+{
+	return false;
+}
+
+static inline int hv_get_interrupt_vector_from_payload(u64 payload)
+{
+	return 0;
+}
+
 #endif
