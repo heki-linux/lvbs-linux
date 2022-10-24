@@ -78,7 +78,6 @@ int hv_call_create_partition(
 	u64 status;
 	int ret;
 	unsigned long irq_flags;
-	int i;
 
 	do {
 		local_irq_save(irq_flags);
@@ -90,18 +89,9 @@ int hv_call_create_partition(
 		input->flags = flags;
 		input->proximity_domain_info.as_uint64 = 0;
 		input->compatibility_version = HV_COMPATIBILITY_20_H1;
-		for (i = 0; i < HV_PARTITION_PROCESSOR_FEATURE_BANKS; ++i)
-			input->partition_creation_properties
-				.disabled_processor_features.as_uint64[i] =
-				creation_properties.disabled_processor_features
-					.as_uint64[i];
-		input->partition_creation_properties
-			.disabled_processor_xsave_features.as_uint64 =
-			creation_properties.disabled_processor_xsave_features
-				.as_uint64;
-		input->partition_creation_properties.isolation_properties
-			.as_uint64 =
-			creation_properties.isolation_properties.as_uint64;
+
+		memcpy(&input->partition_creation_properties, &creation_properties,
+			sizeof(creation_properties));
 
 		status = hv_do_hypercall(HVCALL_CREATE_PARTITION,
 					 input, output);
