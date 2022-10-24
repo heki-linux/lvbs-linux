@@ -962,7 +962,7 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 	if (!mem.size ||
 	    !PAGE_ALIGNED(mem.size) ||
 	    !PAGE_ALIGNED(mem.userspace_addr) ||
-	    !access_ok(mem.userspace_addr, mem.size))
+	    !access_ok((const void *) mem.userspace_addr, mem.size))
 		return -EINVAL;
 
 	/* Reject overlapping regions */
