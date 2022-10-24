@@ -149,7 +149,11 @@ extern int vmbus_irq;
 extern bool hv_root_partition;
 extern bool hv_nested;
 
+#ifdef HV_SUPPORTS_NESTED
 #define REG_EOM (hv_nested ? HV_REGISTER_NESTED_EOM : HV_REGISTER_EOM)
+#else
+#define REG_EOM (HV_REGISTER_EOM)
+#endif
 
 /* Free the message slot and signal end-of-message if required */
 static inline void vmbus_signal_eom(struct hv_message *msg, u32 old_msg_type)

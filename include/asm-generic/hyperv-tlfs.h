@@ -883,6 +883,8 @@ struct hv_assert_virtual_interrupt {
 	u16 rsvd_z1;
 } __packed;
 
+#ifdef HV_SUPPORTS_VP_STATE
+
 struct hv_vp_state_data {
 	u32 type;
 	u32 rsvd;
@@ -898,6 +900,8 @@ struct hv_get_vp_state_in {
 	struct hv_vp_state_data state_data;
 	u64 output_data_pfns[];
 } __packed;
+
+#endif
 
 struct hv_stimer_state
 {
@@ -930,6 +934,8 @@ struct hv_synthetic_timers_state
 	u64 reserved[5];
 } __packed;
 
+#ifdef HV_SUPPORTS_VP_STATE
+
 union hv_get_vp_state_out {
 	struct hv_local_interrupt_controller_state interrupt_controller_state;
 	struct hv_synthetic_timers_state synthetictimersstate;
@@ -949,6 +955,8 @@ struct hv_set_vp_state_in {
 	struct hv_vp_state_data state_data;
 	union hv_input_set_vp_state_data data[];
 } __packed;
+
+#endif
 
 struct hv_get_partition_property_in {
 	u64 partition_id;

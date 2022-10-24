@@ -518,6 +518,8 @@ int hv_call_assert_virtual_interrupt(
 	return 0;
 }
 
+#ifdef HV_SUPPORTS_VP_STATE
+
 int hv_call_get_vp_state(
 		u32 vp_index,
 		u64 partition_id,
@@ -654,6 +656,8 @@ int hv_call_set_vp_state(
 
 	return ret;
 }
+
+#endif
 
 int hv_call_map_vp_state_page(u64 partition_id, u32 vp_index, u32 type,
 				struct page **state_page)
@@ -1005,6 +1009,8 @@ hv_call_notify_port_ring_empty(u32 sint_index)
 	return 0;
 }
 
+#ifdef HV_SUPPORTS_REGISTER_INTERCEPT
+
 int hv_call_register_intercept_result(u32 vp_index,
 				  u64 partition_id,
 				  enum hv_intercept_type intercept_type,
@@ -1044,6 +1050,8 @@ int hv_call_register_intercept_result(u32 vp_index,
 
 	return ret;
 }
+
+#endif
 
 int hv_call_signal_event_direct(u32 vp_index,
 				u64 partition_id,

@@ -123,6 +123,7 @@ struct hv_partition_creation_properties {
 	union hv_partition_isolation_properties isolation_properties;
 } __packed;
 
+#define HV_SUPPORTS_REGISTER_DELIVERABILITY_NOTIFICATIONS
 
 enum hv_x64_register_name {
 	/* Interruptible notification register */
@@ -888,6 +889,8 @@ union hv_x64_xsave_xfem_register {
 	} __packed;
 };
 
+#define HV_SUPPORTS_VP_STATE
+
 struct hv_vp_state_data_xsave {
 	__u64 flags;
 	union hv_x64_xsave_xfem_register states;
@@ -1123,6 +1126,8 @@ struct hv_register_x64_msr_result_parameters {
 	__u32 access_type;
 	__u32 action; /* enum hv_unimplemented_msr_action */
 } __packed;
+
+#define HV_SUPPORTS_REGISTER_INTERCEPT
 
 union hv_register_intercept_result_parameters {
 	struct hv_register_x64_cpuid_result_parameters cpuid;

@@ -291,6 +291,9 @@ enum hv_isolation_type {
 #define HV_X64_MSR_TIME_REF_COUNT	HV_REGISTER_TIME_REF_COUNT
 #define HV_X64_MSR_REFERENCE_TSC	HV_REGISTER_REFERENCE_TSC
 
+// x86 supports nested virtualization
+#define HV_SUPPORTS_NESTED
+
 /*
  * Declare the MSR used to setup pages used to communicate with the hypervisor.
  */
