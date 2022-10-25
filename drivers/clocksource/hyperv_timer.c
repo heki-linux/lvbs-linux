@@ -367,6 +367,12 @@ static union {
 } tsc_pg __aligned(PAGE_SIZE);
 
 static struct ms_hyperv_tsc_page *tsc_page = &tsc_pg.page;
+static unsigned long tsc_pfn;
+
+static unsigned long hv_get_tsc_pfn(void)
+{
+	return tsc_pfn;
+}
 
 struct ms_hyperv_tsc_page *hv_get_tsc_page(void)
 {
@@ -408,13 +414,12 @@ static void suspend_hv_clock_tsc(struct clocksource *arg)
 
 static void resume_hv_clock_tsc(struct clocksource *arg)
 {
-	phys_addr_t phys_addr = virt_to_phys(tsc_page);
 	union hv_reference_tsc_msr tsc_msr;
 
 	/* Re-enable the TSC page */
 	tsc_msr.as_uint64 = hv_get_register(HV_REGISTER_REFERENCE_TSC);
 	tsc_msr.enable = 1;
-	tsc_msr.pfn = __phys_to_pfn(phys_addr);
+	tsc_msr.pfn = tsc_pfn;
 	hv_set_register(HV_REGISTER_REFERENCE_TSC, tsc_msr.as_uint64);
 }
 
@@ -498,7 +503,6 @@ static __always_inline void hv_setup_sched_clock(void *sched_clock) {}
 static bool __init hv_init_tsc_clocksource(void)
 {
 	union hv_reference_tsc_msr tsc_msr;
-	phys_addr_t	phys_addr;
 
 	if (!(ms_hyperv.features & HV_MSR_REFERENCE_TSC_AVAILABLE))
 		return false;
@@ -523,7 +527,7 @@ static bool __init hv_init_tsc_clocksource(void)
 	}
 
 	hv_read_reference_counter = read_hv_clock_tsc;
-	phys_addr = virt_to_phys(hv_get_tsc_page());
+	tsc_pfn = __phys_to_pfn(virt_to_phys(tsc_page));
 
 	/*
 	 * The Hyper-V TLFS specifies to preserve the value of reserved
@@ -534,7 +538,7 @@ static bool __init hv_init_tsc_clocksource(void)
 	 */
 	tsc_msr.as_uint64 = hv_get_register(HV_REGISTER_REFERENCE_TSC);
 	tsc_msr.enable = 1;
-	tsc_msr.pfn = __phys_to_pfn(phys_addr);
+	tsc_msr.pfn = tsc_pfn;
 	hv_set_register(HV_REGISTER_REFERENCE_TSC, tsc_msr.as_uint64);
 
 	clocksource_register_hz(&hyperv_cs_tsc, NSEC_PER_SEC/100);
