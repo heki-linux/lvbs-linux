@@ -414,6 +414,8 @@ void __init hyperv_init(void)
 		memcpy(dst, src, HV_HYP_PAGE_SIZE);
 		memunmap(src);
 		kunmap(pg);
+
+		hv_remap_tsc_clocksource();
 	} else {
 		hypercall_msr.guest_physical_address = vmalloc_to_pfn(hv_hypercall_pg);
 		wrmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
