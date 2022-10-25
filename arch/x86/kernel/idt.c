@@ -158,7 +158,9 @@ static const __initconst struct idt_data apic_idts[] = {
 	 * does not want anything other than 0x31-0x34 as the interrupt vector for vmbus
 	 * interrupt in case of nested setup.
 	 */
+#ifdef CONFIG_HYPERV
 	INTG(HYPERV_INTR_NESTED_VMBUS_VECTOR, asm_sysvec_hyperv_nested_vmbus_intr),
+#endif
 #endif
 };
 

@@ -30,6 +30,9 @@ jobs:
     name: 'lsg-virt-amd64-1es-agent-pool-2'
 
   steps:
+  - checkout: self
+    persistCredentials: true
+    fetchTags: false
   - template: templates/ubuntu-20.04-build.yml
   - bash: |
       set -e
@@ -45,6 +48,21 @@ jobs:
       set -x
       $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/config-validate
     displayName: 'Validate Config'
+
+  - bash: |
+      set -e
+      set -x
+      $(CONTAINER_RT) exec $(CONTAINER_NAME) git config --global --add safe.directory '*'
+      $(CONTAINER_RT) exec -w $(CONTAINER_VOL)/ $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/run_checkpatch.py \
+        --ado-org microsoft \
+        --ado-project LSG \
+        --ado-access-token "$(System.AccessToken)" \
+        --repo-id "$(Build.Repository.ID)" \
+        --pr-id "$(System.PullRequest.PullRequestId)" \
+        --source-branch "$(System.PullRequest.SourceBranch)"
+    displayName: 'Run checkpatch.pl'
+    condition: and(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/msft/mshv-stable'))
+    continueOnError: true
 
   - bash: |
       set -e

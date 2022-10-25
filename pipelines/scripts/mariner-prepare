@@ -6,5 +6,6 @@ set -e
 yum update -y
 yum install -y gcc make diffutils binutils glibc-devel dwarves \
 		kernel-headers flex bison python3-devel \
-		openssl-devel bc awk perl
+		openssl-devel bc awk perl python3-requests \
+		python3-pip git
 
