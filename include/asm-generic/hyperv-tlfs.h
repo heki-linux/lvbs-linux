@@ -110,6 +110,15 @@ struct ms_hyperv_tsc_page {
 	volatile s64 tsc_offset;
 } __packed;
 
+union hv_reference_tsc_msr {
+	u64 as_uint64;
+	struct {
+		u64 enable:1;
+		u64 reserved:11;
+		u64 pfn:52;
+	} __packed;
+};
+
 /*
  * The guest OS needs to register the guest ID with the hypervisor.
  * The guest ID is a 64 bit entity and the structure of this ID is
@@ -883,6 +892,8 @@ struct hv_assert_virtual_interrupt {
 	u16 rsvd_z1;
 } __packed;
 
+#ifdef HV_SUPPORTS_VP_STATE
+
 struct hv_vp_state_data {
 	u32 type;
 	u32 rsvd;
@@ -898,6 +909,8 @@ struct hv_get_vp_state_in {
 	struct hv_vp_state_data state_data;
 	u64 output_data_pfns[];
 } __packed;
+
+#endif
 
 struct hv_stimer_state
 {
@@ -930,6 +943,8 @@ struct hv_synthetic_timers_state
 	u64 reserved[5];
 } __packed;
 
+#ifdef HV_SUPPORTS_VP_STATE
+
 union hv_get_vp_state_out {
 	struct hv_local_interrupt_controller_state interrupt_controller_state;
 	struct hv_synthetic_timers_state synthetictimersstate;
@@ -949,6 +964,8 @@ struct hv_set_vp_state_in {
 	struct hv_vp_state_data state_data;
 	union hv_input_set_vp_state_data data[];
 } __packed;
+
+#endif
 
 struct hv_get_partition_property_in {
 	u64 partition_id;
@@ -1285,45 +1302,6 @@ struct hv_input_import_isolated_pages {
 	enum hv_isolated_page_type page_type;
 	enum hv_isolated_page_size page_size;
 	u64 page_number[];
-} __packed;
-
-
-struct hv_snp_id_block {
-	u8 launch_digest[48];
-	u8 family_id[16];
-	u8 image_id[16];
-	u32 version;
-	u32 guest_svn;
-	union hv_snp_guest_policy policy;
-} __packed;
-
-struct hv_snp_id_auth_info {
-	u32 id_key_algorithm;
-	u32 auth_key_algorithm;
-	u8 reserved0[56];
-	u8 id_block_signature[512];
-	u8 id_key[1028];
-	u8 reserved1[60];
-	u8 id_key_signature[512];
-	u8 author_key[1028];
-} __packed;
-
-struct hv_psp_launch_finish_data {
-	struct hv_snp_id_block id_block;
-	struct hv_snp_id_auth_info id_auth_info;
-	u8 host_data[32];
-	bool id_block_enabled;
-	bool author_key_enabled;
-} __packed;
-
-union hv_partition_complete_isolated_import_data {
-	u64 reserved;
-	struct hv_psp_launch_finish_data psp_parameters;
-} __packed;
-
-struct hv_input_complete_isolated_import {
-	u64 partition_id;
-	union hv_partition_complete_isolated_import_data import_data;
 } __packed;
 
 struct hv_input_map_vp_state_page {

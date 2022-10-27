@@ -82,13 +82,11 @@ void hv_setup_mshv_irq(void (*handler)(void))
 {
 	mshv_handler = handler;
 }
-EXPORT_SYMBOL_GPL(hv_setup_mshv_irq);
 
 void hv_remove_mshv_irq(void)
 {
 	mshv_handler = NULL;
 }
-EXPORT_SYMBOL_GPL(hv_remove_mshv_irq);
 
 void hv_setup_vmbus_handler(void (*handler)(void))
 {

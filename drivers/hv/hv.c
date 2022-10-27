@@ -25,11 +25,22 @@
 /* The one and only */
 struct hv_context hv_context;
 
+#ifdef HV_SUPPORTS_NESTED
+
 #define REG_SIMP (hv_nested ? HV_REGISTER_NESTED_SIMP : HV_REGISTER_SIMP)
 #define REG_SIEFP (hv_nested ? HV_REGISTER_NESTED_SIEFP : HV_REGISTER_SIEFP)
 #define REG_SCTRL                                                              \
 	(hv_nested ? HV_REGISTER_NESTED_SCONTROL : HV_REGISTER_SCONTROL)
 #define REG_SINT0 (hv_nested ? HV_REGISTER_NESTED_SINT0 : HV_REGISTER_SINT0)
+
+#else
+
+#define REG_SIMP (HV_REGISTER_SIMP)
+#define REG_SIEFP (HV_REGISTER_SIEFP)
+#define REG_SCTRL (HV_REGISTER_SCONTROL)
+#define REG_SINT0 (HV_REGISTER_SINT0)
+
+#endif
 
 /*
  * hv_init - Main initialization routine.

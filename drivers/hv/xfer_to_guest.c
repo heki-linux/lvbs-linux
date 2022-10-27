@@ -11,7 +11,7 @@
 #include <linux/tracehook.h>
 
 /* Invoke with preemption and interrupt enabled */
-int xfer_to_guest_mode_handle_work(unsigned long ti_work)
+int mshv_xfer_to_guest_mode_handle_work(unsigned long ti_work)
 {
 	if (ti_work & _TIF_NOTIFY_SIGNAL)
 		tracehook_notify_signal();
@@ -27,4 +27,4 @@ int xfer_to_guest_mode_handle_work(unsigned long ti_work)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(xfer_to_guest_mode_handle_work);
+EXPORT_SYMBOL_GPL(mshv_xfer_to_guest_mode_handle_work);

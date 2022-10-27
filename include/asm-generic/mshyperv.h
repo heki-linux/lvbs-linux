@@ -65,6 +65,8 @@ extern u8 __percpu **hv_synic_eventring_tail;
 extern u64 hv_do_hypercall(u64 control, void *inputaddr, void *outputaddr);
 extern u64 hv_do_nested_hypercall(u64 control, void *inputaddr, void *outputaddr);
 extern u64 hv_do_fast_hypercall8(u16 control, u64 input8);
+extern u64 hv_do_fast_hypercall16(u16 control, u64 input1, u64 input2);
+extern u64 hv_do_fast_nested_hypercall8(u16 control, u64 input8);
 
 /* Helper functions that provide a consistent pattern for checking Hyper-V hypercall status. */
 static inline int hv_result(u64 status)
@@ -147,7 +149,11 @@ extern int vmbus_irq;
 extern bool hv_root_partition;
 extern bool hv_nested;
 
+#ifdef HV_SUPPORTS_NESTED
 #define REG_EOM (hv_nested ? HV_REGISTER_NESTED_EOM : HV_REGISTER_EOM)
+#else
+#define REG_EOM (HV_REGISTER_EOM)
+#endif
 
 /* Free the message slot and signal end-of-message if required */
 static inline void vmbus_signal_eom(struct hv_message *msg, u32 old_msg_type)
@@ -276,7 +282,38 @@ static inline int cpumask_to_vpset_noself(struct hv_vpset *vpset,
 	return __cpumask_to_vpset(vpset, cpus, true);
 }
 
-const char *hv_status_to_string(u64 hv_status);
+
+static inline int hv_status_to_errno(u64 hv_status)
+{
+	switch (hv_result(hv_status)) {
+	case HV_STATUS_SUCCESS:
+		return 0;
+	case HV_STATUS_INVALID_PARAMETER:
+	case HV_STATUS_UNKNOWN_PROPERTY:
+	case HV_STATUS_PROPERTY_VALUE_OUT_OF_RANGE:
+	case HV_STATUS_INVALID_VP_INDEX:
+	case HV_STATUS_INVALID_REGISTER_VALUE:
+	case HV_STATUS_INVALID_LP_INDEX:
+		return -EINVAL;
+	case HV_STATUS_ACCESS_DENIED:
+	case HV_STATUS_OPERATION_DENIED:
+		return -EACCES;
+	case HV_STATUS_NOT_ACKNOWLEDGED:
+	case HV_STATUS_INVALID_VP_STATE:
+	case HV_STATUS_INVALID_PARTITION_STATE:
+		return -EBADFD;
+	}
+	return -ENOTRECOVERABLE;
+}
+
+static inline const char *hv_status_to_string(u64 hv_status)
+{
+	switch (hv_result(hv_status)) {
+	__HV_STATUS_DEF(__HV_MAKE_HV_STATUS_CASE)
+	default : return "Unknown";
+	}
+}
+
 void hyperv_report_panic(struct pt_regs *regs, long err, bool in_die);
 bool hv_is_hyperv_initialized(void);
 bool hv_is_hibernation_supported(void);
@@ -285,6 +322,8 @@ bool hv_is_isolation_supported(void);
 void hyperv_cleanup(void);
 bool hv_query_ext_cap(u64 cap_query);
 void hv_setup_dma_ops(struct device *dev, bool coherent);
+int hv_call_create_vp(int node, u64 partition_id, u32 vp_index, u32 flags);
+int hv_call_deposit_pages(int node, u64 partition_id, u32 num_pages);
 #else /* CONFIG_HYPERV */
 static inline bool hv_is_hyperv_initialized(void) { return false; }
 static inline bool hv_is_hibernation_supported(void) { return false; }
