@@ -168,6 +168,8 @@ struct mshv_assert_interrupt {
 	__u32 vector;
 };
 
+#ifdef HV_SUPPORTS_VP_STATE
+
 struct mshv_vp_state {
 	enum hv_get_set_vp_state_type type;
 	struct hv_vp_state_data_xsave xsave; /* only for xsave request */
@@ -178,6 +180,8 @@ struct mshv_vp_state {
 		__u8 *bytes; /* Xsave data. must be page-aligned */
 	} buf;
 };
+
+#endif
 
 struct mshv_partition_property {
 	enum hv_partition_property_code property_code;
@@ -236,10 +240,12 @@ struct mshv_msi_routing {
 	struct mshv_msi_routing_entry entries[0];
 };
 
+#ifdef HV_SUPPORTS_REGISTER_INTERCEPT
 struct mshv_register_intercept_result {
 	__u32 intercept_type; /* enum hv_intercept_type */
 	union hv_register_intercept_result_parameters parameters;
 };
+#endif
 
 struct mshv_signal_event_direct {
 	__u32 vp;
@@ -305,11 +311,15 @@ struct mshv_vp_run_registers {
 #define MSHV_SET_VP_REGISTERS   _IOW(MSHV_IOCTL, 0x06, struct mshv_vp_registers)
 #define MSHV_RUN_VP		_IOR(MSHV_IOCTL, 0x07, struct hv_message)
 #define MSHV_RUN_VP_REGISTERS	_IOWR(MSHV_IOCTL, 0x1C, struct mshv_vp_run_registers)
+#ifdef HV_SUPPORTS_VP_STATE
 #define MSHV_GET_VP_STATE	_IOWR(MSHV_IOCTL, 0x0A, struct mshv_vp_state)
 #define MSHV_SET_VP_STATE	_IOWR(MSHV_IOCTL, 0x0B, struct mshv_vp_state)
+#endif
 #define MSHV_TRANSLATE_GVA	_IOWR(MSHV_IOCTL, 0x0E, struct mshv_translate_gva)
+#ifdef HV_SUPPORTS_REGISTER_INTERCEPT
 #define MSHV_VP_REGISTER_INTERCEPT_RESULT \
 				_IOW(MSHV_IOCTL, 0x17, struct mshv_register_intercept_result)
+#endif
 #define MSHV_SIGNAL_EVENT_DIRECT \
 	_IOWR(MSHV_IOCTL, 0x18, struct mshv_signal_event_direct)
 #define MSHV_POST_MESSAGE_DIRECT \

@@ -37,7 +37,7 @@
 		/ sizeof(union hv_gpa_page_access_state))
 extern struct mshv mshv;
 
-int xfer_to_guest_mode_handle_work(unsigned long ti_work);
+int mshv_xfer_to_guest_mode_handle_work(unsigned long ti_work);
 
 void mshv_isr(void);
 int mshv_synic_init(unsigned int cpu);
@@ -130,6 +130,8 @@ int hv_call_assert_virtual_interrupt(
 		u64 dest_addr,
 		union hv_interrupt_control control);
 int hv_call_clear_virtual_interrupt(u64 partition_id);
+
+#ifdef HV_SUPPORTS_VP_STATE
 int hv_call_get_vp_state(
 		u32 vp_index,
 		u64 partition_id,
@@ -149,6 +151,8 @@ int hv_call_set_vp_state(
 		struct page **pages,
 		u32 num_bytes,
 		u8 *bytes);
+#endif
+
 int hv_call_map_vp_state_page(u64 partition_id, u32 vp_index, u32 type,
 				struct page **state_page);
 int hv_call_unmap_vp_state_page(u64 partition_id, u32 vp_index, u32 type);
@@ -186,10 +190,12 @@ int hv_call_connect_port(u64 port_partition_id, union hv_port_id port_id,
 int hv_call_disconnect_port(u64 connection_partition_id,
 			    union hv_connection_id connection_id);
 int hv_call_notify_port_ring_empty(u32 sint_index);
+#ifdef HV_SUPPORTS_REGISTER_INTERCEPT
 int hv_call_register_intercept_result(u32 vp_index,
 				  u64 partition_id,
 				  enum hv_intercept_type intercept_type,
 				  union hv_register_intercept_result_parameters *params);
+#endif
 int hv_call_signal_event_direct(u32 vp_index,
 				u64 partition_id,
 				u8 vtl,

@@ -75,8 +75,7 @@ irqfd_resampler_ack(struct mshv_irq_ack_notifier *mian)
 	idx = srcu_read_lock(&partition->irq_srcu);
 
 	list_for_each_entry_rcu(irqfd, &resampler->list, resampler_link) {
-		if (irqfd->lapic_irq.control.interrupt_type ==
-				HV_X64_INTERRUPT_TYPE_EXTINT)
+		if (hv_should_clear_interrupt(irqfd->lapic_irq.control.interrupt_type))
 			hv_call_clear_virtual_interrupt(partition->id);
 
 		eventfd_signal(irqfd->resamplefd, 1);

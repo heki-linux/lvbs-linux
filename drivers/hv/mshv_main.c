@@ -345,7 +345,7 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 				local_irq_restore(irq_flags);
 				preempt_enable();
 
-				ret = xfer_to_guest_mode_handle_work(ti_work);
+				ret = mshv_xfer_to_guest_mode_handle_work(ti_work);
 
 				preempt_disable();
 
@@ -492,6 +492,8 @@ mshv_vp_ioctl_run_vp_regs(struct mshv_vp *vp,
 			   regs_count + ARRAY_SIZE(suspend_registers));
 }
 
+#ifdef HV_SUPPORTS_VP_STATE
+
 static long
 mshv_vp_ioctl_get_set_state_pfn(struct mshv_vp *vp,
 				struct mshv_vp_state *args,
@@ -608,6 +610,8 @@ mshv_vp_ioctl_get_set_state(struct mshv_vp *vp, void __user *user_args, bool is_
 	return 0;
 }
 
+#endif
+
 static long
 mshv_vp_ioctl_translate_gva(struct mshv_vp *vp, void __user *user_args)
 {
@@ -639,6 +643,8 @@ mshv_vp_ioctl_translate_gva(struct mshv_vp *vp, void __user *user_args)
 	return 0;
 }
 
+#ifdef HV_SUPPORTS_REGISTER_INTERCEPT
+
 static long
 mshv_vp_ioctl_register_intercept_result(struct mshv_vp *vp, void __user *user_args)
 {
@@ -655,6 +661,8 @@ mshv_vp_ioctl_register_intercept_result(struct mshv_vp *vp, void __user *user_ar
 
 	return ret;
 }
+
+#endif
 
 static long 
 mshv_vp_ioctl_get_cpuid_values(struct mshv_vp *vp, void __user *user_args)
@@ -717,18 +725,22 @@ mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 	case MSHV_SET_VP_REGISTERS:
 		r = mshv_vp_ioctl_set_regs(vp, (void __user *)arg);
 		break;
+#ifdef HV_SUPPORTS_VP_STATE
 	case MSHV_GET_VP_STATE:
 		r = mshv_vp_ioctl_get_set_state(vp, (void __user *)arg, false);
 		break;
 	case MSHV_SET_VP_STATE:
 		r = mshv_vp_ioctl_get_set_state(vp, (void __user *)arg, true);
 		break;
+#endif
 	case MSHV_TRANSLATE_GVA:
 		r = mshv_vp_ioctl_translate_gva(vp, (void __user *)arg);
 		break;
+#ifdef HV_SUPPORTS_REGISTER_INTERCEPT
 	case MSHV_VP_REGISTER_INTERCEPT_RESULT:
 		r = mshv_vp_ioctl_register_intercept_result(vp, (void __user *)arg);
 		break;
+#endif
 	case MSHV_GET_VP_CPUID_VALUES:
 		r = mshv_vp_ioctl_get_cpuid_values(vp, (void __user *)arg);
 		break;
@@ -950,7 +962,7 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 	if (!mem.size ||
 	    !PAGE_ALIGNED(mem.size) ||
 	    !PAGE_ALIGNED(mem.userspace_addr) ||
-	    !access_ok(mem.userspace_addr, mem.size))
+	    !access_ok((const void *) mem.userspace_addr, mem.size))
 		return -EINVAL;
 
 	/* Reject overlapping regions */
@@ -1248,6 +1260,7 @@ mshv_partition_ioctl_post_message_direct(struct mshv_partition *partition,
 					&message[0]);
 }
 
+#ifdef HV_SUPPORTS_REGISTER_DELIVERABILITY_NOTIFICATIONS
 static long 
 mshv_partition_ioctl_register_deliverabilty_notifications(
 		struct mshv_partition *partition, void __user *user_args)
@@ -1264,6 +1277,7 @@ mshv_partition_ioctl_register_deliverabilty_notifications(
 
 	return hv_call_set_vp_registers(args.vp, partition->id, 1, &hv_reg);
 }
+#endif
 
 static int mshv_device_ioctl_attr(struct mshv_device *dev,
 				 int (*accessor)(struct mshv_device *dev,
@@ -1497,10 +1511,12 @@ mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		ret = mshv_partition_ioctl_post_message_direct(partition,
 							 (void __user *)arg);
 		break;
+#ifdef HV_SUPPORTS_REGISTER_DELIVERABILITY_NOTIFICATIONS
 	case MSHV_REGISTER_DELIVERABILITY_NOTIFICATIONS:
 		ret = mshv_partition_ioctl_register_deliverabilty_notifications(
 			partition, (void __user *)arg);
 		break;		
+#endif
 	default:
 		ret = -ENOTTY;
 	}
