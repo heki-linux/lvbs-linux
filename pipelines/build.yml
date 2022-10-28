@@ -25,13 +25,18 @@ pr:
 
 jobs:
 - job: Kernel
-  timeoutInMinutes: 30
+  timeoutInMinutes: 120
   strategy:
     matrix:
-      'x86':
+      'Dom0 x86_64':
         machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
-      'arm64':
+        FLAVOR: 'dom0'
+      'Mariner x86_64':
+        machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
+        FLAVOR: 'mariner'
+      'Dom0 aarch64':
         machinePool: 'lsg-virt-aarch64-1es-agent-pool-2'
+        FLAVOR: 'dom0'
   pool:
     name: $(machinePool)
 
@@ -58,6 +63,7 @@ jobs:
       set -e
       set -x
       $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/config-validate
+    condition: eq(variables.FLAVOR, 'dom0')
     displayName: 'Validate Config'
 
   - bash: |
@@ -72,13 +78,13 @@ jobs:
         --pr-id "$(System.PullRequest.PullRequestId)" \
         --source-branch "$(System.PullRequest.SourceBranch)"
     displayName: 'Run checkpatch.pl'
-    condition: and(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/msft/mshv-stable'))
+    condition: and(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/msft/mshv-stable'), eq(variables.FLAVOR, 'dom0'))
     continueOnError: true
 
   - bash: |
       set -e
       set -x
-      $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/kernel-compile
+      $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/kernel-compile $(FLAVOR)
     displayName: 'Compile Kernel'
 
   - bash: |

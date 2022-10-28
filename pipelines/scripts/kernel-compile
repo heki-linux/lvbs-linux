@@ -3,6 +3,8 @@
 set -x
 set -e
 
+FLAVOR=$1
+
 SOURCE_ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 cd "${SOURCE_ROOT}"
 
@@ -13,7 +15,15 @@ then
 fi
 
 make mrproper
-make LC_ALL= ARCH=$ARCH mshv_defconfig
+
+CONFIG=mshv_defconfig
+if [ "mariner" == "${FLAVOR}" ]; then
+	curl -o .config https://raw.githubusercontent.com/microsoft/CBL-Mariner/main/SPECS-EXTENDED/kernel-mshv/config
+	make LC_ALL= ARCH=$ARCH olddefconfig
+	CONFIG=
+fi
+
+make LC_ALL= ARCH=$ARCH ${CONFIG}
 
 make -j$(nproc) ARCH=$ARCH W=1
 make -j$(nproc) ARCH=$ARCH W=1 modules
