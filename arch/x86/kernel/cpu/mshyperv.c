@@ -296,7 +296,7 @@ static int __init next_smallest_apicid(int apicids[], int curr)
 static void __init hv_smp_prepare_cpus(unsigned int max_cpus)
 {
 #ifdef CONFIG_X86_64
-	s16 node;
+	s16 node = 0;
 	int i, lpidx, ret, ccpu = raw_smp_processor_id();
 #endif
 	native_smp_prepare_cpus(max_cpus);
@@ -317,9 +317,11 @@ static void __init hv_smp_prepare_cpus(unsigned int max_cpus)
 
 	i = next_smallest_apicid(apicids, 0);
 	for (lpidx = 1; i != INT_MAX; lpidx++) {
+#ifdef CONFIG_NUMA
 		node = __apicid_to_node[i];
 		if (node == NUMA_NO_NODE)
 			node = 0;
+#endif
 
 		/* params: node num, lp index, apic id */
 		ret = hv_call_add_logical_proc(node, lpidx, i);
