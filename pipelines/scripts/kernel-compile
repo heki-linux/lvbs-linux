@@ -19,8 +19,7 @@ make mrproper
 CONFIG=mshv_defconfig
 if [ "mariner" == "${FLAVOR}" ]; then
 	curl -o .config https://raw.githubusercontent.com/microsoft/CBL-Mariner/main/SPECS-EXTENDED/kernel-mshv/config
-	make LC_ALL= ARCH=$ARCH olddefconfig
-	CONFIG=
+	CONFIG=olddefconfig
 fi
 
 make LC_ALL= ARCH=$ARCH ${CONFIG}
