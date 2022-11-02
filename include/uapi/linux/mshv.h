@@ -25,6 +25,13 @@
 #define HV_PARTITION_ISOLATION_TYPE_TDX             3
 
 /*
+ * Various host isolation types supported by MSHV.
+ */
+#define HV_PARTITION_ISOLATION_HOST_TYPE_NONE       0x0
+#define HV_PARTITION_ISOLATION_HOST_TYPE_HARDWARE   0x1
+#define HV_PARTITION_ISOLATION_HOST_TYPE_RESERVED   0x2
+
+/*
  * Definition of the partition isolation state. Used for
  * HV_PARTITION_PROPERTY_ISOLATION_STATE.
  *
