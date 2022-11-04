@@ -17,7 +17,7 @@
 
 #define TDX_GUEST_DEVNAME "/dev/tdx_guest"
 #define HEX_DUMP_SIZE 8
-#define DEBUG 0
+#define DEBUG 1
 
 /**
  * struct tdreport_type - Type header of TDREPORT_STRUCT.
