@@ -4,6 +4,7 @@ variables:
   CONTAINER_NAME: dom0kerneltest
   CONTAINER_VOL: /linux-dom0
   CONTAINER_RT: docker
+  BUILDING_TAG: $[startsWith(variables['Build.SourceBranch'], 'refs/tags')]
 
 trigger:
   batch: false
@@ -45,6 +46,14 @@ jobs:
     persistCredentials: true
     fetchTags: false
   - template: templates/ubuntu-20.04-build.yml
+
+  - bash: |
+      set -e
+      set -x
+      ./pipelines/scripts/tag-validate "$(Build.SourceBranchName)"
+    condition: eq(variables.BUILDING_TAG, 'true')
+    displayName: 'Validate Tag'
+
   - bash: |
       set -e
       set -x

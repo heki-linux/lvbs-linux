@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+
+__copyright__ = "Copyright (c) Microsoft Corporation."
+
+import sys
+import re
+import subprocess
+
+
+if len(sys.argv) < 2:
+    print("Usage: {} <tag name to validate>".format(sys.argv[0]))
+    sys.exit(0)
+
+
+# Ref might look like refs/tags/msft/mshv-rolling/5.15.74.mshv3.
+parts = sys.argv[1].split("/")
+tag_version = parts[len(parts)-1]
+
+ver_ptr = re.compile("\d+\.\d+\.\d+\.mshv\d+$")
+if ver_ptr.match(tag_version) is None:
+    print("Invalid tag name '{}'".format(sys.argv[1]))
+    sys.exit(1)
+
+
+res = subprocess.run(["make", "kernelversion"], stdout=subprocess.PIPE)
+mf_version = res.stdout.decode("ascii").strip()
+
+if  not tag_version == mf_version:
+    print("Versions tag vs Makefile don't match: '{}' != '{}'".format(tag_version, mf_version))
+    sys.exit(1)
+
+print("Tag '{}' is valid".format(sys.argv[1]))
+
+sys.exit(0)
