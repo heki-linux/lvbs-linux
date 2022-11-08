@@ -99,5 +99,12 @@ jobs:
   - bash: |
       set -e
       set -x
+      ./pipelines/scripts/ref-package "$(Build.SourceBranch)"
+    condition: eq(variables.BUILDING_TAG, 'true')
+    displayName: 'Package tarball'
+
+  - bash: |
+      set -e
+      set -x
       $(CONTAINER_RT) rm -f $(CONTAINER_IMAGE)
     displayName: 'Cleanup container'
