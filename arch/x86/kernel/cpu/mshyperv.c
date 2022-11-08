@@ -18,6 +18,8 @@
 #include <linux/kexec.h>
 #include <linux/i8253.h>
 #include <linux/random.h>
+#include <linux/memblock.h>
+#include <linux/crash_dump.h>
 #include <asm/processor.h>
 #include <asm/hypervisor.h>
 #include <asm/hyperv-tlfs.h>
@@ -32,6 +34,7 @@
 #include <asm/nmi.h>
 #include <clocksource/hyperv_timer.h>
 #include <asm/numa.h>
+#include <asm/e820/api.h>
 
 /* Is Linux running as the root partition? */
 bool hv_root_partition;
@@ -346,6 +349,83 @@ static void __init hv_smp_prepare_cpus(unsigned int max_cpus)
 }
 #endif /* #if defined(CONFIG_SMP) && IS_ENABLED(CONFIG_HYPERV) */
 
+#define HV_MAX_RESVD_RANGES 32
+static int hv_resvd_ranges[HV_MAX_RESVD_RANGES] =
+				{[0 ... HV_MAX_RESVD_RANGES-1] = -1};
+static struct resource hv_mshv_res[HV_MAX_RESVD_RANGES];
+
+/*
+ * parse eg "hyperv_resvd=3,7,20" where 3, 7, and 20 are indexes into the e820
+ * table for ranges that are reserved by the loader for the hypervisor
+ */
+static int __init hv_parse_hyperv_resvd(char *arg)
+{
+	int idx, max = ARRAY_SIZE(hv_resvd_ranges);
+	int i = 0;
+
+	if (is_kdump_kernel())
+		return 0;
+
+	if (hv_resvd_ranges[0] != -1) {
+		pr_err("Hyper-V: multile hyperv_resvd not supported\n");
+		return 0;
+	}
+
+	while (get_option(&arg, &idx)) {
+		if (i >= max) {
+			pr_err("Hyper-V: resvd ranges tbl full %d\n", idx);
+			break;
+		}
+
+		hv_resvd_ranges[i++] = idx;
+	}
+
+	return 0;
+}
+early_param("hyperv_resvd", hv_parse_hyperv_resvd);
+
+/*
+ * Reserve memory that the hypervisor is using early on. The ranges are marked
+ * reserved by a custom bootloader, change that to usable and reserve that
+ * range. Note, the bootloader sanitizes the e820 before passing on here.
+ */
+static void __init hv_resv_mshv_memory(void)
+{
+	u64 start, end, size;
+	int i, idx, max = ARRAY_SIZE(hv_resvd_ranges);
+
+	for (i = 0; i < max && hv_resvd_ranges[i] != -1; i++) {
+
+		idx = hv_resvd_ranges[i];
+		if (idx < 0 || idx >= e820_table->nr_entries) {
+			pr_info("Hyper-V: invalid resvd idx %d\n", idx);
+			continue;
+		}
+
+		start = e820_table->entries[idx].addr;
+		size = e820_table->entries[idx].size;
+		end = start + size - 1;
+
+		memblock_reserve(start, size);
+		e820_table->entries[idx].type = E820_TYPE_RAM;
+		pr_info("Hyper-V reserve [mem %#018Lx-%#018Lx]\n", start, end);
+
+		hv_mshv_res[i].name = "Hypervisor Code and Data";
+		hv_mshv_res[i].flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM;
+		hv_mshv_res[i].start = start;
+		hv_mshv_res[i].end = end;
+	}
+}
+
+/* this cannot be done during platform init, hence called from hyperv_init() */
+void __init hv_mark_resources(void)
+{
+	int i, max = ARRAY_SIZE(hv_mshv_res);
+
+	for (i = 0; i < max && hv_mshv_res[i].end; i++)
+		insert_resource(&iomem_resource, &hv_mshv_res[i]);
+}
+
 static void __init ms_hyperv_init_platform(void)
 {
 	int hv_max_functions_eax;
@@ -392,6 +472,9 @@ static void __init ms_hyperv_init_platform(void)
 	if (cpuid_ebx(HYPERV_CPUID_FEATURES) & HV_CPU_MANAGEMENT) {
 		hv_root_partition = true;
 		pr_info("Hyper-V: running as root partition\n");
+
+		/* very first thing, reserve exclusive hypervisor memory */
+		hv_resv_mshv_memory();
 	}
 
 	if (ms_hyperv.hints & HV_X64_HYPERV_NESTED) {
