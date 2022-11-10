@@ -46,14 +46,6 @@ jobs:
     persistCredentials: true
     fetchTags: false
   - template: templates/ubuntu-20.04-build.yml
-
-  - bash: |
-      set -e
-      set -x
-      ./pipelines/scripts/tag-validate "$(Build.SourceBranchName)"
-    condition: eq(variables.BUILDING_TAG, 'true')
-    displayName: 'Validate Tag'
-
   - bash: |
       set -e
       set -x
@@ -99,8 +91,32 @@ jobs:
   - bash: |
       set -e
       set -x
-      ./pipelines/scripts/ref-package "$(Build.SourceVersion)"
-    condition: eq(variables.BUILDING_TAG, 'true')
+      $(CONTAINER_RT) rm -f $(CONTAINER_IMAGE)
+    displayName: 'Cleanup container'
+
+
+- job: Packaging
+  timeoutInMinutes: 30
+  condition: eq(variables.BUILDING_TAG, 'true')
+  dependsOn: Kernel
+  pool:
+    name: lsg-virt-amd64-1es-agent-pool-3
+
+  steps:
+  - checkout: self
+    persistCredentials: true
+  - template: templates/ubuntu-20.04-build.yml
+
+  - bash: |
+      set -e
+      set -x
+      ./pipelines/scripts/tag-validate "$(Build.SourceBranchName)"
+    displayName: 'Validate Tag'
+
+  - bash: |
+      set -e
+      set -x
+      ./pipelines/scripts/ref-package "$(Build.SourceBranch)"
     displayName: 'Package tarball'
 
   - bash: |
@@ -108,7 +124,7 @@ jobs:
       set -x
       TGZ=$(ls -1 *.tar.gz | head -1)
       SUM="${TGZ}.sha256"
-      # TODO might want to add the checksum calculation to the packaging script, if needed
+      # TODO might move the checksum calculation to the packaging script instead
       sha256sum "${TGZ}" | cut -d ' ' -f1 > "${SUM}"
       for i in "${TGZ}" "${SUM}"; do
               az storage blob upload \
@@ -118,11 +134,4 @@ jobs:
                 --file "${i}" \
                 --name "${i}"
       done
-    condition: eq(variables.BUILDING_TAG, 'true')
     displayName: 'Upload tarball'
-
-  - bash: |
-      set -e
-      set -x
-      $(CONTAINER_RT) rm -f $(CONTAINER_IMAGE)
-    displayName: 'Cleanup container'
