@@ -12,4 +12,9 @@ steps:
 
       sudo apt install -y \
         docker.io containerd runc
+
+      sudo apt install -y \
+        azure-cli make
+
+      az extension add --name azure-devops
     displayName: 'Prepare Ubuntu'

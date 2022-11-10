@@ -99,9 +99,27 @@ jobs:
   - bash: |
       set -e
       set -x
-      ./pipelines/scripts/ref-package "$(Build.SourceBranch)"
+      ./pipelines/scripts/ref-package "$(Build.SourceVersion)"
     condition: eq(variables.BUILDING_TAG, 'true')
     displayName: 'Package tarball'
+
+  - bash: |
+      set -e
+      set -x
+      TGZ=$(ls -1 *.tar.gz | head -1)
+      SUM="${TGZ}.sha256"
+      # TODO might want to add the checksum calculation to the packaging script, if needed
+      sha256sum "${TGZ}" | cut -d ' ' -f1 > "${SUM}"
+      for i in "${TGZ}" "${SUM}"; do
+              az storage blob upload \
+                --sas-token '$(SOURCES_STORAGE_SAS)' \
+                --account-name '$(SOURCES_STORAGE_ACCOUNT)' \
+                --container-name '$(SOURCES_STORAGE_CONTAINER)' \
+                --file "${i}" \
+                --name "${i}"
+      done
+    condition: eq(variables.BUILDING_TAG, 'true')
+    displayName: 'Upload tarball'
 
   - bash: |
       set -e
