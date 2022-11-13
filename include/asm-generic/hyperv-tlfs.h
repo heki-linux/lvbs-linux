@@ -183,12 +183,14 @@ union hv_reference_tsc_msr {
 #define HVCALL_POST_DEBUG_DATA			0x0069
 #define HVCALL_RETRIEVE_DEBUG_DATA		0x006a
 #define HVCALL_RESET_DEBUG_SESSION		0x006b
+#define HVCALL_SET_SYSTEM_PROPERTY		0x006f
 #define HVCALL_ADD_LOGICAL_PROCESSOR		0x0076
 #define HVCALL_GET_SYSTEM_PROPERTY		0x007b
 #define HVCALL_MAP_DEVICE_INTERRUPT		0x007c
 #define HVCALL_UNMAP_DEVICE_INTERRUPT		0x007d
 #define HVCALL_RETARGET_INTERRUPT		0x007e
 #define HVCALL_NOTIFY_PARTITION_EVENT		0x0087
+#define HVCALL_ENTER_SLEEP_STATE		0x0084
 #define HVCALL_NOTIFY_PORT_RING_EMPTY		0x008b
 #define HVCALL_REGISTER_INTERCEPT_RESULT	0x0091
 #define HVCALL_ASSERT_VIRTUAL_INTERRUPT		0x0094
@@ -1306,6 +1308,7 @@ struct hv_input_unmap_vp_state_page {
 
 enum hv_system_property {
 	/* Add more values when needed */
+	HV_SYSTEM_PROPERTY_SLEEP_STATE = 3,
 	HV_SYSTEM_PROPERTY_SCHEDULER_TYPE = 15,
 };
 
@@ -1316,6 +1319,25 @@ enum hv_scheduler_type {
 	HV_SCHEDULER_TYPE_ROOT = 4, /* Root / integrated scheduler */
 	HV_SCHEDULER_TYPE_MAX
 };
+
+enum hv_sleep_state {
+	HV_SLEEP_STATE_S1 = 1,
+	HV_SLEEP_STATE_S2 = 2,
+	HV_SLEEP_STATE_S3 = 3,
+	HV_SLEEP_STATE_S4 = 4,
+	HV_SLEEP_STATE_S5 = 5,
+	/*
+	 * After hypervisor has reseived this, any follow up sleep
+	 * state registration requests will be rejected.
+	 */
+	HV_SLEEP_STATE_LOCK = 6
+};
+
+struct hv_sleep_state_info {
+	u32 sleep_state; /* enum hv_sleep_state */
+	u8 pm1a_slp_typ;
+	u8 pm1b_slp_typ;
+} __packed;
 
 struct hv_input_get_system_property {
 	u32 property_id; /* enum hv_system_property */
@@ -1328,6 +1350,14 @@ struct hv_input_get_system_property {
 struct hv_output_get_system_property {
 	union {
 		u32 scheduler_type; /* enum hv_scheduler_type */
+	};
+} __packed;
+
+struct hv_input_set_system_property {
+	u32 property_id; /* enum hv_system_property */
+	union {
+		/* More fields to be filled in when needed */
+		struct hv_sleep_state_info set_sleep_state_info;
 	};
 } __packed;
 
@@ -1496,6 +1526,10 @@ enum hv_partition_event {
 struct hv_input_notify_partition_event {
 	enum hv_partition_event event;
 	union hv_partition_event_input input;
+} __packed;
+
+struct hv_input_enter_sleep_state {
+	u32 sleep_state; /* enum hv_sleep_state */
 } __packed;
 
 #endif
