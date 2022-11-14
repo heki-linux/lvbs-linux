@@ -391,8 +391,6 @@ void mshv_isr(void);
 int mshv_synic_init(unsigned int cpu);
 int mshv_synic_cleanup(unsigned int cpu);
 #ifdef CONFIG_HYPERV_VTL
-struct mshv_vp_registers;
-struct mshv_partition;
 struct mshv_vp;
 long mshv_ioctl_create_vtl(void __user *user_arg);
 long mshv_partition_ioctl_signal_event_direct(struct mshv_partition *partition,

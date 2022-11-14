@@ -1888,6 +1888,10 @@ mshv_dev_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		return mshv_ioctl_check_extension((void __user *)arg);
 	case MSHV_CREATE_PARTITION:
 		return mshv_ioctl_create_partition((void __user *)arg);
+#ifdef CONFIG_HYPERV_VTL
+	case MSHV_CREATE_VTL:
+		return mshv_ioctl_create_vtl((void __user *)arg);
+#endif
 	}
 
 	return -ENOTTY;
