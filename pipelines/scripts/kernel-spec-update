@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+
+__copyright__ = "Copyright (c) Microsoft Corporation."
+
+import os
+import sys
+import requests
+import json
+import re
+import hashlib
+import subprocess
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from lsgtools.virt.mshv import kernel
+
+default_storage_url = "https://lsgvirtstorage.blob.core.windows.net/dom0-mariner-sources-public"
+
+if len(sys.argv) < 3:
+    # Ref might look like refs/tags/msft/mshv-rolling/5.15.74.mshv3.
+    print("Usage: {} <tag name> <revision hash>".format(sys.argv[0]))
+    sys.exit(0)
+
+version = kernel.get_version_from_tag(sys.argv[1])
+# TODO if possible, verify the passed  kernel commit hash
+# TODO for this to work locally need to retrieve the hash if not passed
+rev_hash = sys.argv[2][:8]
+if len(rev_hash) < 8:
+    print("Git revision '{}' is invalid".format(rev_hash))
+    exit(1)
+
+derivative_branch = "autoupdate/kernel-mshv-{}".format(version)
+storage_url = os.getenv("SOURCES_STORAGE_URL")
+if storage_url is None:
+    # TODO introduce config module for such values
+    storage_url = default_storage_url
+
+tarball_name = kernel.build_tgz_name(version)
+tarball_sum_url = "{}/{}.sha256".format(storage_url, tarball_name)
+
+try:
+    tarball_sha256 = requests.get(tarball_sum_url).content.strip().decode()
+except Exception as e:
+    print("Couldn't retvieve the SHA256 sum file")
+    raise e
+
+cmd = ["git", "checkout", "-b", derivative_branch]
+res = subprocess.run(cmd)
+if 0 != res.returncode:
+    err = res.stderr.decode("ascii")
+    raise Exception(err)
+
+
+kernel_spec_path = "SPECS/kernel/kernel-mshv.spec"
+kernel_sums_path = "SPECS/kernel/kernel-mshv.signatures.json"
+kernel_conf = {
+        "x86": {"path": "SPECS/kernel/config_x86", "sha256": None},
+        "aarch64": {"path": "SPECS/kernel/config_aarch64", "sha256": None}
+        }
+
+# Patch config
+for k in kernel_conf:
+    cf = kernel_conf[k]["path"]
+    with open(cf, "r") as f:
+        conf = f.read()
+    f.close()
+    
+    # TODO Introduce an array with pattern/replacement and pack it into the module
+    conf = re.sub(re.compile("CONFIG_SYSTEM_TRUSTED_KEYS=.*"), 'CONFIG_SYSTEM_TRUSTED_KEYS="certs/mariner.pem"', conf)
+    conf = re.sub(re.compile("Linux/(.*) (.*) Kernel Configuration"), "Linux/\\1 {} Kernel Configuration".format(version), conf)
+
+    with open(cf, "w") as f:
+        f.write(conf)
+    f.close()
+
+    kernel_conf[k]["sha256"] = hashlib.sha256(conf.encode()).hexdigest()
+
+# Recalculate sum
+pem_path = "SPECS/kernel/cbl-mariner-ca-20211013.pem"
+with open(pem_path, "rb") as f:
+    pem_sha256 = hashlib.sha256(f.read()).hexdigest()
+f.close()
+
+# Re-create signatures file
+sigs_struct = {
+    "Signatures": {
+        os.path.basename(pem_path): pem_sha256,
+        os.path.basename(kernel_conf["x86"]["path"]): kernel_conf["x86"]["sha256"],
+        os.path.basename(kernel_conf["aarch64"]["path"]): kernel_conf["aarch64"]["sha256"],
+        tarball_name: tarball_sha256,
+            }
+    }
+with open(kernel_sums_path, "w") as f:
+    json.dump(sigs_struct, f, indent=2)
+f.close()
+
+# Update spec
+with open(kernel_spec_path, "r") as f:
+    kernel_spec = f.read()
+f.close()
+kernel_spec = re.sub(re.compile("%global pkgrel.*"), "%global pkgrel 1000", kernel_spec)
+kernel_spec = re.sub(re.compile("%global kernelver.*"), "%global kernelver {}".format(version), kernel_spec)
+kernel_spec = re.sub(re.compile("%global gitrev.*"), "%global gitrev {}".format(rev_hash), kernel_spec)
+with open(kernel_spec_path, "w") as f:
+    f.write(kernel_spec)
+f.close()
+
+
+# Commit the branch
+commit_msg = """kernel-msft: Autoupdate to {}
+
+Kernel revision: {}
+""".format(version, rev_hash)
+cmd = ["git", "commit", "-a", "-m", commit_msg]
+res = subprocess.run(cmd)
+if 0 != res.returncode:
+    err = res.stderr.decode("ascii")
+    raise Exception(err)
+

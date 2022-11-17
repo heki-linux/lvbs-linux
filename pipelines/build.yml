@@ -5,6 +5,14 @@ variables:
   CONTAINER_VOL: /linux-dom0
   CONTAINER_RT: docker
   BUILDING_TAG: $[startsWith(variables['Build.SourceBranch'], 'refs/tags')]
+  SOURCES_STORAGE_URL: https://lsgvirtstorage.blob.core.windows.net/dom0-mariner-sources-public
+
+resources:
+  repositories:
+    - repository: lsg-virt-mariner
+      type: git
+      name: LSG/lsg-virt-mariner
+      ref: refs/heads/main
 
 trigger:
   batch: false
@@ -105,6 +113,7 @@ jobs:
   steps:
   - checkout: self
     persistCredentials: true
+    clean: true
   - template: templates/ubuntu-20.04-build.yml
 
   - bash: |
@@ -135,3 +144,38 @@ jobs:
                 --name "${i}"
       done
     displayName: 'Upload tarball'
+
+- job: Kernel_Spec
+  timeoutInMinutes: 30
+  condition: eq(variables.BUILDING_TAG, 'true')
+  dependsOn: Packaging
+  pool:
+    name: lsg-virt-amd64-1es-agent-pool-3
+
+  steps:
+  - checkout: self
+    persistCredentials: true
+    fetchTags: false
+    clean: true
+  - checkout: lsg-virt-mariner
+    persistCredentials: true
+    fetchTags: false
+    clean: true
+  - template: templates/ubuntu-20.04-build.yml
+
+  - bash: |
+      set -e
+      set -x
+      git config --global user.email "$(GIT_COMMIT_EMAIL)"
+      git config --global user.name "$(GIT_COMMIT_NAME)"
+      pushd "$(Agent.BuildDirectory)/s/lsg-virt-mariner"
+      "$(Agent.BuildDirectory)/s/linux-dom0/pipelines/scripts/kernel-spec-update" "$(Build.SourceBranch)" "$(Build.SourceVersion)"
+      # If the script above succeeded, the current checkout is now on something like autoupdate/kernel-mshv-.... branch
+      # and all the updates are commited here. So lets push the branch. This part might need to be moved into the script,
+      # if the branch names are to change.
+      git status
+      git push --verbose origin "autoupdate/kernel-mshv-$(Build.SourceBranchName)"
+      popd
+    displayName: 'lsg-virt-mariner spec'
+    env:
+        SOURCES_STORAGE_URL: $(SOURCES_STORAGE_URL)
