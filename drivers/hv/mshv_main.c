@@ -296,7 +296,14 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 
 	while (!complete) {
 		if (vp->run.flags.blocked_by_explicit_suspend) {
-			/* Need to clear explicit suspend before dispatching */
+			/*
+			 * Need to clear explicit suspend before dispatching.
+			 * Explicit suspend is either:
+			 * - set before the first VP dispatch or
+			 * - set explicitly via hypercall
+			 * Since the latter case is not supported, we simply
+			 * clear it here.
+			 */
 			struct hv_register_assoc explicit_suspend = {
 				.name = HV_REGISTER_EXPLICIT_SUSPEND,
 				.value.explicit_suspend.suspended = 0,
@@ -316,7 +323,8 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 			/* Wait for the hypervisor to clear the blocked state */
 			ret = wait_event_interruptible(vp->run.suspend_queue,
 					vp->run.flags.kicked_by_hv == 1);
-			if (ret == -EINTR) {
+			if (ret) {
+				ret = -EINTR;
 				complete = true;
 				break;
 			}
@@ -394,10 +402,14 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 			if (output->dispatch_state == HV_VP_DISPATCH_STATE_BLOCKED) {
 				if (output->dispatch_event == HV_VP_DISPATCH_EVENT_SUSPEND) {
 					vp->run.flags.blocked_by_explicit_suspend = 1;
+					/* TODO: remove the warning once VP canceling is supported */
+					WARN_ONCE(atomic64_read(&vp->run.signaled_count),
+						  "%s: vp#%d: unexpected explicit suspend\n", __func__, vp->index);
 				} else {
-					ret = wait_event_interruptible(vp->run.suspend_queue,
+					ret = wait_event_killable(vp->run.suspend_queue,
 							vp->run.flags.kicked_by_hv == 1);
-					if (ret == -EINTR) {
+					if (ret) {
+						ret = -EINTR;
 						complete = true;
 						break;
 					}
