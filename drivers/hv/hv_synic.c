@@ -15,6 +15,7 @@
 #include <linux/random.h>
 #include <asm/mshyperv.h>
 
+#include "hyperv_vmbus.h"
 #include "mshv_eventfd.h"
 #include "mshv.h"
 
@@ -420,165 +421,6 @@ void mshv_isr(void)
 	}
 }
 
-static inline bool hv_recommend_using_aeoi(void)
-{
-#ifdef HV_DEPRECATING_AEOI_RECOMMENDED
-	return !(ms_hyperv.hints & HV_DEPRECATING_AEOI_RECOMMENDED);
-#else
-	return false;
-#endif
-}
-
-int mshv_synic_init(unsigned int cpu)
-{
-	union hv_synic_simp simp;
-	union hv_synic_siefp siefp;
-	union hv_synic_sirbp sirbp;
-#ifdef HYPERVISOR_CALLBACK_VECTOR
-	union hv_synic_sint sint;
-#endif
-	union hv_synic_scontrol sctrl;
-	struct hv_synic_pages *spages = this_cpu_ptr(mshv.synic_pages);
-	struct hv_message_page **msg_page = &spages->synic_message_page;
-	struct hv_synic_event_flags_page **event_flags_page =
-			&spages->synic_event_flags_page;
-	struct hv_synic_event_ring_page **event_ring_page =
-			&spages->synic_event_ring_page;
-
-	/* Setup the Synic's message page */
-	simp.as_uint64 = hv_get_register(HV_REGISTER_SIMP);
-	simp.simp_enabled = true;
-	*msg_page = memremap(simp.base_simp_gpa << HV_HYP_PAGE_SHIFT,
-			     HV_HYP_PAGE_SIZE,
-			     MEMREMAP_WB);
-	if (!(*msg_page)) {
-		pr_err("%s: SIMP memremap failed\n", __func__);
-		return -EFAULT;
-	}
-	hv_set_register(HV_REGISTER_SIMP, simp.as_uint64);
-
-	/* Setup the Synic's event flags page */
-	siefp.as_uint64 = hv_get_register(HV_REGISTER_SIEFP);
-	siefp.siefp_enabled = true;
-	*event_flags_page = memremap(siefp.base_siefp_gpa << PAGE_SHIFT,
-		     PAGE_SIZE, MEMREMAP_WB);
-
-	if (!(*event_flags_page)) {
-		pr_err("%s: SIEFP memremap failed\n", __func__);
-		goto cleanup;
-	}
-	hv_set_register(HV_REGISTER_SIEFP, siefp.as_uint64);
-
-	/* Setup the Synic's event ring page */
-	sirbp.as_uint64 = hv_get_register(HV_REGISTER_SIRBP);
-	sirbp.sirbp_enabled = true;
-	*event_ring_page = memremap(sirbp.base_sirbp_gpa << PAGE_SHIFT,
-		     PAGE_SIZE, MEMREMAP_WB);
-
-	if (!(*event_ring_page)) {
-		pr_err("%s: SIRBP memremap failed\n", __func__);
-		goto cleanup;
-	}
-	hv_set_register(HV_REGISTER_SIRBP, sirbp.as_uint64);
-
-#ifdef HYPERVISOR_CALLBACK_VECTOR
-	/* Enable intercepts */
-	sint.as_uint64 = 0;
-	sint.vector = HYPERVISOR_CALLBACK_VECTOR;
-	sint.masked = false;
-	sint.auto_eoi = hv_recommend_using_aeoi();
-	hv_set_register(HV_REGISTER_SINT0 + HV_SYNIC_INTERCEPTION_SINT_INDEX,
-			sint.as_uint64);
-
-	/* Doorbell SINT */
-	sint.as_uint64 = 0;
-	sint.vector = HYPERVISOR_CALLBACK_VECTOR;
-	sint.masked = false;
-	sint.as_intercept = 1;
-	sint.auto_eoi = hv_recommend_using_aeoi();
-	hv_set_register(HV_REGISTER_SINT0 + HV_SYNIC_DOORBELL_SINT_INDEX,
-			sint.as_uint64);
-#endif
-
-	/* Enable global synic bit */
-	sctrl.as_uint64 = hv_get_register(HV_REGISTER_SCONTROL);
-	sctrl.enable = 1;
-	hv_set_register(HV_REGISTER_SCONTROL, sctrl.as_uint64);
-
-	return 0;
-
-cleanup:
-	if (*event_ring_page) {
-		sirbp.sirbp_enabled = false;
-		hv_set_register(HV_REGISTER_SIRBP, sirbp.as_uint64);
-		memunmap(*event_ring_page);
-	}
-	if (*event_flags_page) {
-		siefp.siefp_enabled = false;
-		hv_set_register(HV_REGISTER_SIEFP, siefp.as_uint64);
-		memunmap(*event_flags_page);
-	}
-	if (*msg_page) {
-		simp.simp_enabled = false;
-		hv_set_register(HV_REGISTER_SIMP, simp.as_uint64);
-		memunmap(*msg_page);
-	}
-
-	return -EFAULT;
-}
-
-int mshv_synic_cleanup(unsigned int cpu)
-{
-	union hv_synic_sint sint;
-	union hv_synic_simp simp;
-	union hv_synic_siefp siefp;
-	union hv_synic_sirbp sirbp;
-	union hv_synic_scontrol sctrl;
-	struct hv_synic_pages *spages = this_cpu_ptr(mshv.synic_pages);
-	struct hv_message_page **msg_page = &spages->synic_message_page;
-	struct hv_synic_event_flags_page **event_flags_page =
-		&spages->synic_event_flags_page;
-	struct hv_synic_event_ring_page **event_ring_page =
-		&spages->synic_event_ring_page;
-
-	/* Disable the interrupt */
-	sint.as_uint64 = hv_get_register(HV_REGISTER_SINT0 + HV_SYNIC_INTERCEPTION_SINT_INDEX);
-	sint.masked = true;
-	hv_set_register(HV_REGISTER_SINT0 + HV_SYNIC_INTERCEPTION_SINT_INDEX,
-			sint.as_uint64);
-
-	/* Disable Doorbell SINT */
-	sint.as_uint64 = hv_get_register(HV_REGISTER_SINT0 + HV_SYNIC_DOORBELL_SINT_INDEX);
-	sint.masked = true;
-	hv_set_register(HV_REGISTER_SINT0 + HV_SYNIC_DOORBELL_SINT_INDEX,
-			sint.as_uint64);
-
-	/* Disable Synic's event ring page */
-	sirbp.as_uint64 = hv_get_register(HV_REGISTER_SIRBP);
-	sirbp.sirbp_enabled = false;
-	hv_set_register(HV_REGISTER_SIRBP, sirbp.as_uint64);
-	memunmap(*event_ring_page);
-
-	/* Disable Synic's event flags page */
-	siefp.as_uint64 = hv_get_register(HV_REGISTER_SIEFP);
-	siefp.siefp_enabled = false;
-	hv_set_register(HV_REGISTER_SIEFP, siefp.as_uint64);
-	memunmap(*event_flags_page);
-
-	/* Disable Synic's message page */
-	simp.as_uint64 = hv_get_register(HV_REGISTER_SIMP);
-	simp.simp_enabled = false;
-	hv_set_register(HV_REGISTER_SIMP, simp.as_uint64);
-	memunmap(*msg_page);
-
-	/* Disable global synic bit */
-	sctrl.as_uint64 = hv_get_register(HV_REGISTER_SCONTROL);
-	sctrl.enable = 0;
-	hv_set_register(HV_REGISTER_SCONTROL, sctrl.as_uint64);
-
-	return 0;
-}
-
 int
 hv_register_doorbell(u64 partition_id, doorbell_cb_t doorbell_cb, void *data,
 		     u64 gpa, u64 val, u64 flags)
@@ -657,4 +499,69 @@ hv_unregister_doorbell(u64 partition_id, int doorbell_portid)
 	hv_portid_free(doorbell_portid);
 
 	return ret;
+}
+
+int mshv_synic_init(unsigned int cpu)
+{
+	int ret;
+	struct hv_synic_pages *spages = this_cpu_ptr(mshv.synic_pages);
+	void **msg_page = (void **)&spages->synic_message_page;
+	void **event_flags_page = (void **)&spages->synic_event_flags_page;
+	void **event_ring_page = (void **)&spages->synic_event_ring_page;
+
+	ret = hv_synic_enable_page(HV_REGISTER_SIMP, msg_page);
+	if (ret)
+		return ret;
+
+	ret = hv_synic_enable_page(HV_REGISTER_SIEFP, event_flags_page);
+	if (ret)
+		goto disable_simp;
+
+	ret = hv_synic_enable_page(HV_REGISTER_SIRBP, event_ring_page);
+	if (ret)
+		goto disable_siefp;
+
+#ifdef HYPERVISOR_CALLBACK_VECTOR
+	/* Enable intercepts */
+	hv_synic_unmask_sint(
+			HV_REGISTER_SINT0 + HV_SYNIC_INTERCEPTION_SINT_INDEX,
+			HYPERVISOR_CALLBACK_VECTOR);
+
+	/* Doorbell SINT is an intercept */
+	hv_synic_unmask_sint_as_intercept(
+			HV_REGISTER_SINT0 + HV_SYNIC_DOORBELL_SINT_INDEX,
+			HYPERVISOR_CALLBACK_VECTOR);
+#endif
+
+	/* Enable the global synic bit */
+	hv_synic_enable_sctrl(HV_REGISTER_SCONTROL);
+
+	return 0;
+
+disable_siefp:
+	hv_synic_disable_page(HV_REGISTER_SIEFP, event_flags_page);
+disable_simp:
+	hv_synic_disable_page(HV_REGISTER_SIMP, msg_page);
+	return ret;
+}
+
+int mshv_synic_cleanup(unsigned int cpu)
+{
+	struct hv_synic_pages *spages = this_cpu_ptr(mshv.synic_pages);
+	void **msg_page = (void **)&spages->synic_message_page;
+	void **event_flags_page = (void **)&spages->synic_event_flags_page;
+	void **event_ring_page = (void **)&spages->synic_event_ring_page;
+
+	/* Disable the interrupt */
+	hv_synic_mask_sint(HV_REGISTER_SINT0 + HV_SYNIC_INTERCEPTION_SINT_INDEX);
+	/* Disable Doorbell SINT */
+	hv_synic_mask_sint(HV_REGISTER_SINT0 + HV_SYNIC_DOORBELL_SINT_INDEX);
+	/* Disable synic pages */
+	hv_synic_disable_page(HV_REGISTER_SIRBP, event_ring_page);
+	hv_synic_disable_page(HV_REGISTER_SIEFP, event_flags_page);
+	hv_synic_disable_page(HV_REGISTER_SIMP, msg_page);
+	/* Disable global synic bit */
+	hv_synic_disable_sctrl(HV_REGISTER_SCONTROL);
+
+	return 0;
 }
