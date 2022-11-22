@@ -165,6 +165,46 @@ extern int hv_synic_alloc(void);
 
 extern void hv_synic_free(void);
 
+int __hv_synic_set_page(unsigned int msr_index, void **page_ptr, bool enable);
+static inline int hv_synic_enable_page(unsigned int msr_index,
+						void **page_ptr)
+{
+	return __hv_synic_set_page(msr_index, page_ptr, true);
+}
+static inline int hv_synic_disable_page(unsigned int msr_index,
+						 void **page_ptr)
+{
+	return __hv_synic_set_page(msr_index, page_ptr, false);
+}
+
+void __hv_synic_set_sint(unsigned int msr_index, int vector, bool masked,
+			 bool as_intercept);
+static inline void hv_synic_mask_sint(unsigned int sint_msr_index)
+{
+	__hv_synic_set_sint(sint_msr_index, 0, true, false);
+}
+static inline void hv_synic_unmask_sint(unsigned int sint_msr_index,
+						 int vector)
+{
+	__hv_synic_set_sint(sint_msr_index, vector, false, false);
+}
+static inline void hv_synic_unmask_sint_as_intercept(
+						 unsigned int sint_msr_index,
+						 int vector)
+{
+	__hv_synic_set_sint(sint_msr_index, vector, false, true);
+}
+
+void __hv_synic_set_sctrl(unsigned int msr_index, bool enable);
+static inline void hv_synic_enable_sctrl(unsigned int sctrl_msr_index)
+{
+	__hv_synic_set_sctrl(sctrl_msr_index, true);
+}
+static inline void hv_synic_disable_sctrl(unsigned int sctrl_msr_index)
+{
+	__hv_synic_set_sctrl(sctrl_msr_index, false);
+}
+
 extern void hv_synic_enable_regs(unsigned int cpu);
 extern int hv_synic_init(unsigned int cpu);
 

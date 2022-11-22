@@ -440,6 +440,16 @@ union hv_synic_sirbp {
 	} __packed;
 };
 
+/* Register format for SIMP, SIEFP, SIRBP MSRs */
+union hv_synic_page_msr {
+	u64 as_uint64;
+	struct {
+		u64 enabled:1;
+		u64 preserved:11;
+		u64 base_gpa:52;
+	} __packed;
+};
+
 struct hv_vpset {
 	u64 format;
 	u64 valid_bank_mask;
