@@ -2,28 +2,29 @@
 
 __copyright__ = "Copyright (c) Microsoft Corporation."
 
+import os
 import sys
 import subprocess
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from lsgtools.virt.mshv import kernel
 
 if len(sys.argv) < 2:
-    res = subprocess.run(["make", "kernelversion"], stdout=subprocess.PIPE)
-    version = res.stdout.decode("ascii").strip()
+    version = kernel.get_version_local()
     ref = "HEAD"
 else:
+    version = kernel.get_version_from_tag(sys.argv[1])
     # Ref might look like refs/tags/msft/mshv-rolling/5.15.74.mshv3.
-    parts = sys.argv[1].split("/")
-    version = parts[len(parts)-1]
-    if len(parts) > 3:
+    if len(sys.argv[1].split("/")) > 3:
         ref = sys.argv[1][len("refs/tags/"):]
     else:
         ref = sys.argv[1]
 
 
-tarball_format = "tar"
-tarball_prefix = "kernel-mshv-{}".format(version)
-tarball_tar = "{}.{}".format(tarball_prefix, tarball_format)
-tarball_name = "{}.gz".format(tarball_tar)
+tarball_format = kernel.get_tarball_format()
+tarball_prefix = kernel.build_tarball_prefix(version)
+tarball_tar = kernel.build_tar_name(version)
+tarball_name = kernel.build_tgz_name(version)
 
 cmds = [
          ["git", "archive", "--format={}".format(tarball_format),
