@@ -192,7 +192,6 @@ err:
 	return -ENOMEM;
 }
 
-
 void hv_synic_free(void)
 {
 	int cpu;
@@ -217,17 +216,10 @@ void hv_synic_free(void)
 	kfree(hv_context.hv_numa_map);
 }
 
-/*
- * hv_synic_init - Initialize the Synthetic Interrupt Controller.
- *
- * If it is already initialized by another entity (ie x2v shim), we need to
- * retrieve the initialized message and event pages.  Otherwise, we create and
- * initialize the message and event pages.
- */
 void hv_synic_enable_regs(unsigned int cpu)
 {
-	struct hv_per_cpu_context *hv_cpu
-		= per_cpu_ptr(hv_context.cpu_context, cpu);
+	struct hv_per_cpu_context *hv_cpu =
+				per_cpu_ptr(hv_context.cpu_context, cpu);
 	union hv_synic_simp simp;
 	union hv_synic_siefp siefp;
 	union hv_synic_sint shared_sint;
@@ -286,18 +278,17 @@ void hv_synic_enable_regs(unsigned int cpu)
 	hv_set_register(REG_SCTRL, sctrl.as_uint64);
 }
 
+/*
+ * hv_synic_init - Initialize the Synthetic Interrupt Controller.
+ */
 int hv_synic_init(unsigned int cpu)
 {
 	hv_synic_enable_regs(cpu);
-
 	hv_stimer_legacy_init(cpu, VMBUS_MESSAGE_SINT);
 
 	return 0;
 }
 
-/*
- * hv_synic_cleanup - Cleanup routine for hv_synic_init().
- */
 void hv_synic_disable_regs(unsigned int cpu)
 {
 	union hv_synic_sint shared_sint;
@@ -372,6 +363,9 @@ retry:
 	return pending;
 }
 
+/*
+ * hv_synic_cleanup - Cleanup routine for hv_synic_init().
+ */
 int hv_synic_cleanup(unsigned int cpu)
 {
 	struct vmbus_channel *channel, *sc;
