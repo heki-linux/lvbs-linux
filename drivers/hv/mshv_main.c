@@ -1783,6 +1783,8 @@ mshv_ioctl_create_partition(void __user *user_arg)
 	if (!partition)
 		return -ENOMEM;
 
+	refcount_set(&partition->ref_count, 1);
+
 	mutex_init(&partition->mutex);
 
 	mutex_init(&partition->irq_lock);
@@ -1791,17 +1793,17 @@ mshv_ioctl_create_partition(void __user *user_arg)
 
 	INIT_LIST_HEAD(&partition->devices);
 
-	fd = get_unused_fd_flags(O_CLOEXEC);
-	if (fd < 0) {
-		ret = fd;
+	mshv_eventfd_init(partition);
+
+	ret = init_srcu_struct(&partition->irq_srcu);
+	if (ret)
 		goto free_partition;
-	}
 
 	ret = hv_call_create_partition(args.flags,
 				       args.partition_creation_properties,
 				       &partition->id);
 	if (ret)
-		goto put_fd;
+		goto cleanup_irq_srcu;
 
 	ret = hv_call_set_partition_property(
 				partition->id,
@@ -1814,38 +1816,38 @@ mshv_ioctl_create_partition(void __user *user_arg)
 	if (ret)
 		goto delete_partition;
 
+	ret = add_partition(partition);
+	if (ret)
+		goto finalize_partition;
+
+	fd = get_unused_fd_flags(O_CLOEXEC);
+	if (fd < 0) {
+		ret = fd;
+		goto remove_partition;
+	}
+
 	file = anon_inode_getfile("mshv_partition", &mshv_partition_fops,
 				  partition, O_RDWR);
 	if (IS_ERR(file)) {
 		ret = PTR_ERR(file);
-		goto finalize_partition;
+		goto put_fd;
 	}
-	refcount_set(&partition->ref_count, 1);
-
-	ret = add_partition(partition);
-	if (ret)
-		goto release_file;
 
 	fd_install(fd, file);
 
-	ret = init_srcu_struct(&partition->irq_srcu);
-	if (ret)
-		goto cleanup_irq_srcu;
-
-	mshv_eventfd_init(partition);
-
 	return fd;
 
-cleanup_irq_srcu:
-	cleanup_srcu_struct(&partition->irq_srcu);
-release_file:
-	file->f_op->release(file->f_inode, file);
+put_fd:
+	put_unused_fd(fd);
+remove_partition:
+	remove_partition(partition);
 finalize_partition:
 	hv_call_finalize_partition(partition->id);
 delete_partition:
+	hv_call_withdraw_memory(U64_MAX, NUMA_NO_NODE, partition->id);
 	hv_call_delete_partition(partition->id);
-put_fd:
-	put_unused_fd(fd);
+cleanup_irq_srcu:
+	cleanup_srcu_struct(&partition->irq_srcu);
 free_partition:
 	kfree(partition);
 	return ret;
