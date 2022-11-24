@@ -7,6 +7,7 @@ import sys
 import subprocess
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from lsgtools import log
 from lsgtools.virt.mshv import kernel
 
 if len(sys.argv) < 2:
@@ -35,7 +36,7 @@ cmds = [
     ]
 
 for cmd in cmds:
-    print(" ".join(cmd))
+    log.debug(" ".join(cmd))
     res = subprocess.run(cmd)
     if 0 != res.returncode:
         err = res.stderr.decode("ascii")
