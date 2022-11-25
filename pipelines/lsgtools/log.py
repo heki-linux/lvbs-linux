@@ -92,6 +92,9 @@ def setup(name="lsgtools"):
         this.fatal = _fatal
 
 def set_verbosity(v):
+    if 0 == v:
+        # Default if no -v has been passed, so just ignore
+        return
     levels = [ DBG, INFO, MSG, WARN, ERR, FATAL ]
     if v in levels:
         level = v
