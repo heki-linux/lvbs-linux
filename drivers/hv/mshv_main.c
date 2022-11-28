@@ -19,11 +19,11 @@
 #include <linux/cpuhotplug.h>
 #include <linux/random.h>
 #include <linux/mshv.h>
-#include <linux/mshv_eventfd.h>
 #include <linux/hyperv.h>
 #include <linux/nospec.h>
 #include <asm/mshyperv.h>
 
+#include "mshv_eventfd.h"
 #include "mshv.h"
 #include "vfio.h"
 
