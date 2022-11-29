@@ -15,7 +15,6 @@
 #include <linux/list.h>
 #include <linux/workqueue.h>
 #include <linux/eventfd.h>
-#include <linux/mshv.h>
 
 #include "mshv_eventfd.h"
 #include "mshv.h"
