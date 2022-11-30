@@ -15,8 +15,8 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/vfio.h>
-#include <linux/mshv.h>
 
+#include "mshv.h"
 #include "vfio.h"
 
 

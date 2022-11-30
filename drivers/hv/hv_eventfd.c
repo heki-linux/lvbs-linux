@@ -15,9 +15,8 @@
 #include <linux/list.h>
 #include <linux/workqueue.h>
 #include <linux/eventfd.h>
-#include <linux/mshv.h>
-#include <linux/mshv_eventfd.h>
 
+#include "mshv_eventfd.h"
 #include "mshv.h"
 
 static struct workqueue_struct *irqfd_cleanup_wq;

@@ -1,3 +1,3 @@
-# TODO
-# - introduce argparce wrapper
-# - introduce logging wrapper
+from . import log
+
+log.setup()

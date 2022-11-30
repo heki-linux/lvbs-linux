@@ -13,10 +13,9 @@
 #include <linux/mm.h>
 #include <linux/io.h>
 #include <linux/random.h>
-#include <linux/mshv.h>
-#include <linux/mshv_eventfd.h>
 #include <asm/mshyperv.h>
 
+#include "mshv_eventfd.h"
 #include "mshv.h"
 
 u32
