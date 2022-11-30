@@ -390,6 +390,21 @@ int mshv_xfer_to_guest_mode_handle_work(unsigned long ti_work);
 void mshv_isr(void);
 int mshv_synic_init(unsigned int cpu);
 int mshv_synic_cleanup(unsigned int cpu);
+#ifdef CONFIG_HYPERV_VTL
+struct mshv_vp_registers;
+struct mshv_partition;
+struct mshv_vp;
+long mshv_ioctl_create_vtl(void __user *user_arg);
+long mshv_partition_ioctl_signal_event_direct(struct mshv_partition *partition,
+					      void __user *user_args);
+long mshv_vp_ioctl_translate_gva(struct mshv_vp *vp, void __user *user_args);
+long mshv_partition_ioctl_assert_interrupt(struct mshv_partition *partition,
+					   void __user *user_args);
+long mshv_partition_ioctl_install_intercept(struct mshv_partition *partition,
+					    void __user *user_args);
+long mshv_partition_ioctl_post_message_direct(struct mshv_partition *partition,
+					      void __user *user_args);
+#endif
 
 extern struct mshv mshv;
 

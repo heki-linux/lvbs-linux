@@ -623,7 +623,7 @@ mshv_vp_ioctl_get_set_state(struct mshv_vp *vp, void __user *user_args, bool is_
 
 #endif
 
-static long
+long
 mshv_vp_ioctl_translate_gva(struct mshv_vp *vp, void __user *user_args)
 {
 	long ret;
@@ -1103,7 +1103,7 @@ mshv_partition_ioctl_unmap_memory(struct mshv_partition *partition,
 	return 0;
 }
 
-static long
+long
 mshv_partition_ioctl_install_intercept(struct mshv_partition *partition,
 				       void __user *user_args)
 {
@@ -1119,7 +1119,7 @@ mshv_partition_ioctl_install_intercept(struct mshv_partition *partition,
 			args.intercept_parameter);
 }
 
-static long
+long
 mshv_partition_ioctl_assert_interrupt(struct mshv_partition *partition,
 				      void __user *user_args)
 {
@@ -1221,9 +1221,9 @@ mshv_partition_ioctl_set_msi_routing(struct mshv_partition *partition,
 	return ret;
 }
 
-static long
+long
 mshv_partition_ioctl_signal_event_direct(struct mshv_partition *partition,
-		void __user *user_args)
+					 void __user *user_args)
 {
 	struct mshv_signal_event_direct args;
 	long ret;
@@ -1247,9 +1247,9 @@ mshv_partition_ioctl_signal_event_direct(struct mshv_partition *partition,
 	return 0;
 }
 
-static long
+long
 mshv_partition_ioctl_post_message_direct(struct mshv_partition *partition,
-		void __user *user_args)
+					 void __user *user_args)
 {
 	struct mshv_post_message_direct args;
 	u8 message[HV_MESSAGE_SIZE];
