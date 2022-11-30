@@ -18,12 +18,11 @@
 #include <linux/io.h>
 #include <linux/cpuhotplug.h>
 #include <linux/random.h>
-#include <linux/mshv.h>
-#include <linux/mshv_eventfd.h>
 #include <linux/hyperv.h>
 #include <linux/nospec.h>
 #include <asm/mshyperv.h>
 
+#include "mshv_eventfd.h"
 #include "mshv.h"
 #include "vfio.h"
 
@@ -297,7 +296,14 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 
 	while (!complete) {
 		if (vp->run.flags.blocked_by_explicit_suspend) {
-			/* Need to clear explicit suspend before dispatching */
+			/*
+			 * Need to clear explicit suspend before dispatching.
+			 * Explicit suspend is either:
+			 * - set before the first VP dispatch or
+			 * - set explicitly via hypercall
+			 * Since the latter case is not supported, we simply
+			 * clear it here.
+			 */
 			struct hv_register_assoc explicit_suspend = {
 				.name = HV_REGISTER_EXPLICIT_SUSPEND,
 				.value.explicit_suspend.suspended = 0,
@@ -317,7 +323,8 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 			/* Wait for the hypervisor to clear the blocked state */
 			ret = wait_event_interruptible(vp->run.suspend_queue,
 					vp->run.flags.kicked_by_hv == 1);
-			if (ret == -EINTR) {
+			if (ret) {
+				ret = -EINTR;
 				complete = true;
 				break;
 			}
@@ -395,10 +402,14 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 			if (output->dispatch_state == HV_VP_DISPATCH_STATE_BLOCKED) {
 				if (output->dispatch_event == HV_VP_DISPATCH_EVENT_SUSPEND) {
 					vp->run.flags.blocked_by_explicit_suspend = 1;
+					/* TODO: remove the warning once VP canceling is supported */
+					WARN_ONCE(atomic64_read(&vp->run.signaled_count),
+						  "%s: vp#%d: unexpected explicit suspend\n", __func__, vp->index);
 				} else {
-					ret = wait_event_interruptible(vp->run.suspend_queue,
+					ret = wait_event_killable(vp->run.suspend_queue,
 							vp->run.flags.kicked_by_hv == 1);
-					if (ret == -EINTR) {
+					if (ret) {
+						ret = -EINTR;
 						complete = true;
 						break;
 					}
@@ -951,7 +962,7 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 	long ret = 0;
 
 	/* Check we have enough slots*/
-	if (partition->regions.count == MSHV_MAX_MEM_REGIONS) {
+	if (partition->regions.count >= MSHV_MAX_MEM_REGIONS) {
 		pr_err("%s: not enough memory region slots\n", __func__);
 		return -ENOSPC;
 	}
@@ -1615,21 +1626,11 @@ static void drain_all_vps(const struct mshv_partition *partition)
 }
 
 static void
-destroy_partition(struct mshv_partition *partition)
+remove_partition(struct mshv_partition *partition)
 {
-	unsigned long flags, page_count;
-	struct mshv_vp *vp;
-	struct mshv_mem_region *region;
 	int i;
+	unsigned long flags;
 
-	/*
-	 * We only need to drain signals for root scheduler. This should be
-	 * done before removing the partition from the partition list.
-	 */
-	if (hv_scheduler_type == HV_SCHEDULER_TYPE_ROOT)
-		drain_all_vps(partition);
-
-	/* Remove from list of partitions */
 	spin_lock_irqsave(&mshv.partitions.lock, flags);
 
 	for (i = 0; i < MSHV_MAX_PARTITIONS; ++i) {
@@ -1648,6 +1649,28 @@ destroy_partition(struct mshv_partition *partition)
 		hv_remove_mshv_irq();
 
 	spin_unlock_irqrestore(&mshv.partitions.lock, flags);
+}
+
+static void
+destroy_partition(struct mshv_partition *partition)
+{
+	unsigned long page_count;
+	struct mshv_vp *vp;
+	struct mshv_mem_region *region;
+	int i;
+
+	/*
+	 * We only need to drain signals for root scheduler. This should be
+	 * done before removing the partition from the partition list.
+	 */
+	if (hv_scheduler_type == HV_SCHEDULER_TYPE_ROOT)
+		drain_all_vps(partition);
+
+	/*
+	 * Remove from list of partitions; after this point nothing else holds
+	 * a reference to the partition
+	 */
+	remove_partition(partition);
 
 	/* Remove vps */
 	for (i = 0; i < MSHV_MAX_VPS; ++i) {
@@ -1771,6 +1794,8 @@ mshv_ioctl_create_partition(void __user *user_arg)
 	if (!partition)
 		return -ENOMEM;
 
+	refcount_set(&partition->ref_count, 1);
+
 	mutex_init(&partition->mutex);
 
 	mutex_init(&partition->irq_lock);
@@ -1779,17 +1804,17 @@ mshv_ioctl_create_partition(void __user *user_arg)
 
 	INIT_LIST_HEAD(&partition->devices);
 
-	fd = get_unused_fd_flags(O_CLOEXEC);
-	if (fd < 0) {
-		ret = fd;
+	mshv_eventfd_init(partition);
+
+	ret = init_srcu_struct(&partition->irq_srcu);
+	if (ret)
 		goto free_partition;
-	}
 
 	ret = hv_call_create_partition(args.flags,
 				       args.partition_creation_properties,
 				       &partition->id);
 	if (ret)
-		goto put_fd;
+		goto cleanup_irq_srcu;
 
 	ret = hv_call_set_partition_property(
 				partition->id,
@@ -1802,38 +1827,38 @@ mshv_ioctl_create_partition(void __user *user_arg)
 	if (ret)
 		goto delete_partition;
 
+	ret = add_partition(partition);
+	if (ret)
+		goto finalize_partition;
+
+	fd = get_unused_fd_flags(O_CLOEXEC);
+	if (fd < 0) {
+		ret = fd;
+		goto remove_partition;
+	}
+
 	file = anon_inode_getfile("mshv_partition", &mshv_partition_fops,
 				  partition, O_RDWR);
 	if (IS_ERR(file)) {
 		ret = PTR_ERR(file);
-		goto finalize_partition;
+		goto put_fd;
 	}
-	refcount_set(&partition->ref_count, 1);
-
-	ret = add_partition(partition);
-	if (ret)
-		goto release_file;
 
 	fd_install(fd, file);
 
-	ret = init_srcu_struct(&partition->irq_srcu);
-	if (ret)
-		goto cleanup_irq_srcu;
-
-	mshv_eventfd_init(partition);
-
 	return fd;
 
-cleanup_irq_srcu:
-	cleanup_srcu_struct(&partition->irq_srcu);
-release_file:
-	file->f_op->release(file->f_inode, file);
+put_fd:
+	put_unused_fd(fd);
+remove_partition:
+	remove_partition(partition);
 finalize_partition:
 	hv_call_finalize_partition(partition->id);
 delete_partition:
+	hv_call_withdraw_memory(U64_MAX, NUMA_NO_NODE, partition->id);
 	hv_call_delete_partition(partition->id);
-put_fd:
-	put_unused_fd(fd);
+cleanup_irq_srcu:
+	cleanup_srcu_struct(&partition->irq_srcu);
 free_partition:
 	kfree(partition);
 	return ret;

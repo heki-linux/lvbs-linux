@@ -9,8 +9,9 @@
 #ifndef __LINUX_MSHV_EVENTFD_H
 #define __LINUX_MSHV_EVENTFD_H
 
-#include <linux/mshv.h>
 #include <linux/poll.h>
+
+#include "mshv.h"
 
 void mshv_eventfd_init(struct mshv_partition *partition);
 void mshv_eventfd_release(struct mshv_partition *partition);
