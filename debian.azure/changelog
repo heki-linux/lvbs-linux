@@ -1,3 +1,9 @@
+linux-azure (6.1.0-1000.0) lunar; urgency=medium
+
+  * Dummy entry
+
+ -- Andrea Righi <andrea.righi@canonical.com>  Wed, 30 Nov 2022 14:27:11 +0100
+
 linux-azure (5.19.0-1008.8) kinetic; urgency=medium
 
   * kinetic/linux-azure: 5.19.0-1008.8 -proposed tracker (LP: #1992743)
