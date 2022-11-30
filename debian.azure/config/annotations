@@ -30,8 +30,8 @@ CONFIG_ACPI_HOTPLUG_MEMORY                         mark<ENFORCED> note<LP:#16712
 CONFIG_FPGA_MGR_XILINX_SPI                         mark<ENFORCED> note<LP:#1922582>
 CONFIG_FPGA_MGR_XILINX_SPI                         policy<{'amd64': 'm', 'arm64': 'm'}>
 
-CONFIG_ANDROID                                     policy<{'amd64': 'y', 'arm64': 'y'}>
-CONFIG_ANDROID                                     mark<ENFORCED> note<LP:#1914568>
+CONFIG_MEMFD_CREATE                                policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_MEMFD_CREATE                                mark<ENFORCED> note<LP:#1914568>
 
 CONFIG_ANDROID_BINDER_IPC                          policy<{'amd64': 'm', 'arm64': 'm'}>
 CONFIG_ANDROID_BINDER_IPC                          mark<ENFORCED> note<LP:#1914568>
@@ -88,8 +88,8 @@ CONFIG_HYPERV                                      mark<ENFORCED> note<LP:#16901
 CONFIG_HYPERV_STORAGE                              policy<{'amd64': 'y', 'arm64': 'y'}>
 CONFIG_HYPERV_STORAGE                              mark<ENFORCED> note<LP:#1690136>
 
-CONFIG_EFI_VARS                                    policy<{'amd64': 'y'}>
-CONFIG_EFI_VARS                                    mark<ENFORCED> note<LP:#1692920>
+CONFIG_EFIVAR_FS                                   policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_EFIVAR_FS                                   mark<ENFORCED> note<LP:#1692920>
 
 CONFIG_HYPERV_VSOCKETS                             policy<{'amd64': 'm', 'arm64': 'm'}>
 CONFIG_HYPERV_VSOCKETS                             mark<ENFORCED> note<LP:#1698425>
