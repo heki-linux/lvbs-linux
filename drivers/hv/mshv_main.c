@@ -252,7 +252,7 @@ mshv_run_vp_with_hv_scheduler(struct mshv_vp *vp, void __user *ret_message,
 	}
 
 	ret = wait_event_interruptible(vp->run.suspend_queue,
-				       vp->run.flags.kicked_by_hv == 1);
+				       vp->run.kicked_by_hv == 1);
 	if (ret) {
 		bool message_in_flight;
 
@@ -269,7 +269,7 @@ mshv_run_vp_with_hv_scheduler(struct mshv_vp *vp, void __user *ret_message,
 			return -EINTR;
 
 		/* Wait for the message in flight. */
-		wait_event(vp->run.suspend_queue, vp->run.flags.kicked_by_hv == 1);
+		wait_event(vp->run.suspend_queue, vp->run.kicked_by_hv == 1);
 	}
 
 	if (copy_to_user(ret_message, msg, sizeof(struct hv_message)))
@@ -279,7 +279,7 @@ mshv_run_vp_with_hv_scheduler(struct mshv_vp *vp, void __user *ret_message,
 	 * Reset the flag to make the wait_event call above work
 	 * next time.
 	 */
-	vp->run.flags.kicked_by_hv = 0;
+	vp->run.kicked_by_hv = 0;
 
 	return 0;
 }
@@ -322,13 +322,13 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 
 			/* Wait for the hypervisor to clear the blocked state */
 			ret = wait_event_interruptible(vp->run.suspend_queue,
-					vp->run.flags.kicked_by_hv == 1);
+						       vp->run.kicked_by_hv == 1);
 			if (ret) {
 				ret = -EINTR;
 				complete = true;
 				break;
 			}
-			vp->run.flags.kicked_by_hv = 0;
+			vp->run.kicked_by_hv = 0;
 			vp->run.flags.blocked_by_explicit_suspend = 0;
 		}
 
@@ -407,13 +407,13 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 						  "%s: vp#%d: unexpected explicit suspend\n", __func__, vp->index);
 				} else {
 					ret = wait_event_killable(vp->run.suspend_queue,
-							vp->run.flags.kicked_by_hv == 1);
+								  vp->run.kicked_by_hv == 1);
 					if (ret) {
 						ret = -EINTR;
 						complete = true;
 						break;
 					}
-					vp->run.flags.kicked_by_hv = 0;
+					vp->run.kicked_by_hv = 0;
 				}
 			} else {
 				/* HV_VP_DISPATCH_STATE_READY */
@@ -1594,9 +1594,9 @@ drain_vp_signals(struct mshv_vp *vp)
 		WARN_ON(hv_signal_count - vp_signal_count != 1);
 
 		if (wait_event_interruptible(vp->run.suspend_queue,
-						vp->run.flags.kicked_by_hv == 1))
+					     vp->run.kicked_by_hv == 1))
 			break;
-		vp->run.flags.kicked_by_hv = 0;
+		vp->run.kicked_by_hv = 0;
 		vp_signal_count = atomic64_read(&vp->run.signaled_count);
 	}
 }

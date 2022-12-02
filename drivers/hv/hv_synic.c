@@ -129,7 +129,7 @@ mshv_doorbell_isr(struct hv_message *msg)
 static void kick_vp(struct mshv_vp *vp)
 {
 	atomic64_inc(&vp->run.signaled_count);
-	vp->run.flags.kicked_by_hv = 1;
+	vp->run.kicked_by_hv = 1;
 	wake_up(&vp->run.suspend_queue);
 }
 
