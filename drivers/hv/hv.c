@@ -382,6 +382,7 @@ int __hv_synic_set_page(unsigned int msr_index, void **page_ptr, bool enable)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(__hv_synic_set_page);
 
 static inline bool hv_recommend_using_aeoi(void)
 {
@@ -423,6 +424,7 @@ void __hv_synic_set_sint(unsigned int msr_index, int vector, bool masked,
 	}
 	hv_set_register(msr_index, sint.as_uint64);
 }
+EXPORT_SYMBOL_GPL(__hv_synic_set_sint);
 
 void __hv_synic_set_sctrl(unsigned int msr_index, bool enable)
 {
@@ -442,6 +444,7 @@ void __hv_synic_set_sctrl(unsigned int msr_index, bool enable)
 	sctrl.enable = enable;
 	hv_set_register(msr_index, sctrl.as_uint64);
 }
+EXPORT_SYMBOL_GPL(__hv_synic_set_sctrl);
 
 void hv_synic_enable_regs(unsigned int cpu)
 {
