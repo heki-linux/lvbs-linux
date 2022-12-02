@@ -292,16 +292,13 @@ mshv_run_vp_with_hv_scheduler(struct mshv_vp *vp, void __user *ret_message,
 		wait_event(vp->run.suspend_queue, vp->run.kicked_by_hv == 1);
 	}
 
-	if (copy_to_user(ret_message, msg, sizeof(struct hv_message)))
-		return -EFAULT;
-
 	/*
 	 * Reset the flag to make the wait_event call above work
 	 * next time.
 	 */
 	vp->run.kicked_by_hv = 0;
 
-	return 0;
+	return copy_to_user(ret_message, msg, sizeof(struct hv_message));
 }
 
 static long
