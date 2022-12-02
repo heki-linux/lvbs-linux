@@ -37,6 +37,12 @@ jobs:
   timeoutInMinutes: 120
   strategy:
     matrix:
+      'Dom0 module x86_64':
+        machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
+        FLAVOR: 'dom0-module'
+      'Dom0 module aarch64':
+        machinePool: 'lsg-virt-aarch64-1es-agent-pool-2'
+        FLAVOR: 'dom0-module'
       'Dom0 x86_64':
         machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
         FLAVOR: 'dom0'
