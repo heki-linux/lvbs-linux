@@ -36,6 +36,9 @@ jobs:
 - job: Kernel
   timeoutInMinutes: 120
   strategy:
+    # NOTE The default configuration used for the validation image is
+    #      currently dom0-built-in. Should this change, conditions in
+    #      some tasks need to be revised and adjusted accordingly;
     matrix:
       'Dom0 module x86_64':
         machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
@@ -43,15 +46,21 @@ jobs:
       'Dom0 module aarch64':
         machinePool: 'lsg-virt-aarch64-1es-agent-pool-2'
         FLAVOR: 'dom0-module'
-      'Dom0 x86_64':
+      'Dom0 built-in x86_64':
         machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
-        FLAVOR: 'dom0'
+        FLAVOR: 'dom0-built-in'
+      'Dom0 built-in aarch64':
+        machinePool: 'lsg-virt-aarch64-1es-agent-pool-2'
+        FLAVOR: 'dom0-built-in'
+      'Dom0 disabled x86_64':
+        machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
+        FLAVOR: 'dom0-disabled'
+      'Dom0 disabled aarch64':
+        machinePool: 'lsg-virt-aarch64-1es-agent-pool-2'
+        FLAVOR: 'dom0-disabled'
       'Mariner x86_64':
         machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
         FLAVOR: 'mariner'
-      'Dom0 aarch64':
-        machinePool: 'lsg-virt-aarch64-1es-agent-pool-2'
-        FLAVOR: 'dom0'
   pool:
     name: $(machinePool)
 
@@ -78,7 +87,7 @@ jobs:
       set -e
       set -x
       $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/config-validate
-    condition: eq(variables.FLAVOR, 'dom0')
+    condition: eq(variables.FLAVOR, 'dom0-built-in')
     displayName: 'Validate Config'
 
   - bash: |
@@ -94,7 +103,7 @@ jobs:
         --source-branch "$(System.PullRequest.SourceBranch)" \
         -v
     displayName: 'Run checkpatch.pl'
-    condition: and(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/msft/mshv-stable'), eq(variables.FLAVOR, 'dom0'))
+    condition: and(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/msft/mshv-stable'), eq(variables.FLAVOR, 'dom0-built-in'))
     continueOnError: true
 
   - bash: |

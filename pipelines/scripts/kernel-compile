@@ -17,16 +17,26 @@ fi
 make mrproper
 
 CONFIG=mshv_defconfig
-if [ "mariner" == "${FLAVOR}" ]; then
-	curl -o .config https://raw.githubusercontent.com/microsoft/CBL-Mariner/main/SPECS-EXTENDED/kernel-mshv/config
-	CONFIG=olddefconfig
-fi
+case "${FLAVOR}" in
+	mariner)
+		curl -o .config https://raw.githubusercontent.com/microsoft/CBL-Mariner/main/SPECS-EXTENDED/kernel-mshv/config
+		CONFIG=olddefconfig
+		;;
+	dom0-built-in)
+		# pass
+		;;
+esac
 
 make LC_ALL= ARCH=$ARCH ${CONFIG}
 
-if [ "dom0-module" == "${FLAVOR}" ]; then
-	sed -i 's/HYPERV_VMM_API=y/HYPERV_VMM_API=m/' .config
-fi
+case "${FLAVOR}" in
+	dom0-module)
+		sed -i 's/HYPERV_VMM_API=y/HYPERV_VMM_API=m/' .config
+		;;
+	dom0-disabled)
+		sed -i 's/HYPERV_VMM_API=.*//' .config
+		;;
+esac
 
 make -j$(nproc) ARCH=$ARCH W=1
 make -j$(nproc) ARCH=$ARCH W=1 modules
