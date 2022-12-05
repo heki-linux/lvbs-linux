@@ -24,6 +24,10 @@ fi
 
 make LC_ALL= ARCH=$ARCH ${CONFIG}
 
+if [ "dom0-module" == "${FLAVOR}" ]; then
+	sed -i 's/HYPERV_VMM_API=y/HYPERV_VMM_API=m/' .config
+fi
+
 make -j$(nproc) ARCH=$ARCH W=1
 make -j$(nproc) ARCH=$ARCH W=1 modules
 
