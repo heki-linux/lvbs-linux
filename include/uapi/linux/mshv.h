@@ -15,6 +15,7 @@
 #define MSHV_CAP_CORE_API_STABLE    0x0
 
 #define MSHV_VP_MMAP_REGISTERS_OFFSET (HV_VP_STATE_PAGE_REGISTERS * 0x1000)
+#define MAX_RUN_MSG_SIZE		256
 
 /*
  * Various isolation types supported by MSHV.
@@ -134,6 +135,61 @@ enum hv_partition_isolation_state
 	 */
 	HV_PARTITION_ISOLATION_SECURE_TERMINATING   = 5,
 };
+
+#ifdef CONFIG_HYPERV_VTL
+struct mshv_ram_disposition {
+	__u64 start_pfn;
+	__u64 last_pfn;
+} __packed;
+
+struct mshv_set_poll_file {
+	__u32 cpu;
+	__u32 fd;
+} __packed;
+
+struct mshv_cpu_context {
+	union {
+		struct {
+			u64 rax;
+			u64 rcx;
+			u64 rdx;
+			u64 rbx;
+			u64 cr2;
+			u64 rbp;
+			u64 rsi;
+			u64 rdi;
+			u64 r8;
+			u64 r9;
+			u64 r10;
+			u64 r11;
+			u64 r12;
+			u64 r13;
+			u64 r14;
+			u64 r15;
+		};
+		u64 gp_regs[16];
+	};
+
+	struct fxregs_state fx_state;
+};
+
+struct mshv_vtl_run {
+	u32 cancel;
+	u32 vtl_ret_action_size;
+	u32 pad[2];
+	char exit_message[MAX_RUN_MSG_SIZE];
+	union {
+		struct mshv_cpu_context cpu_context;
+
+		/*
+		 * Reserving room for the cpu context to grow and be
+		 * able to maintain compat with user mode.
+		 */
+		char reserved[1024];
+	};
+	char vtl_ret_actions[MAX_RUN_MSG_SIZE];
+};
+#endif
 
 struct mshv_create_partition {
 	__u64 flags;
@@ -336,6 +392,12 @@ struct mshv_vp_run_registers {
 #define MSHV_GET_VP_CPUID_VALUES \
         _IOWR(MSHV_IOCTL, 0x1B, struct mshv_get_vp_cpuid_values)	
 
+/* vtl device */
+#define MSHV_CREATE_VTL			_IOR(MSHV_IOCTL, 0x1D, char)
+#define MSHV_VTL_RAM_DISPOSITION	_IOR(MSHV_IOCTL, 0x20, struct mshv_ram_disposition)
+#define MSHV_VTL_ADD_VTL0_MEMORY	_IOW(MSHV_IOCTL, 0x21, struct mshv_ram_disposition)
+#define MSHV_VTL_SET_POLL_FILE		_IOW(MSHV_IOCTL, 0x25, struct mshv_set_poll_file)
+#define MSHV_VTL_RETURN_TO_LOWER_VTL	_IO(MSHV_IOCTL, 0x27)
 /* ioctl for device fd */
 #define MSHV_CREATE_DEVICE	  _IOWR(MSHV_IOCTL, 0x13, struct mshv_create_device)
 
