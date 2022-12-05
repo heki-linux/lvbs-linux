@@ -192,7 +192,6 @@ err:
 	return -ENOMEM;
 }
 
-
 void hv_synic_free(void)
 {
 	int cpu;
@@ -201,13 +200,7 @@ void hv_synic_free(void)
 		struct hv_per_cpu_context *hv_cpu
 			= per_cpu_ptr(hv_context.cpu_context, cpu);
 
-		if (hv_root_partition) {
-			if (hv_cpu->synic_event_page != NULL)
-				memunmap(hv_cpu->synic_event_page);
-
-			if (hv_cpu->synic_message_page != NULL)
-				memunmap(hv_cpu->synic_message_page);
-		} else {
+		if (!hv_root_partition) {
 			free_page((unsigned long)hv_cpu->synic_event_page);
 			free_page((unsigned long)hv_cpu->synic_message_page);
 		}
@@ -219,121 +212,13 @@ void hv_synic_free(void)
 
 /*
  * hv_synic_init - Initialize the Synthetic Interrupt Controller.
- *
- * If it is already initialized by another entity (ie x2v shim), we need to
- * retrieve the initialized message and event pages.  Otherwise, we create and
- * initialize the message and event pages.
  */
-void hv_synic_enable_regs(unsigned int cpu)
-{
-	struct hv_per_cpu_context *hv_cpu
-		= per_cpu_ptr(hv_context.cpu_context, cpu);
-	union hv_synic_simp simp;
-	union hv_synic_siefp siefp;
-	union hv_synic_sint shared_sint;
-	union hv_synic_scontrol sctrl;
-
-	/* Setup the Synic's message page */
-	simp.as_uint64 = hv_get_register(REG_SIMP);
-	simp.simp_enabled = 1;
-	if (hv_root_partition)
-		hv_cpu->synic_message_page =
-			memremap(simp.base_simp_gpa << HV_HYP_PAGE_SHIFT,
-				 HV_HYP_PAGE_SIZE, MEMREMAP_WB);
-	else
-		simp.base_simp_gpa = virt_to_phys(hv_cpu->synic_message_page) >>
-						  HV_HYP_PAGE_SHIFT;
-
-	hv_set_register(REG_SIMP, simp.as_uint64);
-
-	/* Setup the Synic's event page */
-	siefp.as_uint64 = hv_get_register(REG_SIEFP);
-	siefp.siefp_enabled = 1;
-	if (hv_root_partition)
-		hv_cpu->synic_event_page =
-			memremap(siefp.base_siefp_gpa << HV_HYP_PAGE_SHIFT,
-				 HV_HYP_PAGE_SIZE, MEMREMAP_WB);
-	else
-		siefp.base_siefp_gpa = virt_to_phys(hv_cpu->synic_event_page) >>
-						    HV_HYP_PAGE_SHIFT;
-
-	hv_set_register(REG_SIEFP, siefp.as_uint64);
-
-	/* Setup the shared SINT. */
-	if (vmbus_irq != -1)
-		enable_percpu_irq(vmbus_irq, 0);
-
-	shared_sint.as_uint64 = hv_get_register(REG_SINT0 + VMBUS_MESSAGE_SINT);
-	shared_sint.vector = vmbus_interrupt;
-	shared_sint.masked = false;
-
-	/*
-	 * On architectures where Hyper-V doesn't support AEOI (e.g., ARM64),
-	 * it doesn't provide a recommendation flag and AEOI must be disabled.
-	 */
-#ifdef HV_DEPRECATING_AEOI_RECOMMENDED
-	shared_sint.auto_eoi =
-			!(ms_hyperv.hints & HV_DEPRECATING_AEOI_RECOMMENDED);
-#else
-	shared_sint.auto_eoi = 0;
-#endif
-	hv_set_register(REG_SINT0 + VMBUS_MESSAGE_SINT, shared_sint.as_uint64);
-
-	/* Enable the global synic bit */
-	sctrl.as_uint64 = hv_get_register(REG_SCTRL);
-	sctrl.enable = 1;
-
-	hv_set_register(REG_SCTRL, sctrl.as_uint64);
-}
-
 int hv_synic_init(unsigned int cpu)
 {
 	hv_synic_enable_regs(cpu);
-
 	hv_stimer_legacy_init(cpu, VMBUS_MESSAGE_SINT);
 
 	return 0;
-}
-
-/*
- * hv_synic_cleanup - Cleanup routine for hv_synic_init().
- */
-void hv_synic_disable_regs(unsigned int cpu)
-{
-	union hv_synic_sint shared_sint;
-	union hv_synic_simp simp;
-	union hv_synic_siefp siefp;
-	union hv_synic_scontrol sctrl;
-
-	shared_sint.as_uint64 = hv_get_register(REG_SINT0 + VMBUS_MESSAGE_SINT);
-
-	shared_sint.masked = 1;
-
-	/* Need to correctly cleanup in the case of SMP!!! */
-	/* Disable the interrupt */
-	hv_set_register(REG_SINT0 + VMBUS_MESSAGE_SINT, shared_sint.as_uint64);
-
-	simp.as_uint64 = hv_get_register(REG_SIMP);
-	simp.simp_enabled = 0;
-	if (!hv_root_partition)
-		simp.base_simp_gpa = 0;
-
-	hv_set_register(REG_SIMP, simp.as_uint64);
-
-	siefp.as_uint64 = hv_get_register(REG_SIEFP);
-	siefp.siefp_enabled = 0;
-	if (!hv_root_partition)
-		siefp.base_siefp_gpa = 0;
-
-	hv_set_register(REG_SIEFP, siefp.as_uint64);
-
-	/* Disable the global synic bit */
-	sctrl.as_uint64 = hv_get_register(REG_SCTRL);
-	sctrl.enable = 0;
-	hv_set_register(REG_SCTRL, sctrl.as_uint64);
-
-	if (vmbus_irq != -1)
-		disable_percpu_irq(vmbus_irq);
 }
 
 #define HV_MAX_TRIES 3
@@ -372,6 +257,9 @@ retry:
 	return pending;
 }
 
+/*
+ * hv_synic_cleanup - Cleanup routine for hv_synic_init().
+ */
 int hv_synic_cleanup(unsigned int cpu)
 {
 	struct vmbus_channel *channel, *sc;
@@ -434,4 +322,157 @@ always_cleanup:
 	hv_synic_disable_regs(cpu);
 
 	return 0;
+}
+
+int __hv_synic_set_page(unsigned int msr_index, void **page_ptr, bool enable)
+{
+	union hv_synic_page_msr reg;
+
+	if (msr_index != HV_REGISTER_SIMP &&
+	    msr_index != HV_REGISTER_SIEFP &&
+	    msr_index != HV_REGISTER_SIRBP
+#ifdef HV_SUPPORTS_NESTED
+	    &&
+	    msr_index != HV_REGISTER_NESTED_SIMP &&
+	    msr_index != HV_REGISTER_NESTED_SIEFP &&
+	    msr_index != HV_REGISTER_NESTED_SIRBP
+#endif
+	    ) {
+		WARN(1, "Invalid msr index 0x%x\n", msr_index);
+		return -EINVAL;
+	}
+
+	reg.as_uint64 = hv_get_register(msr_index);
+	reg.enabled = enable;
+	if (enable) {
+		if (hv_root_partition) {
+			/*
+			 * For root partition, the hypervisor provides the page
+			 * in the msr. So just get it and map it
+			 */
+			*page_ptr =
+				memremap(reg.base_gpa << HV_HYP_PAGE_SHIFT,
+					 HV_HYP_PAGE_SIZE,
+					 MEMREMAP_WB);
+			if (!(*page_ptr)) {
+				pr_err("%s: memremap failed MSR: 0x%x\n",
+				       __func__,
+				       msr_index);
+				return -EFAULT;
+			}
+		} else {
+			/*
+			 * For non-root, we set the page in the msr.
+			 * It was allocated in hv_synic_alloc()
+			 */
+			reg.base_gpa =
+				virt_to_phys(*page_ptr) >>
+					HV_HYP_PAGE_SHIFT;
+		}
+	} else {
+		/*
+		 * Disable by undoing the memremap above
+		 * Nothing to do for non-root
+		 */
+		if (hv_root_partition)
+			memunmap(*page_ptr);
+	}
+
+	hv_set_register(msr_index, reg.as_uint64);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(__hv_synic_set_page);
+
+static inline bool hv_recommend_using_aeoi(void)
+{
+	/*
+	 * On architectures where Hyper-V doesn't support AEOI (e.g., ARM64),
+	 * it doesn't provide a recommendation flag and AEOI must be disabled.
+	 */
+#ifdef HV_DEPRECATING_AEOI_RECOMMENDED
+	return !(ms_hyperv.hints & HV_DEPRECATING_AEOI_RECOMMENDED);
+#else
+	return false;
+#endif
+}
+
+void __hv_synic_set_sint(unsigned int msr_index, int vector, bool masked,
+		       bool as_intercept)
+{
+	union hv_synic_sint sint;
+
+	/* The sint must be in one of these ranges */
+	if (!(msr_index >= HV_REGISTER_SINT0 &&
+	      msr_index < HV_REGISTER_SINT0 + HV_SYNIC_SINT_COUNT)
+#ifdef HV_SUPPORTS_NESTED
+	      &&
+	    !(msr_index >= HV_REGISTER_NESTED_SINT0 &&
+	      msr_index < HV_REGISTER_NESTED_SINT0 + HV_SYNIC_SINT_COUNT)
+#endif
+	    ) {
+		WARN(1, "Invalid sint msr index 0x%x\n", msr_index);
+		return;
+	}
+
+	sint.as_uint64 = hv_get_register(msr_index);
+	sint.masked = masked;
+	if (!masked) {
+		sint.vector = vector;
+		sint.auto_eoi = hv_recommend_using_aeoi();
+		sint.as_intercept = as_intercept;
+	}
+	hv_set_register(msr_index, sint.as_uint64);
+}
+EXPORT_SYMBOL_GPL(__hv_synic_set_sint);
+
+void __hv_synic_set_sctrl(unsigned int msr_index, bool enable)
+{
+	union hv_synic_scontrol sctrl;
+
+	if (msr_index != HV_REGISTER_SCONTROL
+#ifdef HV_SUPPORTS_NESTED
+	    &&
+	    msr_index != HV_REGISTER_NESTED_SCONTROL
+#endif
+	    ) {
+		WARN(1, "Invalid sctrl msr index 0x%x\n", msr_index);
+		return;
+	}
+
+	sctrl.as_uint64 = hv_get_register(msr_index);
+	sctrl.enable = enable;
+	hv_set_register(msr_index, sctrl.as_uint64);
+}
+EXPORT_SYMBOL_GPL(__hv_synic_set_sctrl);
+
+void hv_synic_enable_regs(unsigned int cpu)
+{
+	struct hv_per_cpu_context *hv_cpu =
+				per_cpu_ptr(hv_context.cpu_context, cpu);
+
+	hv_synic_enable_page(REG_SIMP, &hv_cpu->synic_message_page);
+	hv_synic_enable_page(REG_SIEFP, &hv_cpu->synic_event_page);
+	/* Setup the shared SINT. */
+	if (vmbus_irq != -1)
+		enable_percpu_irq(vmbus_irq, 0);
+	hv_synic_unmask_sint(REG_SINT0 + VMBUS_MESSAGE_SINT, vmbus_interrupt);
+	/* Enable the global synic bit */
+	hv_synic_enable_sctrl(REG_SCTRL);
+}
+
+void hv_synic_disable_regs(unsigned int cpu)
+{
+	struct hv_per_cpu_context *hv_cpu =
+				per_cpu_ptr(hv_context.cpu_context, cpu);
+
+	/* Need to correctly cleanup in the case of SMP!!! */
+	/* Disable the interrupt */
+	hv_synic_mask_sint(REG_SINT0 + VMBUS_MESSAGE_SINT);
+	hv_synic_disable_page(REG_SIMP, &hv_cpu->synic_message_page);
+	hv_synic_disable_page(REG_SIEFP, &hv_cpu->synic_event_page);
+	/* Disable the global synic bit */
+	hv_synic_disable_sctrl(REG_SCTRL);
+	if (vmbus_irq != -1)
+		disable_percpu_irq(vmbus_irq);
 }
