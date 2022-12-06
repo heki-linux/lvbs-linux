@@ -115,6 +115,19 @@ static u64 mshv_get_ram_last_pfn(void)
 	return mshv_ram_last_pfn;
 }
 
+static int vtl_get_vp_registers(u16 count,
+				 struct hv_register_assoc *registers)
+{
+	return hv_call_get_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
+					count, registers);
+}
+static int vtl_set_vp_registers(u16 count,
+				 struct hv_register_assoc *registers)
+{
+	return hv_call_set_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
+					count, registers);
+}
+
 static int mshv_vtl_ioctl_ram_disposition(void __user *arg)
 {
 	struct mshv_ram_disposition ram_disposition = {
@@ -813,8 +826,7 @@ mshv_vtl_ioctl_set_regs(struct mshv_vp *vp, void __user *user_args)
 	ret = mshv_vtl_set_reg(registers);
 	if (!ret)
 		goto free_return; /* No need of hypercall */
-	ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
-				       args.count, registers);
+	ret = vtl_set_vp_registers(args.count, registers);
 
 free_return:
 	kfree(registers);
@@ -849,8 +861,7 @@ mshv_vtl_ioctl_get_regs(struct mshv_vp *vp, void __user *user_args)
 	ret = mshv_vtl_get_reg(registers);
 	if (!ret)
 		goto copy_args; /* No need of hypercall */
-	ret = hv_call_get_vp_registers(vp->index, vp->partition->id,
-				       args.count, registers);
+	ret = vtl_get_vp_registers(args.count, registers);
 	if (ret)
 		goto free_return;
 

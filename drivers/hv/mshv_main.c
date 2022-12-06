@@ -82,6 +82,20 @@ static struct miscdevice mshv_dev = {
 	.mode = 0600,
 };
 
+static int mshv_get_vp_registers(u32 vp_index, u64 partition_id, u16 count,
+				 struct hv_register_assoc *registers)
+{
+	return hv_call_get_vp_registers(vp_index, partition_id,
+					count, registers);
+}
+
+static int mshv_set_vp_registers(u32 vp_index, u64 partition_id, u16 count,
+				 struct hv_register_assoc *registers)
+{
+	return hv_call_set_vp_registers(vp_index, partition_id,
+					count, registers);
+}
+
 static long
 mshv_vp_ioctl_get_regs(struct mshv_vp *vp, void __user *user_args)
 {
@@ -107,8 +121,8 @@ mshv_vp_ioctl_get_regs(struct mshv_vp *vp, void __user *user_args)
 		goto free_return;
 	}
 
-	ret = hv_call_get_vp_registers(vp->index, vp->partition->id,
-				       args.count, registers);
+	ret = mshv_get_vp_registers(vp->index, vp->partition->id,
+				    args.count, registers);
 	if (ret)
 		goto free_return;
 
@@ -162,8 +176,8 @@ mshv_vp_ioctl_set_regs(struct mshv_vp *vp, void __user *user_args)
 		}
 	}
 
-	ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
-				       args.count, registers);
+	ret = mshv_set_vp_registers(vp->index, vp->partition->id,
+				    args.count, registers);
 
 free_return:
 	kfree(registers);
@@ -202,16 +216,16 @@ mshv_suspend_vp(const struct mshv_vp *vp, bool *message_in_flight)
 
 	es->suspended = 1;
 
-	ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
-				       1, &explicit_suspend);
+	ret = mshv_set_vp_registers(vp->index, vp->partition->id,
+				    1, &explicit_suspend);
 	if (ret) {
 		pr_err("%s: failed to explicitly suspend vCPU#%d in partition %lld\n",
 				__func__, vp->index, vp->partition->id);
 		return ret;
 	}
 
-	ret = hv_call_get_vp_registers(vp->index, vp->partition->id,
-				       1, &intercept_suspend);
+	ret = mshv_get_vp_registers(vp->index, vp->partition->id,
+				    1, &intercept_suspend);
 	if (ret) {
 		pr_err("%s: failed to get intercept suspend state vCPU#%d in partition %lld\n",
 			__func__, vp->index, vp->partition->id);
@@ -243,8 +257,8 @@ mshv_run_vp_with_hv_scheduler(struct mshv_vp *vp, void __user *ret_message,
 	long ret;
 
 	/* Resume VP execution */
-	ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
-				       count, registers);
+	ret = mshv_set_vp_registers(vp->index, vp->partition->id,
+				    count, registers);
 	if (ret) {
 		pr_err("%s: failed to resume vCPU#%d in partition %lld\n",
 		       __func__, vp->index, vp->partition->id);
@@ -309,8 +323,8 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 				.value.explicit_suspend.suspended = 0,
 			};
 
-			ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
-					1, &explicit_suspend);
+			ret = mshv_set_vp_registers(vp->index, vp->partition->id,
+						    1, &explicit_suspend);
 			if (ret) {
 				pr_err("%s: failed to unsuspend partition %llu vp %u\n",
 					__func__, vp->partition->id, vp->index);
@@ -1286,7 +1300,7 @@ mshv_partition_ioctl_register_deliverabilty_notifications(
 	hv_reg.name = HV_X64_REGISTER_DELIVERABILITY_NOTIFICATIONS;
 	hv_reg.value.reg64 = args.flag;
 
-	return hv_call_set_vp_registers(args.vp, partition->id, 1, &hv_reg);
+	return mshv_set_vp_registers(args.vp, partition->id, 1, &hv_reg);
 }
 #endif
 
@@ -1545,8 +1559,8 @@ disable_vp_dispatch(struct mshv_vp *vp)
 		.value.dispatch_suspend.suspended = 1,
 	};
 
-	ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
-					1, &dispatch_suspend);
+	ret = mshv_set_vp_registers(vp->index, vp->partition->id,
+				    1, &dispatch_suspend);
 	if (ret)
 		pr_err("%s: failed to suspend partition %llu vp %u\n",
 			__func__, vp->partition->id, vp->index);
@@ -1562,8 +1576,8 @@ get_vp_signaled_count(struct mshv_vp *vp, u64 *count)
 		.name = HV_REGISTER_VP_ROOT_SIGNAL_COUNT,
 	};
 
-	ret = hv_call_get_vp_registers(vp->index, vp->partition->id,
-			1, &root_signal_count);
+	ret = mshv_get_vp_registers(vp->index, vp->partition->id,
+				    1, &root_signal_count);
 
 	if (ret) {
 		pr_err("%s: failed to get root signal count for partition %llu vp %u",
