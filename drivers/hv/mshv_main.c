@@ -644,7 +644,7 @@ mshv_vp_ioctl_get_set_state(struct mshv_vp *vp, void __user *user_args, bool is_
 #endif
 
 long
-mshv_vp_ioctl_translate_gva(struct mshv_vp *vp, void __user *user_args)
+mshv_ioctl_translate_gva(u32 vp_index, u64 partition_id, void __user *user_args)
 {
 	long ret;
 	struct mshv_translate_gva args;
@@ -655,8 +655,8 @@ mshv_vp_ioctl_translate_gva(struct mshv_vp *vp, void __user *user_args)
 		return -EFAULT;
 
 	ret = hv_call_translate_virtual_address(
-			vp->index,
-			vp->partition->id,
+			vp_index,
+			partition_id,
 			args.flags,
 			args.gva,
 			&gpa,
@@ -765,7 +765,7 @@ mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		break;
 #endif
 	case MSHV_TRANSLATE_GVA:
-		r = mshv_vp_ioctl_translate_gva(vp, (void __user *)arg);
+		r = mshv_ioctl_translate_gva(vp->index, vp->partition->id, (void __user *)arg);
 		break;
 #ifdef HV_SUPPORTS_REGISTER_INTERCEPT
 	case MSHV_VP_REGISTER_INTERCEPT_RESULT:

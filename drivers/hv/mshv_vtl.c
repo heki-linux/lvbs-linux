@@ -792,7 +792,7 @@ done:
 }
 
 static long
-mshv_vtl_ioctl_set_regs(struct mshv_vp *vp, void __user *user_args)
+mshv_vtl_ioctl_set_regs(void __user *user_args)
 {
 	struct mshv_vp_registers args;
 	struct hv_register_assoc *registers;
@@ -842,7 +842,7 @@ free_return:
 }
 
 static long
-mshv_vtl_ioctl_get_regs(struct mshv_vp *vp, void __user *user_args)
+mshv_vtl_ioctl_get_regs(void __user *user_args)
 {
 	struct mshv_vp_registers args;
 	struct hv_register_assoc *registers;
@@ -888,16 +888,6 @@ static long
 mshv_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
 	long ret;
-	struct mshv_partition *partition;
-	struct mshv_vp vp;
-
-	partition = kzalloc(sizeof(*partition), GFP_KERNEL);
-	if (!partition)
-		return -ENOMEM;
-
-	vp.partition = partition;
-	vp.partition->id = HV_PARTITION_ID_SELF;
-	vp.index = HV_VP_INDEX_SELF;
 
 	switch (ioctl) {
 	case MSHV_INSTALL_INTERCEPT:
@@ -907,10 +897,10 @@ mshv_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		ret = mshv_vtl_ioctl_set_poll_file((struct mshv_set_poll_file *)arg);
 		break;
 	case MSHV_GET_VP_REGISTERS:
-		ret = mshv_vtl_ioctl_get_regs(&vp, (void __user *)arg);
+		ret = mshv_vtl_ioctl_get_regs((void __user *)arg);
 		break;
 	case MSHV_SET_VP_REGISTERS:
-		ret = mshv_vtl_ioctl_set_regs(&vp, (void __user *)arg);
+		ret = mshv_vtl_ioctl_set_regs((void __user *)arg);
 		break;
 	case MSHV_VTL_RETURN_TO_LOWER_VTL:
 		ret = mshv_vtl_ioctl_return_to_lower_vtl();
@@ -922,7 +912,8 @@ mshv_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		ret = mshv_ioctl_assert_interrupt(HV_PARTITION_ID_SELF, (void __user *)arg);
 		break;
 	case MSHV_TRANSLATE_GVA:
-		ret = mshv_vp_ioctl_translate_gva(&vp, (void __user *)arg);
+		ret = mshv_ioctl_translate_gva(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
+							(void __user *)arg);
 		break;
 	case MSHV_VTL_RAM_DISPOSITION:
 		ret = mshv_vtl_ioctl_ram_disposition((void __user *)arg);
@@ -938,7 +929,6 @@ mshv_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		ret = -ENOTTY;
 	}
 
-	kfree(partition);
 	return ret;
 }
 
