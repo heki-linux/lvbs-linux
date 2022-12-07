@@ -9,6 +9,7 @@ import json
 import re
 import hashlib
 import subprocess
+import tarfile
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from lsgtools import log
@@ -38,7 +39,21 @@ if storage_url is None:
     storage_url = conf.default_storage_url
 
 tarball_name = kernel.build_tgz_name(version)
+tarball_local_path = "/tmp/{}".format(tarball_name)
+tarball_url = "{}/{}".format(storage_url, tarball_name)
 tarball_sum_url = "{}/{}.sha256".format(storage_url, tarball_name)
+
+try:
+    # This simultaneously also serves as a download test for the tarball
+    resp = requests.get(tarball_url)
+    if not 200 == resp.status_code:
+        raise Exception(resp.content)
+    with open(tarball_local_path, 'wb') as f:
+        f.write(resp.content)
+    f.close()
+except Exception as e:
+    log.fatal("Couldn't retvieve tarball '{}'.\nException: {}".format(tarball_url, e))
+    exit(1)
 
 try:
     resp = requests.get(tarball_sum_url)
@@ -46,8 +61,8 @@ try:
     if not 200 == resp.status_code:
         raise Exception(tarball_sha256)
 except Exception as e:
-    log.fatal("Couldn't retvieve the SHA256 sum file")
-    raise e
+    log.fatal("Couldn't retvieve the SHA256 sum file '{}'.\nException: {}").format(tarball_sum_url, e)
+    exit(1)
 
 cmd = ["git", "checkout", "-b", derivative_branch]
 res = subprocess.run(cmd)
@@ -59,17 +74,29 @@ if 0 != res.returncode:
 kernel_spec_path = "SPECS/kernel/kernel-mshv.spec"
 kernel_sums_path = "SPECS/kernel/kernel-mshv.signatures.json"
 kernel_conf = {
-        "x86": {"path": "SPECS/kernel/config_x86", "sha256": None},
-        "aarch64": {"path": "SPECS/kernel/config_aarch64", "sha256": None}
+        "x86": {"path": "SPECS/kernel/config_x86", "sha256": None, "kernel_arch": "x86"},
+        "aarch64": {"path": "SPECS/kernel/config_aarch64", "sha256": None, "kernel_arch": "arm64"}
         }
 
 # Patch config
 for k in kernel_conf:
     cf = kernel_conf[k]["path"]
-    with open(cf, "r") as f:
-        conf = f.read()
-    f.close()
-    
+
+    # Extract configs from the tarball into the SPEC
+    config_path_in_tar = "arch/{}/configs/mshv_defconfig".format(kernel_conf[k]["kernel_arch"])
+    conf = None
+    with tarfile.open(tarball_local_path, "r") as tar:
+        # Expect just one root member in the tarball which is a dir
+        for ti in tar:
+            if ti.isdir():
+                config_path_in_tar = "{}/{}".format(ti.name, config_path_in_tar)
+                log.info("Reading '{}' from '{}'".format(config_path_in_tar, tarball_local_path))
+                conf = tar.extractfile(config_path_in_tar).read().decode("utf-8")
+                break
+    tar.close()
+    if not bool(conf):
+        raise Exception("Read empty config from '{}' in '{}".format(config_path_in_tar, tarball_local_path))
+
     # TODO Introduce an array with pattern/replacement and pack it into the module
     conf = re.sub(re.compile("CONFIG_SYSTEM_TRUSTED_KEYS=.*"), 'CONFIG_SYSTEM_TRUSTED_KEYS="certs/mariner.pem"', conf)
     conf = re.sub(re.compile("Linux/(.*) (.*) Kernel Configuration"), "Linux/\\1 {} Kernel Configuration".format(version), conf)
