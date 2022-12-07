@@ -1124,8 +1124,7 @@ mshv_partition_ioctl_unmap_memory(struct mshv_partition *partition,
 }
 
 long
-mshv_partition_ioctl_install_intercept(struct mshv_partition *partition,
-				       void __user *user_args)
+mshv_ioctl_install_intercept(u64 partition_id, void __user *user_args)
 {
 	struct mshv_install_intercept args;
 
@@ -1133,15 +1132,14 @@ mshv_partition_ioctl_install_intercept(struct mshv_partition *partition,
 		return -EFAULT;
 
 	return hv_call_install_intercept(
-			partition->id,
+			partition_id,
 			args.access_type_mask,
 			args.intercept_type,
 			args.intercept_parameter);
 }
 
 long
-mshv_partition_ioctl_assert_interrupt(struct mshv_partition *partition,
-				      void __user *user_args)
+mshv_ioctl_assert_interrupt(u64 partition_id, void __user *user_args)
 {
 	struct mshv_assert_interrupt args;
 
@@ -1149,7 +1147,7 @@ mshv_partition_ioctl_assert_interrupt(struct mshv_partition *partition,
 		return -EFAULT;
 
 	return hv_call_assert_virtual_interrupt(
-			partition->id,
+			partition_id,
 			args.vector,
 			args.dest_addr,
 			args.control);
@@ -1242,8 +1240,7 @@ mshv_partition_ioctl_set_msi_routing(struct mshv_partition *partition,
 }
 
 long
-mshv_partition_ioctl_signal_event_direct(struct mshv_partition *partition,
-					 void __user *user_args)
+mshv_ioctl_signal_event_direct(u64 partition_id, void __user *user_args)
 {
 	struct mshv_signal_event_direct args;
 	long ret;
@@ -1252,7 +1249,7 @@ mshv_partition_ioctl_signal_event_direct(struct mshv_partition *partition,
 		return -EFAULT;
 
 	ret = hv_call_signal_event_direct(args.vp,
-					partition->id,
+					partition_id,
 					args.vtl,
 					args.sint,
 					args.flag,
@@ -1268,8 +1265,7 @@ mshv_partition_ioctl_signal_event_direct(struct mshv_partition *partition,
 }
 
 long
-mshv_partition_ioctl_post_message_direct(struct mshv_partition *partition,
-					 void __user *user_args)
+mshv_ioctl_post_message_direct(u64 partition_id, void __user *user_args)
 {
 	struct mshv_post_message_direct args;
 	u8 message[HV_MESSAGE_SIZE];
@@ -1285,7 +1281,7 @@ mshv_partition_ioctl_post_message_direct(struct mshv_partition *partition,
 		return -EFAULT;
 
 	return hv_call_post_message_direct(args.vp,
-					partition->id,
+					partition_id,
 					args.vtl,
 					args.sint,
 					&message[0]);
@@ -1499,11 +1495,11 @@ mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 							(void __user *)arg);
 		break;
 	case MSHV_INSTALL_INTERCEPT:
-		ret = mshv_partition_ioctl_install_intercept(partition,
+		ret = mshv_ioctl_install_intercept(partition->id,
 							(void __user *)arg);
 		break;
 	case MSHV_ASSERT_INTERRUPT:
-		ret = mshv_partition_ioctl_assert_interrupt(partition,
+		ret = mshv_ioctl_assert_interrupt(partition->id,
 							(void __user *)arg);
 		break;
 	case MSHV_GET_PARTITION_PROPERTY:
@@ -1535,11 +1531,11 @@ mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 							 (void __user *)arg);
 		break;
 	case MSHV_SIGNAL_EVENT_DIRECT:
-		ret = mshv_partition_ioctl_signal_event_direct(partition,
+		ret = mshv_ioctl_signal_event_direct(partition->id,
 							 (void __user *)arg);
 		break;
 	case MSHV_POST_MESSAGE_DIRECT:
-		ret = mshv_partition_ioctl_post_message_direct(partition,
+		ret = mshv_ioctl_post_message_direct(partition->id,
 							 (void __user *)arg);
 		break;
 #ifdef HV_SUPPORTS_REGISTER_DELIVERABILITY_NOTIFICATIONS

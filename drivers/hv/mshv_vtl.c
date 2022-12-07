@@ -901,7 +901,7 @@ mshv_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 
 	switch (ioctl) {
 	case MSHV_INSTALL_INTERCEPT:
-		ret = mshv_partition_ioctl_install_intercept(partition, (void __user *)arg);
+		ret = mshv_ioctl_install_intercept(HV_PARTITION_ID_SELF, (void __user *)arg);
 		break;
 	case MSHV_VTL_SET_POLL_FILE:
 		ret = mshv_vtl_ioctl_set_poll_file((struct mshv_set_poll_file *)arg);
@@ -916,10 +916,10 @@ mshv_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		ret = mshv_vtl_ioctl_return_to_lower_vtl();
 		break;
 	case MSHV_POST_MESSAGE_DIRECT:
-		ret = mshv_partition_ioctl_post_message_direct(partition, (void __user *)arg);
+		ret = mshv_ioctl_post_message_direct(HV_PARTITION_ID_SELF, (void __user *)arg);
 		break;
 	case MSHV_ASSERT_INTERRUPT:
-		ret = mshv_partition_ioctl_assert_interrupt(partition, (void __user *)arg);
+		ret = mshv_ioctl_assert_interrupt(HV_PARTITION_ID_SELF, (void __user *)arg);
 		break;
 	case MSHV_TRANSLATE_GVA:
 		ret = mshv_vp_ioctl_translate_gva(&vp, (void __user *)arg);
@@ -931,8 +931,7 @@ mshv_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		ret = mshv_vtl_ioctl_add_vtl0_mem((void __user *)arg);
 		break;
 	case MSHV_SIGNAL_EVENT_DIRECT:
-		ret = mshv_partition_ioctl_signal_event_direct(partition,
-							       (void __user *)arg);
+		ret = mshv_ioctl_signal_event_direct(HV_PARTITION_ID_SELF, (void __user *)arg);
 		break;
 	default:
 		pr_err("%s: invalid vtl ioctl: %#x\n", __func__, ioctl);
