@@ -18,7 +18,7 @@
 #include <linux/srcu.h>
 #include <linux/wait.h>
 #include <uapi/linux/mshv.h>
-#include<asm/hyperv-tlfs.h>
+#include <asm/hyperv-tlfs.h>
 
 /* Determined empirically */
 #define HV_INIT_PARTITION_DEPOSIT_PAGES 208
