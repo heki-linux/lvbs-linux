@@ -85,15 +85,21 @@ static struct miscdevice mshv_dev = {
 static int mshv_get_vp_registers(u32 vp_index, u64 partition_id, u16 count,
 				 struct hv_register_assoc *registers)
 {
+	union hv_input_vtl input_vtl;
+
+	input_vtl.as_uint8 = 0;
 	return hv_call_get_vp_registers(vp_index, partition_id,
-					count, registers);
+					count, input_vtl, registers);
 }
 
 static int mshv_set_vp_registers(u32 vp_index, u64 partition_id, u16 count,
 				 struct hv_register_assoc *registers)
 {
+	union hv_input_vtl input_vtl;
+
+	input_vtl.as_uint8 = 0;
 	return hv_call_set_vp_registers(vp_index, partition_id,
-					count, registers);
+					count, input_vtl, registers);
 }
 
 static long

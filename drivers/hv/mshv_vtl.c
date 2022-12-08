@@ -118,14 +118,22 @@ static u64 mshv_get_ram_last_pfn(void)
 static int vtl_get_vp_registers(u16 count,
 				 struct hv_register_assoc *registers)
 {
+	union hv_input_vtl input_vtl;
+
+	input_vtl.as_uint8 = 0;
+	input_vtl.use_target_vtl = 1;
 	return hv_call_get_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
-					count, registers);
+					count, input_vtl, registers);
 }
 static int vtl_set_vp_registers(u16 count,
 				 struct hv_register_assoc *registers)
 {
+	union hv_input_vtl input_vtl;
+
+	input_vtl.as_uint8 = 0;
+	input_vtl.use_target_vtl = 1;
 	return hv_call_set_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
-					count, registers);
+					count, input_vtl, registers);
 }
 
 static int mshv_vtl_ioctl_ram_disposition(void __user *arg)
