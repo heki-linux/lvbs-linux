@@ -36,10 +36,21 @@
 #define DRIVER_AUTHOR	"Stephen Hemminger <sthemmin at microsoft.com>"
 #define DRIVER_DESC	"Generic UIO driver for VMBus devices"
 
-#define HV_RING_SIZE	 512	/* pages */
+#define DEFAULT_HV_RING_SIZE	VMBUS_RING_SIZE(511 * HV_HYP_PAGE_SIZE)
 #define SEND_BUFFER_SIZE (16 * 1024 * 1024)
 #define RECV_BUFFER_SIZE (31 * 1024 * 1024)
 
+static size_t recv_buf_size = RECV_BUFFER_SIZE;
+module_param(recv_buf_size, ulong, 0644);
+MODULE_PARM_DESC(recv_buf_size, "receive buffer size in bytes");
+
+static size_t send_buf_size = SEND_BUFFER_SIZE;
+module_param(send_buf_size, ulong, 0644);
+MODULE_PARM_DESC(send_buf_size, "send buffer size in bytes");
+
+static size_t ring_size = DEFAULT_HV_RING_SIZE;
+module_param(ring_size, ulong, 0644);
+MODULE_PARM_DESC(ring_size, "primary channel ring buffer size in bytes");
 /*
  * List of resources to be mapped to user space
  * can be extended up to MAX_UIO_MAPS(5) items
@@ -83,6 +94,9 @@ hv_uio_irqcontrol(struct uio_info *info, s32 irq_state)
 
 	dev->channel->inbound.ring_buffer->interrupt_mask = !irq_state;
 	virt_mb();
+
+	if (!dev->channel->offermsg.monitor_allocated && irq_state)
+		vmbus_setevent(dev->channel);
 
 	return 0;
 }
@@ -143,7 +157,7 @@ static const struct bin_attribute ring_buffer_bin_attr = {
 		.name = "ring",
 		.mode = 0600,
 	},
-	.size = 2 * HV_RING_SIZE * PAGE_SIZE,
+	.size = 2 * DEFAULT_HV_RING_SIZE,
 	.mmap = hv_uio_ring_mmap,
 };
 
@@ -153,7 +167,7 @@ hv_uio_new_channel(struct vmbus_channel *new_sc)
 {
 	struct hv_device *hv_dev = new_sc->primary_channel->device_obj;
 	struct device *device = &hv_dev->device;
-	const size_t ring_bytes = HV_RING_SIZE * PAGE_SIZE;
+	const size_t ring_bytes = DEFAULT_HV_RING_SIZE;
 	int ret;
 
 	/* Create host communication ring */
@@ -241,18 +255,13 @@ hv_uio_probe(struct hv_device *dev,
 	void *ring_buffer;
 	int ret;
 
-	/* Communicating with host has to be via shared memory not hypercall */
-	if (!channel->offermsg.monitor_allocated) {
-		dev_err(&dev->device, "vmbus channel requires hypercall\n");
-		return -ENOTSUPP;
-	}
+	dev_dbg(&dev->device, "primary channel ring size = %lx", ring_size);
 
 	pdata = devm_kzalloc(&dev->device, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
 		return -ENOMEM;
 
-	ret = vmbus_alloc_ring(channel, HV_RING_SIZE * PAGE_SIZE,
-			       HV_RING_SIZE * PAGE_SIZE);
+	ret = vmbus_alloc_ring(channel, ring_size, ring_size);
 	if (ret)
 		return ret;
 
@@ -288,48 +297,52 @@ hv_uio_probe(struct hv_device *dev,
 	pdata->info.mem[MON_PAGE_MAP].size = PAGE_SIZE;
 	pdata->info.mem[MON_PAGE_MAP].memtype = UIO_MEM_LOGICAL;
 
-	pdata->recv_buf = vzalloc(RECV_BUFFER_SIZE);
-	if (pdata->recv_buf == NULL) {
-		ret = -ENOMEM;
-		goto fail_free_ring;
+	if (recv_buf_size) {
+		dev_dbg(&dev->device, "recv buffer allocation");
+		pdata->recv_buf = vzalloc(recv_buf_size);
+		if (!pdata->recv_buf) {
+			ret = -ENOMEM;
+			goto fail_free_ring;
+		}
+
+		ret = vmbus_establish_gpadl(channel, pdata->recv_buf,
+					    recv_buf_size, &pdata->recv_gpadl);
+		if (ret) {
+			vfree(pdata->recv_buf);
+			goto fail_close;
+		}
+
+		/* put Global Physical Address Label in name */
+		snprintf(pdata->recv_name, sizeof(pdata->recv_name),
+			 "recv:%u", pdata->recv_gpadl);
+		pdata->info.mem[RECV_BUF_MAP].name = pdata->recv_name;
+		pdata->info.mem[RECV_BUF_MAP].addr = (uintptr_t)pdata->recv_buf;
+		pdata->info.mem[RECV_BUF_MAP].size = recv_buf_size;
+		pdata->info.mem[RECV_BUF_MAP].memtype = UIO_MEM_VIRTUAL;
 	}
 
-	ret = vmbus_establish_gpadl(channel, pdata->recv_buf,
-				    RECV_BUFFER_SIZE, &pdata->recv_gpadl);
-	if (ret) {
-		vfree(pdata->recv_buf);
-		goto fail_close;
+	if (send_buf_size) {
+		dev_dbg(&dev->device, "send buffer allocation");
+		pdata->send_buf = vzalloc(send_buf_size);
+		if (!pdata->send_buf) {
+			ret = -ENOMEM;
+			goto fail_close;
+		}
+
+		ret = vmbus_establish_gpadl(channel, pdata->send_buf,
+					    send_buf_size, &pdata->send_gpadl);
+		if (ret) {
+			vfree(pdata->send_buf);
+			goto fail_close;
+		}
+
+		snprintf(pdata->send_name, sizeof(pdata->send_name),
+			 "send:%u", pdata->send_gpadl);
+		pdata->info.mem[SEND_BUF_MAP].name = pdata->send_name;
+		pdata->info.mem[SEND_BUF_MAP].addr = (uintptr_t)pdata->send_buf;
+		pdata->info.mem[SEND_BUF_MAP].size = send_buf_size;
+		pdata->info.mem[SEND_BUF_MAP].memtype = UIO_MEM_VIRTUAL;
 	}
-
-	/* put Global Physical Address Label in name */
-	snprintf(pdata->recv_name, sizeof(pdata->recv_name),
-		 "recv:%u", pdata->recv_gpadl);
-	pdata->info.mem[RECV_BUF_MAP].name = pdata->recv_name;
-	pdata->info.mem[RECV_BUF_MAP].addr
-		= (uintptr_t)pdata->recv_buf;
-	pdata->info.mem[RECV_BUF_MAP].size = RECV_BUFFER_SIZE;
-	pdata->info.mem[RECV_BUF_MAP].memtype = UIO_MEM_VIRTUAL;
-
-	pdata->send_buf = vzalloc(SEND_BUFFER_SIZE);
-	if (pdata->send_buf == NULL) {
-		ret = -ENOMEM;
-		goto fail_close;
-	}
-
-	ret = vmbus_establish_gpadl(channel, pdata->send_buf,
-				    SEND_BUFFER_SIZE, &pdata->send_gpadl);
-	if (ret) {
-		vfree(pdata->send_buf);
-		goto fail_close;
-	}
-
-	snprintf(pdata->send_name, sizeof(pdata->send_name),
-		 "send:%u", pdata->send_gpadl);
-	pdata->info.mem[SEND_BUF_MAP].name = pdata->send_name;
-	pdata->info.mem[SEND_BUF_MAP].addr
-		= (uintptr_t)pdata->send_buf;
-	pdata->info.mem[SEND_BUF_MAP].size = SEND_BUFFER_SIZE;
-	pdata->info.mem[SEND_BUF_MAP].memtype = UIO_MEM_VIRTUAL;
 
 	pdata->info.priv = pdata;
 	pdata->device = dev;
