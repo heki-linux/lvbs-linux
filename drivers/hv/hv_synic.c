@@ -130,6 +130,47 @@ mshv_doorbell_isr(struct hv_message *msg)
 	return true;
 }
 
+static bool mshv_async_call_completion_isr(struct hv_message *msg)
+{
+	bool handled = false;
+	struct hv_async_completion_message_payload *async_msg;
+	struct mshv_partition *partition;
+	u64 partition_id;
+
+	if (msg->header.message_type != HVMSG_ASYNC_CALL_COMPLETION)
+		goto out;
+
+	async_msg =
+		(struct hv_async_completion_message_payload *)msg->u.payload;
+
+	partition_id = async_msg->partition_id;
+
+	/*
+	 * Hold this lock for the rest of the isr, because the partition could
+	 * be released anytime.
+	 * e.g. the MSHV_RUN_VP thread could wake on another cpu; it could
+	 * release the partition unless we hold this!
+	 */
+	rcu_read_lock();
+
+	partition = mshv_partition_find(partition_id);
+	if (unlikely(!partition)) {
+		pr_err("%s: failed to find partition %llu\n",
+		       __func__, partition_id);
+		goto unlock_out;
+	}
+
+	pr_debug("Partition ID: %llu received async hypercall completion\n",
+		 async_msg->partition_id);
+
+	handled = true;
+
+unlock_out:
+	rcu_read_unlock();
+out:
+	return handled;
+}
+
 static void kick_vp(struct mshv_vp *vp)
 {
 	atomic64_inc(&vp->run.signaled_count);
@@ -381,6 +422,9 @@ void mshv_isr(void)
 
 	if (!handled)
 		handled = mshv_scheduler_isr(msg);
+
+	if (!handled)
+		handled = mshv_async_call_completion_isr(msg);
 
 	if (!handled)
 		handled = mshv_intercept_isr(msg);

@@ -1532,4 +1532,11 @@ struct hv_input_enter_sleep_state {
 	u32 sleep_state; /* enum hv_sleep_state */
 } __packed;
 
+struct hv_async_completion_message_payload {
+	u64 partition_id;
+	u32 status;
+	u32 completion_count;
+	u64 sub_status;
+} __packed;
+
 #endif
