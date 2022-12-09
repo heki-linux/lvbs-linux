@@ -76,6 +76,7 @@ union hv_register_vsm_page_offsets {
 } __packed;
 
 struct mshv_vtl_per_cpu {
+	struct hv_synic_pages *synic_pages;
 	struct mshv_vtl_run *run;
 	struct page *hvcall_in_page;
 	struct page *hvcall_out_page;
@@ -89,6 +90,11 @@ static union hv_register_vsm_capabilities mshv_vsm_capabilities;
 static DEFINE_PER_CPU(struct mshv_poll_file, mshv_poll_file);
 static DEFINE_PER_CPU(unsigned long long, num_vtl0_transitions);
 static DEFINE_PER_CPU(struct mshv_vtl_per_cpu, mshv_vtl_per_cpu);
+
+static struct hv_synic_pages *mshv_vtl_this_synic_pages(void)
+{
+	return *this_cpu_ptr(&mshv_vtl_per_cpu.synic_pages);
+}
 
 struct mshv_vtl_run *mshv_this_run(void)
 {
@@ -715,13 +721,13 @@ static void mshv_vtl_return(struct mshv_cpu_context *vtl0)
 
 static bool mshv_process_intercept(void)
 {
-	struct hv_per_cpu_context *mshv_cpu;
+	struct hv_synic_pages *spages;
 	void *synic_message_page;
 	struct hv_message *msg;
 	u32 message_type;
 
-	mshv_cpu = this_cpu_ptr(hv_context.cpu_context);
-	synic_message_page = mshv_cpu->synic_message_page;
+	spages = mshv_vtl_this_synic_pages();
+	synic_message_page = spages->synic_message_page;
 	if (unlikely(!synic_message_page))
 		return true;
 
