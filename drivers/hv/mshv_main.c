@@ -669,6 +669,7 @@ mshv_ioctl_translate_gva(u32 vp_index, u64 partition_id, void __user *user_args)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mshv_ioctl_translate_gva);
 
 #ifdef HV_SUPPORTS_REGISTER_INTERCEPT
 
@@ -1133,6 +1134,7 @@ mshv_ioctl_install_intercept(u64 partition_id, void __user *user_args)
 			args.intercept_type,
 			args.intercept_parameter);
 }
+EXPORT_SYMBOL_GPL(mshv_ioctl_install_intercept);
 
 long
 mshv_ioctl_assert_interrupt(u64 partition_id, void __user *user_args)
@@ -1148,6 +1150,7 @@ mshv_ioctl_assert_interrupt(u64 partition_id, void __user *user_args)
 			args.dest_addr,
 			args.control);
 }
+EXPORT_SYMBOL_GPL(mshv_ioctl_assert_interrupt);
 
 static long
 mshv_partition_ioctl_ioeventfd(struct mshv_partition *partition,
@@ -1259,6 +1262,7 @@ mshv_ioctl_signal_event_direct(u64 partition_id, void __user *user_args)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mshv_ioctl_signal_event_direct);
 
 long
 mshv_ioctl_post_message_direct(u64 partition_id, void __user *user_args)
@@ -1282,6 +1286,7 @@ mshv_ioctl_post_message_direct(u64 partition_id, void __user *user_args)
 					args.sint,
 					&message[0]);
 }
+EXPORT_SYMBOL_GPL(mshv_ioctl_post_message_direct);
 
 #ifdef HV_SUPPORTS_REGISTER_DELIVERABILITY_NOTIFICATIONS
 static long 

@@ -344,6 +344,7 @@ int hv_call_get_vp_registers(
 
 	return hv_status_to_errno(status);
 }
+EXPORT_SYMBOL_GPL(hv_call_get_vp_registers);
 
 int hv_call_get_gpa_access_states(
 		u64 partition_id,
@@ -443,6 +444,7 @@ int hv_call_set_vp_registers(
 
 	return hv_status_to_errno(status);
 }
+EXPORT_SYMBOL_GPL(hv_call_set_vp_registers);
 
 int hv_call_install_intercept(
 		u64 partition_id,
