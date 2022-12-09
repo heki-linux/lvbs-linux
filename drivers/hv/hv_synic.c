@@ -386,9 +386,14 @@ void mshv_isr(void)
 		handled = mshv_intercept_isr(msg);
 
 	if (handled) {
-		/* Acknowledge message with hypervisor */
+		/*
+		 * Acknowledge message with hypervisor if another message is
+		 * pending.
+		 */
 		msg->header.message_type = HVMSG_NONE;
-		hv_set_register(HV_REGISTER_EOM, 0);
+		mb();
+		if (msg->header.message_flags.msg_pending)
+			hv_set_register(HV_REGISTER_EOM, 0);
 
 #ifdef HYPERVISOR_CALLBACK_VECTOR
 		add_interrupt_randomness(HYPERVISOR_CALLBACK_VECTOR);
