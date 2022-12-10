@@ -40,6 +40,9 @@ jobs:
     #      currently dom0-built-in. Should this change, conditions in
     #      some tasks need to be revised and adjusted accordingly;
     matrix:
+      'Dom0 vtl x86_64':
+        machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
+        FLAVOR: 'dom0-vtl'
       'Dom0 module x86_64':
         machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
         FLAVOR: 'dom0-module'
