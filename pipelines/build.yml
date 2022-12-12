@@ -182,15 +182,29 @@ jobs:
   - bash: |
       set -e
       set -x
-      git config --global user.email "$(GIT_COMMIT_EMAIL)"
-      git config --global user.name "$(GIT_COMMIT_NAME)"
+      git config --global user.email "$(Build.RequestedForEmail)"
+      git config --global user.name "$(Build.RequestedFor)"
       pushd "$(Agent.BuildDirectory)/s/lsg-virt-mariner"
       "$(Agent.BuildDirectory)/s/linux-dom0/pipelines/scripts/kernel-spec-update" "$(Build.SourceBranch)" "$(Build.SourceVersion)"
       # If the script above succeeded, the current checkout is now on something like autoupdate/kernel-mshv-.... branch
       # and all the updates are commited here. So lets push the branch. This part might need to be moved into the script,
       # if the branch names are to change.
       git status
-      git push --verbose origin "autoupdate/kernel-mshv-$(Build.SourceBranchName)"
+      AUTOREF="autoupdate/kernel-mshv-$(Build.SourceBranchName)"
+      REPO_ID="ec147866-5bb7-4dfc-88b8-b144fca51529"
+      # REPO_ID=$(az repos list --organization https://dev.azure.com/microsoft --project LSG --query "[?name == 'lsg-virt-mariner'].id" --output tsv)
+      git push --verbose origin "${AUTOREF}"
+      # Now that the branch is in place, file a PR in lsg-virt-mariner and associate a workitem with it.
+      "$(Agent.BuildDirectory)/s/linux-dom0/pipelines/scripts/kernel-spec-pr" \
+        --ado-org microsoft \
+        --ado-project LSG \
+        --ado-access-token "$(System.AccessToken)" \
+        --repo-id "${REPO_ID}" \
+        --source-branch "${AUTOREF}" \
+        --tag "$(Build.SourceBranch)" \
+        --revision "$(Build.SourceVersion)" \
+        --build-requestedfor-id "$(Build.RequestedForId)" \
+        -v
       popd
     displayName: 'lsg-virt-mariner spec'
     env:

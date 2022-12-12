@@ -82,6 +82,26 @@ static struct miscdevice mshv_dev = {
 	.mode = 0600,
 };
 
+static int mshv_get_vp_registers(u32 vp_index, u64 partition_id, u16 count,
+				 struct hv_register_assoc *registers)
+{
+	union hv_input_vtl input_vtl;
+
+	input_vtl.as_uint8 = 0;
+	return hv_call_get_vp_registers(vp_index, partition_id,
+					count, input_vtl, registers);
+}
+
+static int mshv_set_vp_registers(u32 vp_index, u64 partition_id, u16 count,
+				 struct hv_register_assoc *registers)
+{
+	union hv_input_vtl input_vtl;
+
+	input_vtl.as_uint8 = 0;
+	return hv_call_set_vp_registers(vp_index, partition_id,
+					count, input_vtl, registers);
+}
+
 static long
 mshv_vp_ioctl_get_regs(struct mshv_vp *vp, void __user *user_args)
 {
@@ -107,8 +127,8 @@ mshv_vp_ioctl_get_regs(struct mshv_vp *vp, void __user *user_args)
 		goto free_return;
 	}
 
-	ret = hv_call_get_vp_registers(vp->index, vp->partition->id,
-				       args.count, registers);
+	ret = mshv_get_vp_registers(vp->index, vp->partition->id,
+				    args.count, registers);
 	if (ret)
 		goto free_return;
 
@@ -162,8 +182,8 @@ mshv_vp_ioctl_set_regs(struct mshv_vp *vp, void __user *user_args)
 		}
 	}
 
-	ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
-				       args.count, registers);
+	ret = mshv_set_vp_registers(vp->index, vp->partition->id,
+				    args.count, registers);
 
 free_return:
 	kfree(registers);
@@ -202,16 +222,16 @@ mshv_suspend_vp(const struct mshv_vp *vp, bool *message_in_flight)
 
 	es->suspended = 1;
 
-	ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
-				       1, &explicit_suspend);
+	ret = mshv_set_vp_registers(vp->index, vp->partition->id,
+				    1, &explicit_suspend);
 	if (ret) {
 		pr_err("%s: failed to explicitly suspend vCPU#%d in partition %lld\n",
 				__func__, vp->index, vp->partition->id);
 		return ret;
 	}
 
-	ret = hv_call_get_vp_registers(vp->index, vp->partition->id,
-				       1, &intercept_suspend);
+	ret = mshv_get_vp_registers(vp->index, vp->partition->id,
+				    1, &intercept_suspend);
 	if (ret) {
 		pr_err("%s: failed to get intercept suspend state vCPU#%d in partition %lld\n",
 			__func__, vp->index, vp->partition->id);
@@ -243,8 +263,8 @@ mshv_run_vp_with_hv_scheduler(struct mshv_vp *vp, void __user *ret_message,
 	long ret;
 
 	/* Resume VP execution */
-	ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
-				       count, registers);
+	ret = mshv_set_vp_registers(vp->index, vp->partition->id,
+				    count, registers);
 	if (ret) {
 		pr_err("%s: failed to resume vCPU#%d in partition %lld\n",
 		       __func__, vp->index, vp->partition->id);
@@ -272,16 +292,13 @@ mshv_run_vp_with_hv_scheduler(struct mshv_vp *vp, void __user *ret_message,
 		wait_event(vp->run.suspend_queue, vp->run.kicked_by_hv == 1);
 	}
 
-	if (copy_to_user(ret_message, msg, sizeof(struct hv_message)))
-		return -EFAULT;
-
 	/*
 	 * Reset the flag to make the wait_event call above work
 	 * next time.
 	 */
 	vp->run.kicked_by_hv = 0;
 
-	return 0;
+	return copy_to_user(ret_message, msg, sizeof(struct hv_message));
 }
 
 static long
@@ -309,8 +326,8 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 				.value.explicit_suspend.suspended = 0,
 			};
 
-			ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
-					1, &explicit_suspend);
+			ret = mshv_set_vp_registers(vp->index, vp->partition->id,
+						    1, &explicit_suspend);
 			if (ret) {
 				pr_err("%s: failed to unsuspend partition %llu vp %u\n",
 					__func__, vp->partition->id, vp->index);
@@ -624,7 +641,7 @@ mshv_vp_ioctl_get_set_state(struct mshv_vp *vp, void __user *user_args, bool is_
 #endif
 
 long
-mshv_vp_ioctl_translate_gva(struct mshv_vp *vp, void __user *user_args)
+mshv_ioctl_translate_gva(u32 vp_index, u64 partition_id, void __user *user_args)
 {
 	long ret;
 	struct mshv_translate_gva args;
@@ -635,8 +652,8 @@ mshv_vp_ioctl_translate_gva(struct mshv_vp *vp, void __user *user_args)
 		return -EFAULT;
 
 	ret = hv_call_translate_virtual_address(
-			vp->index,
-			vp->partition->id,
+			vp_index,
+			partition_id,
 			args.flags,
 			args.gva,
 			&gpa,
@@ -745,7 +762,7 @@ mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		break;
 #endif
 	case MSHV_TRANSLATE_GVA:
-		r = mshv_vp_ioctl_translate_gva(vp, (void __user *)arg);
+		r = mshv_ioctl_translate_gva(vp->index, vp->partition->id, (void __user *)arg);
 		break;
 #ifdef HV_SUPPORTS_REGISTER_INTERCEPT
 	case MSHV_VP_REGISTER_INTERCEPT_RESULT:
@@ -1104,8 +1121,7 @@ mshv_partition_ioctl_unmap_memory(struct mshv_partition *partition,
 }
 
 long
-mshv_partition_ioctl_install_intercept(struct mshv_partition *partition,
-				       void __user *user_args)
+mshv_ioctl_install_intercept(u64 partition_id, void __user *user_args)
 {
 	struct mshv_install_intercept args;
 
@@ -1113,15 +1129,14 @@ mshv_partition_ioctl_install_intercept(struct mshv_partition *partition,
 		return -EFAULT;
 
 	return hv_call_install_intercept(
-			partition->id,
+			partition_id,
 			args.access_type_mask,
 			args.intercept_type,
 			args.intercept_parameter);
 }
 
 long
-mshv_partition_ioctl_assert_interrupt(struct mshv_partition *partition,
-				      void __user *user_args)
+mshv_ioctl_assert_interrupt(u64 partition_id, void __user *user_args)
 {
 	struct mshv_assert_interrupt args;
 
@@ -1129,7 +1144,7 @@ mshv_partition_ioctl_assert_interrupt(struct mshv_partition *partition,
 		return -EFAULT;
 
 	return hv_call_assert_virtual_interrupt(
-			partition->id,
+			partition_id,
 			args.vector,
 			args.dest_addr,
 			args.control);
@@ -1222,8 +1237,7 @@ mshv_partition_ioctl_set_msi_routing(struct mshv_partition *partition,
 }
 
 long
-mshv_partition_ioctl_signal_event_direct(struct mshv_partition *partition,
-					 void __user *user_args)
+mshv_ioctl_signal_event_direct(u64 partition_id, void __user *user_args)
 {
 	struct mshv_signal_event_direct args;
 	long ret;
@@ -1232,7 +1246,7 @@ mshv_partition_ioctl_signal_event_direct(struct mshv_partition *partition,
 		return -EFAULT;
 
 	ret = hv_call_signal_event_direct(args.vp,
-					partition->id,
+					partition_id,
 					args.vtl,
 					args.sint,
 					args.flag,
@@ -1248,8 +1262,7 @@ mshv_partition_ioctl_signal_event_direct(struct mshv_partition *partition,
 }
 
 long
-mshv_partition_ioctl_post_message_direct(struct mshv_partition *partition,
-					 void __user *user_args)
+mshv_ioctl_post_message_direct(u64 partition_id, void __user *user_args)
 {
 	struct mshv_post_message_direct args;
 	u8 message[HV_MESSAGE_SIZE];
@@ -1265,7 +1278,7 @@ mshv_partition_ioctl_post_message_direct(struct mshv_partition *partition,
 		return -EFAULT;
 
 	return hv_call_post_message_direct(args.vp,
-					partition->id,
+					partition_id,
 					args.vtl,
 					args.sint,
 					&message[0]);
@@ -1286,7 +1299,7 @@ mshv_partition_ioctl_register_deliverabilty_notifications(
 	hv_reg.name = HV_X64_REGISTER_DELIVERABILITY_NOTIFICATIONS;
 	hv_reg.value.reg64 = args.flag;
 
-	return hv_call_set_vp_registers(args.vp, partition->id, 1, &hv_reg);
+	return mshv_set_vp_registers(args.vp, partition->id, 1, &hv_reg);
 }
 #endif
 
@@ -1479,11 +1492,11 @@ mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 							(void __user *)arg);
 		break;
 	case MSHV_INSTALL_INTERCEPT:
-		ret = mshv_partition_ioctl_install_intercept(partition,
+		ret = mshv_ioctl_install_intercept(partition->id,
 							(void __user *)arg);
 		break;
 	case MSHV_ASSERT_INTERRUPT:
-		ret = mshv_partition_ioctl_assert_interrupt(partition,
+		ret = mshv_ioctl_assert_interrupt(partition->id,
 							(void __user *)arg);
 		break;
 	case MSHV_GET_PARTITION_PROPERTY:
@@ -1515,11 +1528,11 @@ mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 							 (void __user *)arg);
 		break;
 	case MSHV_SIGNAL_EVENT_DIRECT:
-		ret = mshv_partition_ioctl_signal_event_direct(partition,
+		ret = mshv_ioctl_signal_event_direct(partition->id,
 							 (void __user *)arg);
 		break;
 	case MSHV_POST_MESSAGE_DIRECT:
-		ret = mshv_partition_ioctl_post_message_direct(partition,
+		ret = mshv_ioctl_post_message_direct(partition->id,
 							 (void __user *)arg);
 		break;
 #ifdef HV_SUPPORTS_REGISTER_DELIVERABILITY_NOTIFICATIONS
@@ -1545,8 +1558,8 @@ disable_vp_dispatch(struct mshv_vp *vp)
 		.value.dispatch_suspend.suspended = 1,
 	};
 
-	ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
-					1, &dispatch_suspend);
+	ret = mshv_set_vp_registers(vp->index, vp->partition->id,
+				    1, &dispatch_suspend);
 	if (ret)
 		pr_err("%s: failed to suspend partition %llu vp %u\n",
 			__func__, vp->partition->id, vp->index);
@@ -1562,8 +1575,8 @@ get_vp_signaled_count(struct mshv_vp *vp, u64 *count)
 		.name = HV_REGISTER_VP_ROOT_SIGNAL_COUNT,
 	};
 
-	ret = hv_call_get_vp_registers(vp->index, vp->partition->id,
-			1, &root_signal_count);
+	ret = mshv_get_vp_registers(vp->index, vp->partition->id,
+				    1, &root_signal_count);
 
 	if (ret) {
 		pr_err("%s: failed to get root signal count for partition %llu vp %u",
