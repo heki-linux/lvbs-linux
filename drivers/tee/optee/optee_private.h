@@ -188,6 +188,10 @@ void optee_fill_pages_list(u64 *dst, struct page **pages, int num_pages,
 int optee_enumerate_devices(u32 func);
 void optee_unregister_devices(void);
 
+#ifdef __x86_64__
+void optee_vsm_vtl_call(struct optee_rpc_param *args);
+#endif //__x86_64__
+
 /*
  * Small helpers
  */

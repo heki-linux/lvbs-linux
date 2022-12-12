@@ -4,6 +4,7 @@
  */
 #include <linux/arm-smccc.h>
 #include <linux/device.h>
+#include <linux/io.h>
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/mm.h>
@@ -575,6 +576,17 @@ static bool is_normal_memory(pgprot_t p)
 		((pgprot_val(p) & L_PTE_MT_MASK) == L_PTE_MT_WRITEBACK));
 #elif defined(CONFIG_ARM64)
 	return (pgprot_val(p) & PTE_ATTRINDX_MASK) == PTE_ATTRINDX(MT_NORMAL);
+#elif defined(CONFIG_X86_64)
+	unsigned long prot;
+	bool a, b;
+	
+	prot = cachemode2protval(_PAGE_CACHE_MODE_WB);
+	a = (pgprot_val(p) & _PAGE_RW) == _PAGE_RW;
+	b = (pgprot_val(p) & prot) == prot;
+	
+	printk(KERN_INFO "OP-TEE: %lu: %u, %u", pgprot_val(p), a, b);
+	
+	return a && b;
 #else
 #error "Unuspported architecture"
 #endif

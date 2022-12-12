@@ -536,6 +536,24 @@ err_memunmap:
 }
 
 /* Simple wrapper functions to be able to use a function pointer */
+
+#ifdef __x86_64__
+static void optee_call_mshyperv(unsigned long a0, unsigned long a1,
+			    unsigned long a2, unsigned long a3,
+			    unsigned long a4, unsigned long a5,
+			    unsigned long a6, unsigned long a7,
+			    struct arm_smccc_res *res)
+{
+	struct optee_rpc_param args = { a0, a1, a2, a3, a4, a5, a6, a7 };
+
+	optee_vsm_vtl_call(&args);
+
+	res->a0 = args.a0;
+	res->a1 = args.a1;
+	res->a2 = args.a2;
+	res->a3 = args.a3;
+}
+#else
 static void optee_smccc_smc(unsigned long a0, unsigned long a1,
 			    unsigned long a2, unsigned long a3,
 			    unsigned long a4, unsigned long a5,
@@ -553,7 +571,14 @@ static void optee_smccc_hvc(unsigned long a0, unsigned long a1,
 {
 	arm_smccc_hvc(a0, a1, a2, a3, a4, a5, a6, a7, res);
 }
+#endif  // __x86_64__
 
+#ifdef __x86_64__
+static optee_invoke_fn *get_invoke_func(struct device *dev)
+{
+	return optee_call_mshyperv;
+}
+#else
 static optee_invoke_fn *get_invoke_func(struct device *dev)
 {
 	const char *method;
@@ -573,6 +598,8 @@ static optee_invoke_fn *get_invoke_func(struct device *dev)
 	pr_warn("invalid \"method\" property: %s\n", method);
 	return ERR_PTR(-EINVAL);
 }
+#endif  // __x86_64__
+
 
 /* optee_remove - Device Removal Routine
  * @pdev: platform device information struct
@@ -769,7 +796,22 @@ err:
 		memunmap(memremaped_shm);
 	return rc;
 }
+#ifdef __x86_64__
+static struct platform_device pdev;
 
+static int __init optee_driver_init(void)
+{
+	return optee_probe(&pdev);
+}
+
+static void __exit optee_driver_exit(void)
+{
+	optee_remove(&pdev);
+}
+
+module_init(optee_driver_init);
+module_exit(optee_driver_exit);
+#else
 static const struct of_device_id optee_dt_match[] = {
 	{ .compatible = "linaro,optee-tz" },
 	{},
@@ -786,8 +828,8 @@ static struct platform_driver optee_driver = {
 	},
 };
 module_platform_driver(optee_driver);
-
-MODULE_AUTHOR("Linaro");
+#endif  // __x86_64__
+MODULE_AUTHOR("Linaro, Microsoft");
 MODULE_DESCRIPTION("OP-TEE driver");
 MODULE_VERSION("1.0");
 MODULE_LICENSE("GPL v2");
