@@ -66,7 +66,7 @@ int hv_call_withdraw_memory(u64 count, int node, u64 partition_id)
 
 	return hv_status_to_errno(status);
 }
-
+EXPORT_SYMBOL_GPL(hv_call_withdraw_memory);
 
 int hv_call_create_partition(
 		u64 flags,
@@ -113,6 +113,7 @@ int hv_call_create_partition(
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(hv_call_create_partition);
 
 int hv_call_initialize_partition(u64 partition_id)
 {
@@ -146,6 +147,7 @@ int hv_call_initialize_partition(u64 partition_id)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(hv_call_initialize_partition);
 
 int hv_call_finalize_partition(u64 partition_id)
 {
@@ -162,6 +164,7 @@ int hv_call_finalize_partition(u64 partition_id)
 
 	return hv_status_to_errno(status);
 }
+EXPORT_SYMBOL_GPL(hv_call_finalize_partition);
 
 int hv_call_delete_partition(u64 partition_id)
 {
@@ -176,6 +179,7 @@ int hv_call_delete_partition(u64 partition_id)
 
 	return hv_status_to_errno(status);
 }
+EXPORT_SYMBOL_GPL(hv_call_delete_partition);
 
 int hv_call_map_gpa_pages(
 		u64 partition_id,
@@ -241,6 +245,7 @@ int hv_call_map_gpa_pages(
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(hv_call_map_gpa_pages);
 
 int hv_call_unmap_gpa_pages(
 		u64 partition_id,
@@ -290,6 +295,7 @@ int hv_call_unmap_gpa_pages(
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(hv_call_unmap_gpa_pages);
 
 int hv_call_get_vp_registers(
 		u32 vp_index,
@@ -397,6 +403,8 @@ int hv_call_get_gpa_access_states(
 
 	return hv_status_to_errno(status);
 }
+EXPORT_SYMBOL_GPL(hv_call_get_gpa_access_states);
+
 int hv_call_set_vp_registers(
 		u32 vp_index,
 		u64 partition_id,
@@ -482,6 +490,7 @@ int hv_call_install_intercept(
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(hv_call_install_intercept);
 
 int hv_call_assert_virtual_interrupt(
 		u64 partition_id,
@@ -511,6 +520,7 @@ int hv_call_assert_virtual_interrupt(
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(hv_call_assert_virtual_interrupt);
 
 #ifdef HV_SUPPORTS_VP_STATE
 
@@ -578,6 +588,7 @@ int hv_call_get_vp_state(
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(hv_call_get_vp_state);
 
 int hv_call_set_vp_state(
 		u32 vp_index,
@@ -650,6 +661,7 @@ int hv_call_set_vp_state(
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(hv_call_set_vp_state);
 
 #endif
 
@@ -692,6 +704,7 @@ int hv_call_map_vp_state_page(u64 partition_id, u32 vp_index, u32 type,
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(hv_call_map_vp_state_page);
 
 int hv_call_unmap_vp_state_page(u64 partition_id, u32 vp_index, u32 type)
 {
@@ -720,6 +733,7 @@ int hv_call_unmap_vp_state_page(u64 partition_id, u32 vp_index, u32 type)
 
         return 0;
 }
+EXPORT_SYMBOL_GPL(hv_call_unmap_vp_state_page);
 
 int hv_call_get_partition_property(
 		u64 partition_id,
@@ -753,6 +767,7 @@ int hv_call_get_partition_property(
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(hv_call_get_partition_property);
 
 int hv_call_set_partition_property(
 		u64 partition_id,
@@ -778,6 +793,7 @@ int hv_call_set_partition_property(
 
 	return hv_status_to_errno(status);
 }
+EXPORT_SYMBOL_GPL(hv_call_set_partition_property);
 
 int hv_call_translate_virtual_address(
 		u32 vp_index,
@@ -820,7 +836,7 @@ out:
 
 	return hv_status_to_errno(status);
 }
-
+EXPORT_SYMBOL_GPL(hv_call_translate_virtual_address);
 
 int
 hv_call_clear_virtual_interrupt(u64 partition_id)
@@ -841,6 +857,7 @@ hv_call_clear_virtual_interrupt(u64 partition_id)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(hv_call_clear_virtual_interrupt);
 
 int
 hv_call_create_port(u64 port_partition_id, union hv_port_id port_id,
@@ -886,6 +903,7 @@ hv_call_create_port(u64 port_partition_id, union hv_port_id port_id,
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(hv_call_create_port);
 
 int
 hv_call_delete_port(u64 port_partition_id, union hv_port_id port_id)
@@ -910,6 +928,7 @@ hv_call_delete_port(u64 port_partition_id, union hv_port_id port_id)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(hv_call_delete_port);
 
 int
 hv_call_connect_port(u64 port_partition_id, union hv_port_id port_id,
@@ -954,6 +973,7 @@ hv_call_connect_port(u64 port_partition_id, union hv_port_id port_id,
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(hv_call_connect_port);
 
 int
 hv_call_disconnect_port(u64 connection_partition_id,
@@ -980,6 +1000,7 @@ hv_call_disconnect_port(u64 connection_partition_id,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(hv_call_disconnect_port);
 
 int
 hv_call_notify_port_ring_empty(u32 sint_index)
@@ -1002,6 +1023,7 @@ hv_call_notify_port_ring_empty(u32 sint_index)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(hv_call_notify_port_ring_empty);
 
 #ifdef HV_SUPPORTS_REGISTER_INTERCEPT
 
@@ -1044,6 +1066,7 @@ int hv_call_register_intercept_result(u32 vp_index,
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(hv_call_register_intercept_result);
 
 #endif
 
@@ -1149,3 +1172,4 @@ int hv_call_get_vp_cpuid_values(u32 vp_index,
 	}
 	return 0;
 }
+EXPORT_SYMBOL_GPL(hv_call_get_vp_cpuid_values);
