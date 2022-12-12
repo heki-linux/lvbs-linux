@@ -1655,8 +1655,8 @@ out_unlock:
 	return ret;
 }
 
-long
-mshv_ioctl_create_partition(void __user *user_arg)
+static long
+__mshv_ioctl_create_partition(void __user *user_arg)
 {
 	struct mshv_create_partition args;
 	struct mshv_partition *partition;
@@ -1933,6 +1933,8 @@ int __init mshv_root_init(void)
 
 	mshv_vfio_ops_init();
 
+	mshv_set_create_partition_func(__mshv_ioctl_create_partition);
+
 	return 0;
 
 free_synic_pages:
@@ -1945,6 +1947,8 @@ out:
 
 void __exit mshv_root_exit(void)
 {
+	mshv_set_create_partition_func(NULL);
+
 	mshv_irqfd_wq_cleanup();
 
 	root_scheduler_deinit();
@@ -1956,3 +1960,6 @@ void __exit mshv_root_exit(void)
 
 	mshv_vfio_ops_exit();
 }
+
+module_init(mshv_root_init);
+module_exit(mshv_root_exit);

@@ -70,6 +70,12 @@ config HYPERV_VTL
 	  being more privileged than lower levels. VTL0 is the least privileged
 	  level, and currently only other level supported is VTL2.
 
+config HYPERV_ROOT
+	tristate "Microsoft Hyper-V root partition APIs driver"
+	depends on HYPERV_VMM_API
+	help
+	  TODO
+
 source "drivers/hv/dxgkrnl/Kconfig"
 
 endmenu

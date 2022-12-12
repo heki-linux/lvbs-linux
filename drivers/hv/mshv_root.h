@@ -233,11 +233,4 @@ int mshv_synic_cleanup(unsigned int cpu);
 
 extern struct mshv mshv;
 
-// #############################
-// TODO remove these - temporary
-int __init mshv_root_init(void);
-void __exit mshv_root_exit(void);
-long mshv_ioctl_create_partition(void __user *user_arg);
-// #############################
-
 #endif /* _MSHV_ROOT_H_ */

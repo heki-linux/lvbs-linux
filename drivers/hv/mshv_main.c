@@ -35,6 +35,7 @@ static long mshv_ioctl_dummy(void __user *user_arg)
 }
 
 static mshv_ioctl_func_t mshv_ioctl_create_vtl = mshv_ioctl_dummy;
+static mshv_ioctl_func_t mshv_ioctl_create_partition = mshv_ioctl_dummy;
 
 void mshv_set_create_vtl_func(const mshv_ioctl_func_t func)
 {
@@ -45,6 +46,16 @@ void mshv_set_create_vtl_func(const mshv_ioctl_func_t func)
 	}
 }
 EXPORT_SYMBOL_GPL(mshv_set_create_vtl_func);
+
+void mshv_set_create_partition_func(const mshv_ioctl_func_t func)
+{
+	if (!func) {
+		mshv_ioctl_create_partition = mshv_ioctl_dummy;
+	} else {
+		mshv_ioctl_create_partition = func;
+	}
+}
+EXPORT_SYMBOL_GPL(mshv_set_create_partition_func);
 
 static int mshv_dev_open(struct inode *inode, struct file *filp);
 static int mshv_dev_release(struct inode *inode, struct file *filp);
@@ -122,19 +133,12 @@ __init mshv_init(void)
 		return ret;
 	}
 
-	ret = mshv_root_init();
-	if (ret) {
-		misc_deregister(&mshv_dev);
-	}
-
 	return ret;
 }
 
 static void
 __exit mshv_exit(void)
 {
-	mshv_root_exit();
-
 	misc_deregister(&mshv_dev);
 }
 
