@@ -12,6 +12,7 @@
 #include <linux/poll.h>
 
 #include "mshv.h"
+#include "mshv_root.h"
 
 void mshv_eventfd_init(struct mshv_partition *partition);
 void mshv_eventfd_release(struct mshv_partition *partition);

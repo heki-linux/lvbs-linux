@@ -18,6 +18,7 @@
 
 #include "mshv_eventfd.h"
 #include "mshv.h"
+#include "mshv_root.h"
 
 static struct workqueue_struct *irqfd_cleanup_wq;
 
