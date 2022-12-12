@@ -18,7 +18,7 @@
 #include <linux/srcu.h>
 #include <linux/wait.h>
 #include <uapi/linux/mshv.h>
-#include<asm/hyperv-tlfs.h>
+#include <asm/hyperv-tlfs.h>
 
 /* Determined empirically */
 #define HV_INIT_PARTITION_DEPOSIT_PAGES 208
@@ -72,6 +72,7 @@ int hv_call_get_vp_registers(
 		u32 vp_index,
 		u64 partition_id,
 		u16 count,
+		union hv_input_vtl input_vtl,
 		struct hv_register_assoc *registers);
 int hv_call_get_gpa_access_states(
 		u64 partition_id,
@@ -85,6 +86,7 @@ int hv_call_set_vp_registers(
 		u32 vp_index,
 		u64 partition_id,
 		u16 count,
+		union hv_input_vtl input_vtl,
 		struct hv_register_assoc *registers);
 int hv_call_install_intercept(u64 partition_id, u32 access_type,
 		enum hv_intercept_type intercept_type,
@@ -393,15 +395,11 @@ int mshv_synic_cleanup(unsigned int cpu);
 #ifdef CONFIG_HYPERV_VTL
 struct mshv_vp;
 long mshv_ioctl_create_vtl(void __user *user_arg);
-long mshv_partition_ioctl_signal_event_direct(struct mshv_partition *partition,
-					      void __user *user_args);
-long mshv_vp_ioctl_translate_gva(struct mshv_vp *vp, void __user *user_args);
-long mshv_partition_ioctl_assert_interrupt(struct mshv_partition *partition,
-					   void __user *user_args);
-long mshv_partition_ioctl_install_intercept(struct mshv_partition *partition,
-					    void __user *user_args);
-long mshv_partition_ioctl_post_message_direct(struct mshv_partition *partition,
-					      void __user *user_args);
+long mshv_ioctl_signal_event_direct(u64 partition_id, void __user *user_args);
+long mshv_ioctl_translate_gva(u32 vp_index, u64 partition_id, void __user *user_args);
+long mshv_ioctl_assert_interrupt(u64 partition_id, void __user *user_args);
+long mshv_ioctl_install_intercept(u64 partition_id, void __user *user_args);
+long mshv_ioctl_post_message_direct(u64 partition_id, void __user *user_args);
 #endif
 
 extern struct mshv mshv;

@@ -640,11 +640,20 @@ struct hv_retarget_device_interrupt {
 	struct hv_device_interrupt_target int_target;
 } __packed __aligned(8);
 
+union hv_input_vtl {
+	u8 as_uint8;
+	struct {
+		u8 target_vtl: 4;
+		u8 use_target_vtl: 1;
+		u8 reserved_z: 3;
+	};
+} __packed;
+
 /* HvGetVpRegisters hypercall with variable size reg name list*/
 struct hv_get_vp_registers {
 	u64 partition_id;
 	u32 vp_index;
-	u8  input_vtl;
+	union hv_input_vtl input_vtl;
 	u8  rsvd_z8;
 	u16 rsvd_z16;
 	u32 names[];
@@ -670,7 +679,7 @@ struct hv_get_vp_registers_output {
 struct hv_set_vp_registers {
 	u64 partition_id;
 	u32 vp_index;
-	u8  input_vtl;
+	union hv_input_vtl input_vtl;
 	u8  rsvd_z8;
 	u16 rsvd_z16;
 	struct hv_register_assoc elements[];
@@ -1151,15 +1160,6 @@ union hv_device_domain_id {
 		u32 type: 4;
 		u32 reserved: 28;
 		u32 id;
-	};
-} __packed;
-
-union hv_input_vtl {
-	u8 as_uint8;
-	struct {
-		u8 target_vtl: 4;
-		u8 use_target_vtl: 1;
-		u8 reserved_z: 3;
 	};
 } __packed;
 

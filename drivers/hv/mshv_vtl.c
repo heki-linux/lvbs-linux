@@ -115,6 +115,27 @@ static u64 mshv_get_ram_last_pfn(void)
 	return mshv_ram_last_pfn;
 }
 
+static int vtl_get_vp_registers(u16 count,
+				 struct hv_register_assoc *registers)
+{
+	union hv_input_vtl input_vtl;
+
+	input_vtl.as_uint8 = 0;
+	input_vtl.use_target_vtl = 1;
+	return hv_call_get_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
+					count, input_vtl, registers);
+}
+static int vtl_set_vp_registers(u16 count,
+				 struct hv_register_assoc *registers)
+{
+	union hv_input_vtl input_vtl;
+
+	input_vtl.as_uint8 = 0;
+	input_vtl.use_target_vtl = 1;
+	return hv_call_set_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
+					count, input_vtl, registers);
+}
+
 static int mshv_vtl_ioctl_ram_disposition(void __user *arg)
 {
 	struct mshv_ram_disposition ram_disposition = {
@@ -771,7 +792,7 @@ done:
 }
 
 static long
-mshv_vtl_ioctl_set_regs(struct mshv_vp *vp, void __user *user_args)
+mshv_vtl_ioctl_set_regs(void __user *user_args)
 {
 	struct mshv_vp_registers args;
 	struct hv_register_assoc *registers;
@@ -813,8 +834,7 @@ mshv_vtl_ioctl_set_regs(struct mshv_vp *vp, void __user *user_args)
 	ret = mshv_vtl_set_reg(registers);
 	if (!ret)
 		goto free_return; /* No need of hypercall */
-	ret = hv_call_set_vp_registers(vp->index, vp->partition->id,
-				       args.count, registers);
+	ret = vtl_set_vp_registers(args.count, registers);
 
 free_return:
 	kfree(registers);
@@ -822,7 +842,7 @@ free_return:
 }
 
 static long
-mshv_vtl_ioctl_get_regs(struct mshv_vp *vp, void __user *user_args)
+mshv_vtl_ioctl_get_regs(void __user *user_args)
 {
 	struct mshv_vp_registers args;
 	struct hv_register_assoc *registers;
@@ -849,8 +869,7 @@ mshv_vtl_ioctl_get_regs(struct mshv_vp *vp, void __user *user_args)
 	ret = mshv_vtl_get_reg(registers);
 	if (!ret)
 		goto copy_args; /* No need of hypercall */
-	ret = hv_call_get_vp_registers(vp->index, vp->partition->id,
-				       args.count, registers);
+	ret = vtl_get_vp_registers(args.count, registers);
 	if (ret)
 		goto free_return;
 
@@ -869,41 +888,32 @@ static long
 mshv_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
 	long ret;
-	struct mshv_partition *partition;
-	struct mshv_vp vp;
-
-	partition = kzalloc(sizeof(*partition), GFP_KERNEL);
-	if (!partition)
-		return -ENOMEM;
-
-	vp.partition = partition;
-	vp.partition->id = HV_PARTITION_ID_SELF;
-	vp.index = HV_VP_INDEX_SELF;
 
 	switch (ioctl) {
 	case MSHV_INSTALL_INTERCEPT:
-		ret = mshv_partition_ioctl_install_intercept(partition, (void __user *)arg);
+		ret = mshv_ioctl_install_intercept(HV_PARTITION_ID_SELF, (void __user *)arg);
 		break;
 	case MSHV_VTL_SET_POLL_FILE:
 		ret = mshv_vtl_ioctl_set_poll_file((struct mshv_set_poll_file *)arg);
 		break;
 	case MSHV_GET_VP_REGISTERS:
-		ret = mshv_vtl_ioctl_get_regs(&vp, (void __user *)arg);
+		ret = mshv_vtl_ioctl_get_regs((void __user *)arg);
 		break;
 	case MSHV_SET_VP_REGISTERS:
-		ret = mshv_vtl_ioctl_set_regs(&vp, (void __user *)arg);
+		ret = mshv_vtl_ioctl_set_regs((void __user *)arg);
 		break;
 	case MSHV_VTL_RETURN_TO_LOWER_VTL:
 		ret = mshv_vtl_ioctl_return_to_lower_vtl();
 		break;
 	case MSHV_POST_MESSAGE_DIRECT:
-		ret = mshv_partition_ioctl_post_message_direct(partition, (void __user *)arg);
+		ret = mshv_ioctl_post_message_direct(HV_PARTITION_ID_SELF, (void __user *)arg);
 		break;
 	case MSHV_ASSERT_INTERRUPT:
-		ret = mshv_partition_ioctl_assert_interrupt(partition, (void __user *)arg);
+		ret = mshv_ioctl_assert_interrupt(HV_PARTITION_ID_SELF, (void __user *)arg);
 		break;
 	case MSHV_TRANSLATE_GVA:
-		ret = mshv_vp_ioctl_translate_gva(&vp, (void __user *)arg);
+		ret = mshv_ioctl_translate_gva(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
+							(void __user *)arg);
 		break;
 	case MSHV_VTL_RAM_DISPOSITION:
 		ret = mshv_vtl_ioctl_ram_disposition((void __user *)arg);
@@ -912,15 +922,13 @@ mshv_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		ret = mshv_vtl_ioctl_add_vtl0_mem((void __user *)arg);
 		break;
 	case MSHV_SIGNAL_EVENT_DIRECT:
-		ret = mshv_partition_ioctl_signal_event_direct(partition,
-							       (void __user *)arg);
+		ret = mshv_ioctl_signal_event_direct(HV_PARTITION_ID_SELF, (void __user *)arg);
 		break;
 	default:
 		pr_err("%s: invalid vtl ioctl: %#x\n", __func__, ioctl);
 		ret = -ENOTTY;
 	}
 
-	kfree(partition);
 	return ret;
 }
 

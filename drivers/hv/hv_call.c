@@ -295,6 +295,7 @@ int hv_call_get_vp_registers(
 		u32 vp_index,
 		u64 partition_id,
 		u16 count,
+		union hv_input_vtl input_vtl,
 		struct hv_register_assoc *registers)
 {
 	struct hv_get_vp_registers *input_page;
@@ -314,7 +315,7 @@ int hv_call_get_vp_registers(
 
 	input_page->partition_id = partition_id;
 	input_page->vp_index = vp_index;
-	input_page->input_vtl = 0;
+	input_page->input_vtl.as_uint8 = input_vtl.as_uint8;
 	input_page->rsvd_z8 = 0;
 	input_page->rsvd_z16 = 0;
 
@@ -399,6 +400,7 @@ int hv_call_set_vp_registers(
 		u32 vp_index,
 		u64 partition_id,
 		u16 count,
+		union hv_input_vtl input_vtl,
 		struct hv_register_assoc *registers)
 {
 	struct hv_set_vp_registers *input_page;
@@ -414,7 +416,7 @@ int hv_call_set_vp_registers(
 
 	input_page->partition_id = partition_id;
 	input_page->vp_index = vp_index;
-	input_page->input_vtl = 0;
+	input_page->input_vtl.as_uint8 = input_vtl.as_uint8;
 	input_page->rsvd_z8 = 0;
 	input_page->rsvd_z16 = 0;
 
