@@ -149,9 +149,8 @@ static int mshv_vtl_ioctl_ram_disposition(void __user *arg)
 	if (ram_disposition.start_pfn < (MAX_GUEST_MEM_SIZE >> PAGE_SHIFT) &&
 	    ram_disposition.last_pfn < (MAX_GUEST_MEM_SIZE >> PAGE_SHIFT) &&
 	    ram_disposition.start_pfn > 0 &&
-	    ram_disposition.start_pfn < ram_disposition.last_pfn) {
+	    ram_disposition.start_pfn < ram_disposition.last_pfn)
 		return 0;
-	}
 
 	return -ENOMEM;
 }
