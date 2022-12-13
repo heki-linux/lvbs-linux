@@ -10,10 +10,10 @@ this.PR_API_BASE_URL = None
 this.AUTH_HDRS = None
 
 def init_defaults(org, project, repo_id, pr_id, token_type, access_token):
-    this.PR_API_BASE_URL = get_pr_api_url(org, project, repo_id, pr_id)
+    this.PR_API_BASE_URL = pr_get_api_url(org, project, repo_id, pr_id)
     this.AUTH_HDRS = get_auth_headers(token_type, access_token)
 
-def get_pr_api_url(org, project, repo_id, pr_id):
+def pr_get_api_url(org, project, repo_id, pr_id):
     if pr_id is None:
         # For creating or possibly attachig other things
         return f"https://dev.azure.com/{org}/{project}/_apis/git/repositories/{repo_id}/pullRequests"
@@ -33,7 +33,7 @@ def get_auth_headers(token_type, access_token):
         }
     return auth_headers
 
-def comment_on_pr(comment_text, pr_api_base_url = None, auth_headers = None):
+def pr_add_comment(comment_text, pr_api_base_url = None, auth_headers = None):
     if pr_api_base_url is None:
         pr_api_base_url = this.PR_API_BASE_URL
     if auth_headers is None:
@@ -55,7 +55,7 @@ def comment_on_pr(comment_text, pr_api_base_url = None, auth_headers = None):
     if (resp.status_code != 200):
         log.err(resp.text)
 
-def get_commits(pr_api_base_url = None, auth_headers = None):
+def pr_get_commits(pr_api_base_url = None, auth_headers = None):
     if pr_api_base_url is None:
         pr_api_base_url = this.PR_API_BASE_URL
     if auth_headers is None:

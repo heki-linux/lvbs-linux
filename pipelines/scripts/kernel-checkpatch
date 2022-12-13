@@ -30,7 +30,7 @@ def separator():
     log.info('-' * 100)
 
 def main():
-    commits_json = ado.get_commits()
+    commits_json = ado.pr_get_commits()
     commits = [commit for commit in commits_json["value"]]
 
     separator()
@@ -69,7 +69,7 @@ def main():
             log.info("Commenting on PR")
             html_output = output.replace("\n", "<br/>")
             comment = f"checkpatch.pl found issues:<pre>{html_output}</pre>"
-            ado.comment_on_pr(comment)
+            ado.pr_add_comment(comment)
 
         separator()
 
