@@ -251,3 +251,24 @@ jobs:
     displayName: 'lsg-virt-mariner spec'
     env:
         SOURCES_STORAGE_URL: $(SOURCES_STORAGE_URL)
+
+- job: CHECK_SCRIPTS
+  condition: not(or(eq(variables.BUILDING_MAIN, 'true'), eq(variables.BUILDING_TAG, 'true')))
+  timeoutInMinutes: 30
+  pool:
+    name: 'lsg-virt-amd64-1es-agent-pool-3'
+  steps:
+  - checkout: self
+    persistCredentials: true
+    fetchTags: false
+  - template: templates/ubuntu-20.04-build.yml
+  - bash: |
+      set -e
+      set -x
+      ./pipelines/scripts/shellcheck
+    displayName: 'shellcheck'
+  - bash: |
+      set -e
+      set -x
+      ./pipelines/scripts/flake8check
+    displayName: 'flake8'

@@ -5,7 +5,7 @@ import sys
 import threading
 import time
 import subprocess
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa E402
 
 from lsgtools import log
 
@@ -21,6 +21,7 @@ threads_joinable = []
 lock = threading.Lock()
 sem = threading.Semaphore(threads_max)
 
+
 def thread_func(idx, it, lock):
     global dom0_revs, threads, threads_joinable
     log.debug("Thread {}: start".format(idx))
@@ -31,41 +32,8 @@ def thread_func(idx, it, lock):
 
     t0 = time.clock_gettime(time.CLOCK_MONOTONIC)
 
-    ignored_rev = False
-    cmd = ["git", "show", "--name-only", "--pretty=format:", it["rev"]]
-    log.info("Thread {}: {}".format(idx, " ".join(cmd)))
-    res = subprocess.run(cmd, stdout=subprocess.PIPE)
-    files = res.stdout.decode("utf-8").strip(" \n").splitlines()
-    # Exclude pipeline stuff
-    if not ignored_rev:
-        for f in files:
-            if f.find("pipelines/") == 0:
-                ignored_rev = True
-                break
-    # Exclude usual set version business
-    if not ignored_rev:
-        found = 0
-        set_version_files = ["Makefile", "arch/arm64/configs/mshv_defconfig", "arch/x86/configs/mshv_defconfig"]
-        for f in files:
-            if f in set_version_files:
-                found = found + 1
-        # It could be, that Makefile has to be changed, or alike.
-        # In then case, better not to ignore the whole rev.
-        if found == len(set_version_files):
-            ignored_rev = True
-    # Exclude defconfig fixes
-    if not ignored_rev:
-        found = 0
-        conf_files = ["arch/arm64/configs/mshv_defconfig", "arch/x86/configs/mshv_defconfig"]
-        for f in files:
-            if f in conf_files:
-                found = found + 1
-        # Commit only contains mshv_defconf fixes
-        if found == len(files):
-            ignored_rev = True
-
     # Include the revision hash in the list
-    if not ignored_rev:
+    if not rev_is_ignored(it["rev"]):
         cmd = ["git", "name-rev", "--name-only", "--no-undefined", "--refs", "rolling-lts/mariner-2/*", it["rev"]]
         log.info("Thread {}: {}".format(idx, " ".join(cmd)))
 
@@ -82,6 +50,46 @@ def thread_func(idx, it, lock):
     lock.release()
 
     log.debug("Thread {}: stop".format(idx))
+
+
+def rev_get_file_list(rev):
+    cmd = ["git", "show", "--name-only", "--pretty=format:", rev]
+    log.info("Thread {}: {}".format(idx, " ".join(cmd)))
+    res = subprocess.run(cmd, stdout=subprocess.PIPE)
+    return res.stdout.decode("utf-8").strip(" \n").splitlines()
+
+
+def rev_is_ignored(rev):
+    files = rev_get_file_list(rev)
+
+    # Exclude pipeline stuff
+    for f in files:
+        if f.find("pipelines/") == 0:
+            return True
+
+    # Exclude usual set version business
+    found = 0
+    set_version_files = ["Makefile", "arch/arm64/configs/mshv_defconfig", "arch/x86/configs/mshv_defconfig"]
+    for f in files:
+        if f in set_version_files:
+            found = found + 1
+    # It could be, that Makefile has to be changed, or alike.
+    # In then case, better not to ignore the whole rev.
+    if found == len(set_version_files):
+        return True
+
+    # Exclude defconfig fixes
+    found = 0
+    conf_files = ["arch/arm64/configs/mshv_defconfig", "arch/x86/configs/mshv_defconfig"]
+    for f in files:
+        if f in conf_files:
+            found = found + 1
+    # Commit only contains mshv_defconf fixes
+    if found == len(files):
+        return True
+
+    return False
+
 
 def threads_join():
     global threads, threads_joinable, sem
@@ -101,7 +109,7 @@ for line in out:
     try:
         rev = line.split(" ")[0]
         msg = " ".join(line.split(" ")[1:])
-    except:
+    except:  # noqa E722
         continue
     revs.append({"idx": -1, "rev": rev, "msg": msg})
 revs_len = len(revs)

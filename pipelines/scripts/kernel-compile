@@ -27,7 +27,7 @@ case "${FLAVOR}" in
 		;;
 esac
 
-make LC_ALL= ARCH=$ARCH ${CONFIG}
+make LC_ALL= ARCH="${ARCH}" ${CONFIG}
 
 case "${FLAVOR}" in
 	dom0-vtl)
@@ -41,8 +41,8 @@ case "${FLAVOR}" in
 		;;
 esac
 
-make -j$(nproc) ARCH=$ARCH W=1
-make -j$(nproc) ARCH=$ARCH W=1 modules
+make -j"$(nproc)" ARCH="${ARCH}" W=1
+make -j"$(nproc)" ARCH="${ARCH}" W=1 modules
 
-make -j$(nproc) ARCH=$ARCH -C tools/perf PYTHON=python3 all
-make -j$(nproc) ARCH=$ARCH -C tools/bpf/bpftool
+make -j"$(nproc)" ARCH="${ARCH}" -C tools/perf PYTHON=python3 all
+make -j"$(nproc)" ARCH="${ARCH}" -C tools/bpf/bpftool

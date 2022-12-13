@@ -5,7 +5,7 @@ __copyright__ = "Copyright (c) Microsoft Corporation."
 import os
 import sys
 import subprocess
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa E402
 
 from lsgtools import log
 from lsgtools import cli
@@ -18,7 +18,7 @@ arg_parser.add_argument("version", action="store", nargs="?",
 args = arg_parser.parse_args()
 log.set_verbosity(args.verbose)
 
-if None == args.version:
+if args.version is None:
     version = kernel.get_version_local()
     ref = "HEAD"
 else:
@@ -39,7 +39,7 @@ log.info("Packaging '{}' based on '{}'".format(tarball_name, ref))
 
 cmds = [
          ["git", "archive", "--format={}".format(tarball_format),
-             "--prefix={}/".format(tarball_prefix), 
+             "--prefix={}/".format(tarball_prefix),
              "--output={}".format(tarball_tar), ref],
          # TODO add more things to filter out from the tarball
          ["tar", "--delete", "-f", tarball_tar, "{}/pipelines".format(tarball_prefix)],
@@ -52,4 +52,3 @@ for cmd in cmds:
     if 0 != res.returncode:
         err = res.stderr.decode("ascii")
         raise Exception(err)
-
