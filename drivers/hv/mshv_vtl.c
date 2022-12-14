@@ -16,6 +16,7 @@
 #include <asm/debugreg.h>
 #include <asm/fpu/internal.h>
 #include <asm/mshyperv.h>
+#include <asm/mshv_vtl.h>
 #include <linux/count_zeros.h>
 #include <uapi/asm/mtrr.h>
 
