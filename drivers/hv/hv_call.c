@@ -88,7 +88,7 @@ int hv_call_create_partition(
 
 		input->flags = flags;
 		input->proximity_domain_info.as_uint64 = 0;
-		input->compatibility_version = HV_COMPATIBILITY_20_H1;
+		input->compatibility_version = HV_COMPATIBILITY_21_H2;
 
 		memcpy(&input->partition_creation_properties, &creation_properties,
 			sizeof(creation_properties));
