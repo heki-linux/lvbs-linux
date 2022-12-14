@@ -765,7 +765,7 @@ struct hv_x64_apic_eoi_message {
 	__u32 interrupt_vector;
 } __packed;
 
-static inline int hv_get_interrupt_vector_from_payload(u64 payload)
+static inline int hv_get_interrupt_vector_from_payload(__u64 payload)
 {
 	struct hv_x64_apic_eoi_message *eoi_msg =
 		(struct hv_x64_apic_eoi_message *)payload;
