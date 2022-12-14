@@ -32,11 +32,18 @@ MODULE_LICENSE("GPL");
 #define MSHV_ENTRY_REASON_INTERCEPT          0x3
 
 #define MAX_GUEST_MEM_SIZE	BIT_ULL(40)
+#define VTL2_VMBUS_SINT_INDEX	7
 
 bool vtl_exist;
 static u64 mshv_ram_last_pfn;
 static u64 mshv_ram_start_pfn;
 static struct device *mem_dev;
+
+static struct tasklet_struct msg_dpc;
+static wait_queue_head_t fd_wait_queue;
+static bool has_message;
+static struct eventfd_ctx *flag_eventfds[HV_EVENT_FLAGS_COUNT];
+static DEFINE_MUTEX(flag_lock);
 
 struct mshv_poll_file {
 	struct file *file;
@@ -972,3 +979,157 @@ long mshv_ioctl_create_vtl(void __user *user_arg)
 
 	return fd;
 }
+
+static void mshv_vtl_read_remote(void *buffer)
+{
+	struct hv_per_cpu_context *mshv_cpu = this_cpu_ptr(hv_context.cpu_context);
+	struct hv_message *msg = (struct hv_message *)mshv_cpu->synic_message_page +
+					VTL2_VMBUS_SINT_INDEX;
+	u32 message_type = READ_ONCE(msg->header.message_type);
+
+	WRITE_ONCE(has_message, false);
+	if (message_type == HVMSG_NONE)
+		return;
+
+	memcpy(buffer, msg, sizeof(*msg));
+	vmbus_signal_eom(msg, message_type);
+}
+
+static ssize_t mshv_vtl_sint_read(struct file *filp, char __user *arg, size_t size, loff_t *offset)
+{
+	struct hv_message msg = {};
+	int ret;
+
+	if (size < sizeof(msg))
+		return -EINVAL;
+
+	for (;;) {
+		smp_call_function_single(VMBUS_CONNECT_CPU, mshv_vtl_read_remote, &msg, true);
+		if (msg.header.message_type != HVMSG_NONE)
+			break;
+
+		if (filp->f_flags & O_NONBLOCK)
+			return -EAGAIN;
+
+		ret = wait_event_interruptible(fd_wait_queue, READ_ONCE(has_message));
+		if (ret)
+			return ret;
+	}
+
+	if (copy_to_user(arg, &msg, sizeof(msg)))
+		return -EFAULT;
+
+	return sizeof(msg);
+}
+
+static __poll_t mshv_vtl_sint_poll(struct file *filp, poll_table *wait)
+{
+	__poll_t mask = 0;
+
+	poll_wait(filp, &fd_wait_queue, wait);
+	if (READ_ONCE(has_message))
+		mask |= EPOLLIN | EPOLLRDNORM;
+
+	return mask;
+}
+
+static void mshv_sint_on_msg_dpc(unsigned long data)
+{
+	WRITE_ONCE(has_message, true);
+	wake_up_interruptible_poll(&fd_wait_queue, EPOLLIN);
+}
+
+static int mshv_vtl_sint_ioctl_post_message(struct mshv_sint_post_msg __user *arg)
+{
+	struct mshv_sint_post_msg message;
+	u8 payload[HV_MESSAGE_PAYLOAD_BYTE_COUNT];
+
+	if (copy_from_user(&message, arg, sizeof(message)))
+		return -EFAULT;
+	if (message.payload_size > HV_MESSAGE_PAYLOAD_BYTE_COUNT)
+		return -EINVAL;
+	if (copy_from_user(payload, message.payload, message.payload_size))
+		return -EFAULT;
+
+	return hv_post_message((union hv_connection_id)message.connection_id,
+			       message.message_type, (void *)payload,
+			       message.payload_size, false);
+}
+
+static int mshv_vtl_sint_ioctl_signal_event(struct mshv_signal_event __user *arg)
+{
+	u64 input;
+	struct mshv_signal_event signal_event;
+
+	if (copy_from_user(&signal_event, arg, sizeof(signal_event)))
+		return -EFAULT;
+
+	input = signal_event.connection_id | ((u64)signal_event.flag << 32);
+	return hv_do_fast_hypercall8(HVCALL_SIGNAL_EVENT, input) & HV_HYPERCALL_RESULT_MASK;
+}
+
+static int mshv_vtl_sint_ioctl_set_eventfd(struct mshv_set_eventfd __user *arg)
+{
+	struct mshv_set_eventfd set_eventfd;
+	struct eventfd_ctx *eventfd, *old_eventfd;
+
+	if (copy_from_user(&set_eventfd, arg, sizeof(set_eventfd)))
+		return -EFAULT;
+	if (set_eventfd.flag >= HV_EVENT_FLAGS_COUNT)
+		return -EINVAL;
+
+	eventfd = NULL;
+	if (set_eventfd.fd >= 0) {
+		eventfd = eventfd_ctx_fdget(set_eventfd.fd);
+		if (IS_ERR(eventfd))
+			return PTR_ERR(eventfd);
+	}
+
+	mutex_lock(&flag_lock);
+	old_eventfd = flag_eventfds[set_eventfd.flag];
+	WRITE_ONCE(flag_eventfds[set_eventfd.flag], eventfd);
+	mutex_unlock(&flag_lock);
+
+	if (old_eventfd) {
+		synchronize_rcu();
+		eventfd_ctx_put(old_eventfd);
+	}
+
+	return 0;
+}
+
+static long mshv_vtl_sint_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
+{
+	switch (cmd) {
+	case MSHV_SINT_POST_MESSAGE:
+		return mshv_vtl_sint_ioctl_post_message((struct mshv_sint_post_msg *)arg);
+	case MSHV_SINT_SIGNAL_EVENT:
+		return mshv_vtl_sint_ioctl_signal_event((struct mshv_signal_event *)arg);
+	case MSHV_SINT_SET_EVENTFD:
+		return mshv_vtl_sint_ioctl_set_eventfd((struct mshv_set_eventfd *)arg);
+	default:
+		return -ENOIOCTLCMD;
+	}
+}
+
+static const struct file_operations mshv_vtl_sint_ops = {
+	.owner = THIS_MODULE,
+	.read = mshv_vtl_sint_read,
+	.poll = mshv_vtl_sint_poll,
+	.unlocked_ioctl = mshv_vtl_sint_ioctl,
+};
+
+static struct miscdevice mshv_vtl_sint_dev = {
+	.name = "mshv_sint",
+	.fops = &mshv_vtl_sint_ops,
+};
+
+static int __init mshv_vtl_sint_init(void)
+{
+	tasklet_init(&msg_dpc, mshv_sint_on_msg_dpc, 0);
+	init_waitqueue_head(&fd_wait_queue);
+
+	return misc_register(&mshv_vtl_sint_dev);
+}
+
+module_init(mshv_vtl_sint_init)

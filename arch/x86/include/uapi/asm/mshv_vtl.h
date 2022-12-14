@@ -6,6 +6,23 @@
 #include <linux/types.h>
 #include <asm/fpu/types.h>
 
+struct mshv_set_eventfd {
+	int fd;
+	u32 flag;
+};
+
+struct mshv_signal_event {
+	u32 connection_id;
+	u32 flag;
+};
+
+struct mshv_sint_post_msg {
+	u64 message_type;
+	u32 connection_id;
+	u32 payload_size;
+	u8 __user *payload;
+};
+
 struct mshv_ram_disposition {
 	__u64 start_pfn;
 	__u64 last_pfn;
