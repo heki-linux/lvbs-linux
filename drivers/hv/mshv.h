@@ -404,4 +404,11 @@ long mshv_ioctl_post_message_direct(u64 partition_id, void __user *user_args);
 
 extern struct mshv mshv;
 
+// #############################
+// TODO remove these - temporary
+int __init mshv_root_init(void);
+void __exit mshv_root_exit(void);
+long mshv_ioctl_create_partition(void __user *user_arg);
+// #############################
+
 #endif /* _MSHV_H */
