@@ -66,7 +66,7 @@ int mshv_irqfd_wq_init(void);
 void mshv_irqfd_wq_cleanup(void);
 
 struct kernel_mshv_ioeventfd {
-	struct list_head     list;
+	struct hlist_node    hnode;
 	u64                  addr;
 	int                  length;
 	struct eventfd_ctx  *eventfd;

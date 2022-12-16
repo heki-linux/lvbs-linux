@@ -518,7 +518,6 @@ ioeventfd_release(struct kernel_mshv_ioeventfd *p, u64 partition_id)
 	if (p->doorbell_id > 0)
 		hv_unregister_doorbell(partition_id, p->doorbell_id);
 	eventfd_ctx_put(p->eventfd);
-	list_del(&p->list);
 	kfree(p);
 }
 
@@ -528,25 +527,25 @@ ioeventfd_mmio_write(int doorbell_id, void *data)
 {
 	struct mshv_partition *partition = (struct mshv_partition *)data;
 	struct kernel_mshv_ioeventfd *p;
-	unsigned long flags;
 
-	spin_lock_irqsave(&partition->ioeventfds.lock, flags);
-	list_for_each_entry(p, &partition->ioeventfds.items, list) {
+	rcu_read_lock();
+	hlist_for_each_entry_rcu(p, &partition->ioeventfds.items, hnode) {
 		if (p->doorbell_id == doorbell_id) {
 			eventfd_signal(p->eventfd, 1);
 			break;
 		}
 	}
-	spin_unlock_irqrestore(&partition->ioeventfds.lock, flags);
+	rcu_read_unlock();
 }
 
 static bool
 ioeventfd_check_collision(struct mshv_partition *partition,
 			  struct kernel_mshv_ioeventfd *p)
+	__must_hold(&partition->mutex)
 {
 	struct kernel_mshv_ioeventfd *_p;
 
-	list_for_each_entry(_p, &partition->ioeventfds.items, list)
+	hlist_for_each_entry(_p, &partition->ioeventfds.items, hnode)
 		if (_p->addr == p->addr && _p->length == p->length &&
 		    (_p->wildcard || p->wildcard ||
 		     _p->datamatch == p->datamatch))
@@ -558,12 +557,15 @@ ioeventfd_check_collision(struct mshv_partition *partition,
 static int
 mshv_assign_ioeventfd(struct mshv_partition *partition,
 		      struct mshv_ioeventfd *args)
+	__must_hold(&partition->mutex)
 {
 	struct kernel_mshv_ioeventfd *p;
 	struct eventfd_ctx *eventfd;
 	u64 doorbell_flags = 0;
-	unsigned long irqflags;
 	int ret;
+
+	/* This mutex is currently protecting ioeventfd.items list */
+	WARN_ON_ONCE(!mutex_is_locked(&partition->mutex));
 
 	if (args->flags & MSHV_IOEVENTFD_FLAG_PIO)
 		return -EOPNOTSUPP;
@@ -608,7 +610,6 @@ mshv_assign_ioeventfd(struct mshv_partition *partition,
 		goto fail;
 	}
 
-	INIT_LIST_HEAD(&p->list);
 	p->addr    = args->addr;
 	p->length  = args->len;
 	p->eventfd = eventfd;
@@ -620,8 +621,6 @@ mshv_assign_ioeventfd(struct mshv_partition *partition,
 		p->wildcard = true;
 		doorbell_flags |= HV_DOORBELL_FLAG_TRIGGER_ANY_VALUE;
 	}
-
-	spin_lock_irqsave(&partition->ioeventfds.lock, irqflags);
 
 	if (ioeventfd_check_collision(partition, p)) {
 		ret = -EEXIST;
@@ -637,15 +636,12 @@ mshv_assign_ioeventfd(struct mshv_partition *partition,
 	}
 
 	p->doorbell_id = ret;
-	list_add_tail(&p->list, &partition->ioeventfds.items);
 
-	spin_unlock_irqrestore(&partition->ioeventfds.lock, irqflags);
+	hlist_add_head_rcu(&p->hnode, &partition->ioeventfds.items);
 
 	return 0;
 
 unlock_fail:
-	spin_unlock_irqrestore(&partition->ioeventfds.lock, irqflags);
-
 	kfree(p);
 
 fail:
@@ -657,19 +653,21 @@ fail:
 static int
 mshv_deassign_ioeventfd(struct mshv_partition *partition,
 			struct mshv_ioeventfd *args)
+	__must_hold(&partition->mutex)
 {
-	struct kernel_mshv_ioeventfd *p, *tmp;
+	struct kernel_mshv_ioeventfd *p;
 	struct eventfd_ctx *eventfd;
-	unsigned long flags;
+	struct hlist_node *n;
 	int ret = -ENOENT;
+
+	/* This mutex is currently protecting ioeventfd.items list */
+	WARN_ON_ONCE(!mutex_is_locked(&partition->mutex));
 
 	eventfd = eventfd_ctx_fdget(args->fd);
 	if (IS_ERR(eventfd))
 		return PTR_ERR(eventfd);
 
-	spin_lock_irqsave(&partition->ioeventfds.lock, flags);
-
-	list_for_each_entry_safe(p, tmp, &partition->ioeventfds.items, list) {
+	hlist_for_each_entry_safe(p, n, &partition->ioeventfds.items, hnode) {
 		bool wildcard = !(args->flags & MSHV_IOEVENTFD_FLAG_DATAMATCH);
 
 		if (p->eventfd != eventfd  ||
@@ -681,12 +679,12 @@ mshv_deassign_ioeventfd(struct mshv_partition *partition,
 		if (!p->wildcard && p->datamatch != args->datamatch)
 			continue;
 
+		hlist_del_rcu(&p->hnode);
+		synchronize_rcu();
 		ioeventfd_release(p, partition->id);
 		ret = 0;
 		break;
 	}
-
-	spin_unlock_irqrestore(&partition->ioeventfds.lock, flags);
 
 	eventfd_ctx_put(eventfd);
 
@@ -696,6 +694,7 @@ mshv_deassign_ioeventfd(struct mshv_partition *partition,
 int
 mshv_ioeventfd(struct mshv_partition *partition,
 	       struct mshv_ioeventfd *args)
+	__must_hold(&partition->mutex)
 {
 	/* PIO not yet implemented */
 	if (args->flags & MSHV_IOEVENTFD_FLAG_PIO)
@@ -716,21 +715,23 @@ mshv_eventfd_init(struct mshv_partition *partition)
 	INIT_LIST_HEAD(&partition->irqfds.resampler_list);
 	mutex_init(&partition->irqfds.resampler_lock);
 
-	spin_lock_init(&partition->ioeventfds.lock);
-	INIT_LIST_HEAD(&partition->ioeventfds.items);
+	INIT_HLIST_HEAD(&partition->ioeventfds.items);
 }
 
 void
 mshv_eventfd_release(struct mshv_partition *partition)
 {
-	struct kernel_mshv_ioeventfd *p, *tmp;
-	unsigned long flags;
+	struct hlist_head items;
+	struct hlist_node *n;
+	struct kernel_mshv_ioeventfd *p;
 
-	spin_lock_irqsave(&partition->ioeventfds.lock, flags);
-	list_for_each_entry_safe(p, tmp, &partition->ioeventfds.items, list) {
+	hlist_move_list(&partition->ioeventfds.items, &items);
+	synchronize_rcu();
+
+	hlist_for_each_entry_safe(p, n, &items, hnode) {
+		hlist_del(&p->hnode);
 		ioeventfd_release(p, partition->id);
 	}
-	spin_unlock_irqrestore(&partition->ioeventfds.lock, flags);
 
 	mshv_irqfd_release(partition);
 }

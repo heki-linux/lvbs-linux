@@ -81,8 +81,7 @@ struct mshv_partition {
 		struct list_head  resampler_list;
 	} irqfds;
 	struct {
-		spinlock_t        lock;
-		struct list_head items;
+		struct hlist_head items;
 	} ioeventfds;
 	struct mshv_msi_routing_table __rcu *msi_routing;
 };
