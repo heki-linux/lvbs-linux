@@ -31,6 +31,23 @@ MODULE_LICENSE("GPL");
 
 struct mshv mshv = {};
 
+static long mshv_ioctl_dummy(void __user *user_arg)
+{
+	return -ENOTTY;
+}
+
+static mshv_ioctl_func_t mshv_ioctl_create_vtl = mshv_ioctl_dummy;
+
+void mshv_set_create_vtl_func(const mshv_ioctl_func_t func)
+{
+	if (!func) {
+		mshv_ioctl_create_vtl = mshv_ioctl_dummy;
+	} else {
+		mshv_ioctl_create_vtl = func;
+	}
+}
+EXPORT_SYMBOL_GPL(mshv_set_create_vtl_func);
+
 enum hv_scheduler_type hv_scheduler_type;
 
 /* Once we implement the fast extended hypercall ABI they can go away. */
@@ -1899,10 +1916,8 @@ mshv_dev_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		return mshv_ioctl_check_extension((void __user *)arg);
 	case MSHV_CREATE_PARTITION:
 		return mshv_ioctl_create_partition((void __user *)arg);
-#ifdef CONFIG_HYPERV_VTL
 	case MSHV_CREATE_VTL:
 		return mshv_ioctl_create_vtl((void __user *)arg);
-#endif
 	}
 
 	return -ENOTTY;

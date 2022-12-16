@@ -7,6 +7,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/miscdevice.h>
 #include <linux/anon_inodes.h>
 #include <linux/tracehook.h>
@@ -19,6 +20,7 @@
 #include <asm/mshv_vtl.h>
 #include <linux/count_zeros.h>
 #include <uapi/asm/mtrr.h>
+#include <uapi/linux/mshv.h>
 
 #include "mshv.h"
 #include "mshv_eventfd.h"
@@ -949,7 +951,7 @@ static const struct file_operations mshv_vtl_fops = {
 	.unlocked_ioctl = mshv_vtl_ioctl,
 };
 
-long mshv_ioctl_create_vtl(void __user *user_arg)
+static long __mshv_ioctl_create_vtl(void __user *user_arg)
 {
 	struct mshv_vtl *vtl;
 	struct file *file;
@@ -1124,12 +1126,27 @@ static struct miscdevice mshv_vtl_sint_dev = {
 	.fops = &mshv_vtl_sint_ops,
 };
 
-static int __init mshv_vtl_sint_init(void)
+static int __init mshv_vtl_init(void)
 {
+	int ret;
+
 	tasklet_init(&msg_dpc, mshv_sint_on_msg_dpc, 0);
 	init_waitqueue_head(&fd_wait_queue);
 
-	return misc_register(&mshv_vtl_sint_dev);
+	ret = misc_register(&mshv_vtl_sint_dev);
+	if (ret)
+		return ret;
+
+	mshv_set_create_vtl_func(__mshv_ioctl_create_vtl);
+
+	return 0;
 }
 
-module_init(mshv_vtl_sint_init)
+static void __exit mshv_vtl_exit(void)
+{
+	mshv_set_create_vtl_func(NULL);
+	misc_deregister(&mshv_vtl_sint_dev);
+}
+
+module_init(mshv_vtl_init);
+module_exit(mshv_vtl_exit);
