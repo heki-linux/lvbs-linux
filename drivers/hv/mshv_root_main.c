@@ -37,8 +37,6 @@ static void __percpu **root_scheduler_output;
 
 static int mshv_vp_release(struct inode *inode, struct file *filp);
 static long mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg);
-static struct mshv_partition *mshv_partition_get(struct mshv_partition *partition);
-static void mshv_partition_put(struct mshv_partition *partition);
 static int mshv_partition_release(struct inode *inode, struct file *filp);
 static long mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg);
 static int mshv_vp_mmap(struct file *file, struct vm_area_struct *vma);
@@ -1517,9 +1515,8 @@ static void
 remove_partition(struct mshv_partition *partition)
 {
 	int i;
-	unsigned long flags;
 
-	spin_lock_irqsave(&mshv.partitions.lock, flags);
+	spin_lock_irq(&mshv.partitions.lock);
 
 	for (i = 0; i < MSHV_MAX_PARTITIONS; ++i) {
 		if (mshv.partitions.array[i] == partition)
@@ -1536,7 +1533,7 @@ remove_partition(struct mshv_partition *partition)
 	if (!mshv.partitions.count)
 		hv_remove_mshv_irq();
 
-	spin_unlock_irqrestore(&mshv.partitions.lock, flags);
+	spin_unlock_irq(&mshv.partitions.lock);
 }
 
 static void
@@ -1595,7 +1592,7 @@ destroy_partition(struct mshv_partition *partition)
 	kfree(partition);
 }
 
-static struct
+struct
 mshv_partition *mshv_partition_get(struct mshv_partition *partition)
 {
 	if (refcount_inc_not_zero(&partition->ref_count))
@@ -1603,7 +1600,33 @@ mshv_partition *mshv_partition_get(struct mshv_partition *partition)
 	return NULL;
 }
 
-static void
+/*
+ * TODO: It looks like this helper is called only from the hypervisor interrupt
+ * handler.
+ * If so, then spin_lock_irq in this function can be replaced with a plain
+ * spin_lock.
+ * However, RCU approach should be used here instead of this micro optimization.
+ */
+struct
+mshv_partition *mshv_partition_find_get(u64 partition_id)
+{
+	struct mshv_partition *partition = NULL, *p;
+	int i;
+
+	spin_lock_irq(&mshv.partitions.lock);
+	for (i = 0; i < MSHV_MAX_PARTITIONS; i++) {
+		p = mshv.partitions.array[i];
+		if (p && p->id == partition_id) {
+			partition = mshv_partition_get(p);
+			break;
+		}
+	}
+	spin_unlock_irq(&mshv.partitions.lock);
+
+	return partition;
+}
+
+void
 mshv_partition_put(struct mshv_partition *partition)
 {
 	if (refcount_dec_and_test(&partition->ref_count))
@@ -1627,10 +1650,9 @@ mshv_partition_release(struct inode *inode, struct file *filp)
 static int
 add_partition(struct mshv_partition *partition)
 {
-	unsigned long flags;
 	int i, ret = 0;
 
-	spin_lock_irqsave(&mshv.partitions.lock, flags);
+	spin_lock_irq(&mshv.partitions.lock);
 
 	if (mshv.partitions.count >= MSHV_MAX_PARTITIONS) {
 		pr_err("%s: too many partitions\n", __func__);
@@ -1650,7 +1672,7 @@ add_partition(struct mshv_partition *partition)
 		hv_setup_mshv_irq(mshv_isr);
 
 out_unlock:
-	spin_unlock_irqrestore(&mshv.partitions.lock, flags);
+	spin_unlock_irq(&mshv.partitions.lock);
 
 	return ret;
 }
