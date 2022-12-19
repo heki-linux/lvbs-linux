@@ -171,10 +171,7 @@ int hv_call_post_message_direct(u32 vp_index,
 				u32 sint_index,
 				u8* message);
 
-struct mshv_partition *mshv_partition_get(struct mshv_partition *partition);
-void mshv_partition_put(struct mshv_partition *partition);
-
-struct mshv_partition *mshv_partition_find_get(u64 partition_id);
+struct mshv_partition *mshv_partition_find(u64 partition_id) __must_hold(RCU);
 
 int mshv_xfer_to_guest_mode_handle_work(unsigned long ti_work);
 

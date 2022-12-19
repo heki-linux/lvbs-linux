@@ -153,11 +153,13 @@ handle_bitset_message(const struct hv_vp_signal_bitset_scheduler_message *msg)
 		return;
 	}
 
-	partition = mshv_partition_find_get(partition_id);
+	rcu_read_lock();
+
+	partition = mshv_partition_find(partition_id);
 	if (unlikely(!partition)) {
 		pr_err("%s: failed to find partition %llu\n", __func__,
 			partition_id);
-		return;
+		goto unlock_out;
 	}
 
 	vpset = &msg->vp_bitset.bitset;
@@ -192,13 +194,13 @@ handle_bitset_message(const struct hv_vp_signal_bitset_scheduler_message *msg)
 			if (unlikely(vp_index >= MSHV_MAX_VPS)) {
 				pr_err("%s: VP index %u out of bounds\n",
 					__func__, vp_index);
-				goto put_partition;
+				goto unlock_out;
 			}
 
 			vp = partition->vps.array[vp_index];
 			if (unlikely(!vp)) {
 				pr_err("%s: failed to find vp\n", __func__);
-				goto put_partition;
+				goto unlock_out;
 			}
 
 			kick_vp(vp);
@@ -208,8 +210,8 @@ handle_bitset_message(const struct hv_vp_signal_bitset_scheduler_message *msg)
 		bank_contents++;
 	}
 
-put_partition:
-	mshv_partition_put(partition);
+unlock_out:
+	rcu_read_unlock();
 
 	if (vp_signaled != msg->vp_count)
 		pr_debug("%s: asked to signal %u VPs but only did %u\n",
@@ -223,15 +225,14 @@ handle_pair_message(const struct hv_vp_signal_pair_scheduler_message *msg)
 	struct mshv_vp *vp;
 	int idx;
 
+	rcu_read_lock();
+
 	for (idx = 0; idx < msg->vp_count; idx++) {
 		u64 partition_id = msg->partition_ids[idx];
 		u32 vp_index = msg->vp_indexes[idx];
 
 		if (idx == 0 || partition->id != partition_id) {
-			if (partition)
-				mshv_partition_put(partition);
-
-			partition = mshv_partition_find_get(partition_id);
+			partition = mshv_partition_find(partition_id);
 			if (unlikely(!partition)) {
 				pr_err("%s: failed to find partition %llu\n",
 					__func__, partition_id);
@@ -255,8 +256,7 @@ handle_pair_message(const struct hv_vp_signal_pair_scheduler_message *msg)
 		kick_vp(vp);
 	}
 
-	if (partition)
-		mshv_partition_put(partition);
+	rcu_read_unlock();
 }
 
 static bool
@@ -287,11 +287,13 @@ mshv_intercept_isr(struct hv_message *msg)
 
 	partition_id = msg->header.sender;
 
-	partition = mshv_partition_find_get(partition_id);
+	rcu_read_lock();
+
+	partition = mshv_partition_find(partition_id);
 	if (unlikely(!partition)) {
 		pr_err("%s: failed to find partition %llu\n",
 		       __func__, partition_id);
-		goto out;
+		goto unlock_out;
 	}
 
 	if (msg->header.message_type == HVMSG_X64_APIC_EOI) {
@@ -309,7 +311,7 @@ mshv_intercept_isr(struct hv_message *msg)
 		if (mshv_notify_acked_gsi(partition,
 				hv_get_interrupt_vector_from_payload(msg->u.payload[0]))) {
 			handled = true;
-			goto put_partition;
+			goto unlock_out;
 		}
 	}
 
@@ -325,7 +327,7 @@ mshv_intercept_isr(struct hv_message *msg)
 	if (msg->header.message_type != HVMSG_OPAQUE_INTERCEPT) {
 		pr_debug("%s: wrong message type %d", __func__,
 			msg->header.message_type);
-		goto put_partition;
+		goto unlock_out;
 	}
 
 	/*
@@ -337,16 +339,16 @@ mshv_intercept_isr(struct hv_message *msg)
 	vp = partition->vps.array[vp_index];
 	if (unlikely(!vp)) {
 		pr_err("%s: failed to find vp\n", __func__);
-		goto put_partition;
+		goto unlock_out;
 	}
 
 	kick_vp(vp);
 
 	handled = true;
 
-put_partition:
-	mshv_partition_put(partition);
-out:
+unlock_out:
+	rcu_read_unlock();
+
 	return handled;
 }
 

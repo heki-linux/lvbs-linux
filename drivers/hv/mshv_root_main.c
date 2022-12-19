@@ -37,6 +37,8 @@ static void __percpu **root_scheduler_output;
 
 static int mshv_vp_release(struct inode *inode, struct file *filp);
 static long mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg);
+static struct mshv_partition *mshv_partition_get(struct mshv_partition *partition);
+static void mshv_partition_put(struct mshv_partition *partition);
 static int mshv_partition_release(struct inode *inode, struct file *filp);
 static long mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg);
 static int mshv_vp_mmap(struct file *file, struct vm_area_struct *vma);
@@ -1534,6 +1536,8 @@ remove_partition(struct mshv_partition *partition)
 		hv_remove_mshv_irq();
 
 	spin_unlock_irq(&mshv.partitions.lock);
+
+	synchronize_rcu();
 }
 
 static void
@@ -1592,7 +1596,7 @@ destroy_partition(struct mshv_partition *partition)
 	kfree(partition);
 }
 
-struct
+static struct
 mshv_partition *mshv_partition_get(struct mshv_partition *partition)
 {
 	if (refcount_inc_not_zero(&partition->ref_count))
@@ -1608,25 +1612,22 @@ mshv_partition *mshv_partition_get(struct mshv_partition *partition)
  * However, RCU approach should be used here instead of this micro optimization.
  */
 struct
-mshv_partition *mshv_partition_find_get(u64 partition_id)
+mshv_partition *mshv_partition_find(u64 partition_id)
+	__must_hold(RCU)
 {
-	struct mshv_partition *partition = NULL, *p;
+	struct mshv_partition *p;
 	int i;
 
-	spin_lock_irq(&mshv.partitions.lock);
 	for (i = 0; i < MSHV_MAX_PARTITIONS; i++) {
 		p = mshv.partitions.array[i];
-		if (p && p->id == partition_id) {
-			partition = mshv_partition_get(p);
-			break;
-		}
+		if (p && p->id == partition_id)
+			return p;
 	}
-	spin_unlock_irq(&mshv.partitions.lock);
 
-	return partition;
+	return NULL;
 }
 
-void
+static void
 mshv_partition_put(struct mshv_partition *partition)
 {
 	if (refcount_dec_and_test(&partition->ref_count))
