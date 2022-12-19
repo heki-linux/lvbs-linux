@@ -21,6 +21,7 @@ this.ERROR = logging.ERROR
 this.ERR = logging.ERROR
 this.FATAL = logging.FATAL
 
+
 class logger_wrapper:
     def __init__(self, name="lsgtools"):
         self.logger = logging.getLogger(name)
@@ -58,20 +59,26 @@ class logger_wrapper:
 def _debug(*args):
     this.logger.debug("".join(args))
 
+
 def _info(*args):
     this.logger.info("".join(args))
+
 
 def _msg(*args):
     this.logger.msg("".join(args))
 
+
 def _warn(*args):
     this.logger.warn("".join(args))
+
 
 def _error(*args):
     this.logger.error("".join(args))
 
+
 def _fatal(*args):
     this.logger.fatal("".join(args))
+
 
 def create_logger(name="lsgtools"):
     logger = logger_wrapper(name)
@@ -91,24 +98,26 @@ def setup(name="lsgtools"):
         this.err = _error
         this.fatal = _fatal
 
+
 def set_verbosity(v):
     if 0 == v:
         # Default if no -v has been passed, so just ignore
         return
-    levels = [ DBG, INFO, MSG, WARN, ERR, FATAL ]
+    levels = [this.DBG, this.INFO, this.MSG, this.WARN, this.ERR, this.FATAL]
     if v in levels:
         level = v
     else:
         # This serves receiving -v set from a consuming script. As the default level is MESSAGE,
         # this can go yet INFO or DEBUG, so max -vv.
         if 1 == v:
-            level = logging.INFO
+            level = this.INFO
         else:
-            level = logging.DEBUG
+            level = this.DEBUG
     this.logger.setLevel(level)
     # Set same level on the root logger, if unconfigured
     if 0 == logging.getLogger().getEffectiveLevel():
         logging.getLogger().setLevel(level)
+
 
 def set_name(name):
     this.logger.setName(name)

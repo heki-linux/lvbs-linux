@@ -27,9 +27,12 @@ case "${FLAVOR}" in
 		;;
 esac
 
-make LC_ALL= ARCH=$ARCH ${CONFIG}
+make LC_ALL= ARCH="${ARCH}" ${CONFIG}
 
 case "${FLAVOR}" in
+	dom0-vtl)
+		sed -i 's/^# CONFIG_HYPERV_VTL is not set/CONFIG_HYPERV_VTL=y/' .config
+        ;;
 	dom0-module)
 		sed -i 's/HYPERV_VMM_API=y/HYPERV_VMM_API=m/' .config
 		;;
@@ -38,8 +41,8 @@ case "${FLAVOR}" in
 		;;
 esac
 
-make -j$(nproc) ARCH=$ARCH W=1
-make -j$(nproc) ARCH=$ARCH W=1 modules
+make -j"$(nproc)" ARCH="${ARCH}" W=1
+make -j"$(nproc)" ARCH="${ARCH}" W=1 modules
 
-make -j$(nproc) ARCH=$ARCH -C tools/perf PYTHON=python3 all
-make -j$(nproc) ARCH=$ARCH -C tools/bpf/bpftool
+make -j"$(nproc)" ARCH="${ARCH}" -C tools/perf PYTHON=python3 all
+make -j"$(nproc)" ARCH="${ARCH}" -C tools/bpf/bpftool

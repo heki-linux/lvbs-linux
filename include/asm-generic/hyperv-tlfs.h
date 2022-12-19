@@ -188,6 +188,7 @@ union hv_reference_tsc_msr {
 #define HVCALL_MAP_DEVICE_INTERRUPT		0x007c
 #define HVCALL_UNMAP_DEVICE_INTERRUPT		0x007d
 #define HVCALL_RETARGET_INTERRUPT		0x007e
+#define HVCALL_NOTIFY_PARTITION_EVENT		0x0087
 #define HVCALL_NOTIFY_PORT_RING_EMPTY		0x008b
 #define HVCALL_REGISTER_INTERCEPT_RESULT	0x0091
 #define HVCALL_ASSERT_VIRTUAL_INTERRUPT		0x0094
@@ -823,6 +824,8 @@ struct hv_memory_hint {
 
 #define HV_COMPATIBILITY_19_H1		HV_MAKE_COMPATIBILITY_VERSION(0X6, 0X5)
 #define HV_COMPATIBILITY_20_H1		HV_MAKE_COMPATIBILITY_VERSION(0X6, 0X7)
+#define HV_COMPATIBILITY_21_H1		HV_MAKE_COMPATIBILITY_VERSION(0X6, 0X8)
+#define HV_COMPATIBILITY_21_H2		HV_MAKE_COMPATIBILITY_VERSION(0X6, 0X9)
 #define HV_COMPATIBILITY_PRERELEASE	HV_MAKE_COMPATIBILITY_VERSION(0XFE, 0X0)
 #define HV_COMPATIBILITY_EXPERIMENT	HV_MAKE_COMPATIBILITY_VERSION(0XFF, 0X0)
 
@@ -1451,6 +1454,48 @@ struct hv_input_dispatch_vp {
 struct hv_output_dispatch_vp {
 	u32 dispatch_state; /* enum hv_vp_dispatch_state */
 	u32 dispatch_event; /* enum hv_vp_dispatch_event */
+} __packed;
+
+enum hv_crashdump_action {
+	HV_CRASHDUMP_NONE = 0,
+	HV_CRASHDUMP_SUSPEND_ALL_VPS,
+	HV_CRASHDUMP_PREPARE_FOR_STATE_SAVE,
+	HV_CRASHDUMP_STATE_SAVED,
+	HV_CRASHDUMP_ENTRY,
+};
+
+struct hv_partition_event_root_crashdump_input {
+	enum hv_crashdump_action crashdump_action;
+} __packed;
+
+struct hv_partition_event_commit_processor_indices_input {
+	u32 schedulable_processor_count;
+} __packed;
+
+union hv_partition_event_input {
+	/*
+	 * Input for the root crashdump partition event.
+	 */
+	struct hv_partition_event_root_crashdump_input crashdump_input;
+
+	/*
+	 * Input for the commit lp indices event.
+	 */
+	struct hv_partition_event_commit_processor_indices_input
+		commit_lp_indices_input;
+};
+
+enum hv_partition_event {
+	hv_partition_event_debug_device_available = 1,
+	hv_partition_event_root_crashdump = 2,
+	hv_partition_event_acpi_reenabled = 3,
+	hv_partition_all_logical_processors_started = 4,
+	hv_partition_commit_lp_indices = 5,
+};
+
+struct hv_input_notify_partition_event {
+	enum hv_partition_event event;
+	union hv_partition_event_input input;
 } __packed;
 
 #endif

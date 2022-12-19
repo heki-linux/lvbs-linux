@@ -41,7 +41,6 @@ static int mshv_vp_release(struct inode *inode, struct file *filp);
 static long mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg);
 static struct mshv_partition *mshv_partition_get(struct mshv_partition *partition);
 static void mshv_partition_put(struct mshv_partition *partition);
-static void mshv_partition_put_no_destroy(struct mshv_partition *partition);
 static int mshv_partition_release(struct inode *inode, struct file *filp);
 static long mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg);
 static int mshv_dev_open(struct inode *inode, struct file *filp);
@@ -1438,7 +1437,7 @@ mshv_partition_ioctl_create_device(struct mshv_partition *partition,
 	mshv_partition_get(partition);
 	r = anon_inode_getfd(ops->name, &mshv_device_fops, dev, O_RDWR | O_CLOEXEC);
 	if (r < 0) {
-		mshv_partition_put_no_destroy(partition);
+		mshv_partition_put(partition);
 		list_del(&dev->partition_node);
 		ops->destroy(dev);
 		goto out;
@@ -1733,12 +1732,6 @@ mshv_partition_put(struct mshv_partition *partition)
 {
 	if (refcount_dec_and_test(&partition->ref_count))
 		destroy_partition(partition);
-}
-
-static void
-mshv_partition_put_no_destroy(struct mshv_partition *partition)
-{
-	WARN_ON(refcount_dec_and_test(&partition->ref_count));
 }
 
 static int

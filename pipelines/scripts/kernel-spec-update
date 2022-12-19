@@ -10,7 +10,7 @@ import re
 import hashlib
 import subprocess
 import tarfile
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa E402
 
 from lsgtools import log
 from lsgtools import cli
@@ -99,7 +99,8 @@ for k in kernel_conf:
 
     # TODO Introduce an array with pattern/replacement and pack it into the module
     conf = re.sub(re.compile("CONFIG_SYSTEM_TRUSTED_KEYS=.*"), 'CONFIG_SYSTEM_TRUSTED_KEYS="certs/mariner.pem"', conf)
-    conf = re.sub(re.compile("Linux/(.*) (.*) Kernel Configuration"), "Linux/\\1 {} Kernel Configuration".format(version), conf)
+    conf = re.sub(re.compile("Linux/(.*) (.*) Kernel Configuration"), "Linux/\\1 {} Kernel Configuration".format(version),
+                  conf)
 
     with open(cf, "w") as f:
         f.write(conf)
@@ -148,4 +149,3 @@ res = subprocess.run(cmd)
 if 0 != res.returncode:
     err = res.stderr.decode("ascii")
     raise Exception(err)
-
