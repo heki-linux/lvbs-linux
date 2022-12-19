@@ -1516,28 +1516,14 @@ static void drain_all_vps(const struct mshv_partition *partition)
 static void
 remove_partition(struct mshv_partition *partition)
 {
-	int i;
-
-	spin_lock_irq(&mshv.partitions.lock);
-
-	for (i = 0; i < MSHV_MAX_PARTITIONS; ++i) {
-		if (mshv.partitions.array[i] == partition)
-			break;
-	}
-
-	if (i == MSHV_MAX_PARTITIONS) {
-		pr_err("%s: failed to locate partition in array\n", __func__);
-	} else {
-		mshv.partitions.count--;
-		mshv.partitions.array[i] = NULL;
-	}
-
-	if (!mshv.partitions.count)
-		hv_remove_mshv_irq();
-
-	spin_unlock_irq(&mshv.partitions.lock);
+	spin_lock(&mshv.partitions.lock);
+	hlist_del_rcu(&partition->hnode);
+	spin_unlock(&mshv.partitions.lock);
 
 	synchronize_rcu();
+
+	if (!--mshv.partitions.count)
+		hv_remove_mshv_irq();
 }
 
 static void
@@ -1604,25 +1590,15 @@ mshv_partition *mshv_partition_get(struct mshv_partition *partition)
 	return NULL;
 }
 
-/*
- * TODO: It looks like this helper is called only from the hypervisor interrupt
- * handler.
- * If so, then spin_lock_irq in this function can be replaced with a plain
- * spin_lock.
- * However, RCU approach should be used here instead of this micro optimization.
- */
 struct
 mshv_partition *mshv_partition_find(u64 partition_id)
 	__must_hold(RCU)
 {
 	struct mshv_partition *p;
-	int i;
 
-	for (i = 0; i < MSHV_MAX_PARTITIONS; i++) {
-		p = mshv.partitions.array[i];
-		if (p && p->id == partition_id)
+	hash_for_each_possible_rcu(mshv.partitions.items, p, hnode, partition_id)
+		if (p->id == partition_id)
 			return p;
-	}
 
 	return NULL;
 }
@@ -1651,31 +1627,21 @@ mshv_partition_release(struct inode *inode, struct file *filp)
 static int
 add_partition(struct mshv_partition *partition)
 {
-	int i, ret = 0;
-
-	spin_lock_irq(&mshv.partitions.lock);
-
 	if (mshv.partitions.count >= MSHV_MAX_PARTITIONS) {
 		pr_err("%s: too many partitions\n", __func__);
-		ret = -ENOSPC;
-		goto out_unlock;
-	}
-
-	for (i = 0; i < MSHV_MAX_PARTITIONS; ++i) {
-		if (!mshv.partitions.array[i])
-			break;
+		return -ENOSPC;
 	}
 
 	mshv.partitions.count++;
-	mshv.partitions.array[i] = partition;
+
+	spin_lock(&mshv.partitions.lock);
+	hash_add_rcu(mshv.partitions.items, &partition->hnode, partition->id);
+	spin_unlock(&mshv.partitions.lock);
 
 	if (mshv.partitions.count == 1)
 		hv_setup_mshv_irq(mshv_isr);
 
-out_unlock:
-	spin_unlock_irq(&mshv.partitions.lock);
-
-	return ret;
+	return 0;
 }
 
 static long
@@ -1950,6 +1916,7 @@ int __init mshv_root_init(void)
 	mshv_cpuhp_online = ret;
 
 	spin_lock_init(&mshv.partitions.lock);
+	hash_init(mshv.partitions.items);
 
 	if (mshv_irqfd_wq_init())
 		mshv_irqfd_wq_cleanup();

@@ -12,10 +12,12 @@
 #include <linux/sched.h>
 #include <linux/srcu.h>
 #include <linux/wait.h>
+#include <linux/hashtable.h>
 #include <uapi/linux/mshv.h>
 #include <asm/hyperv-tlfs.h>
 
-#define MSHV_MAX_PARTITIONS		512
+#define MSHV_PARTITIONS_HASH_BITS	9
+#define MSHV_MAX_PARTITIONS		(1 << MSHV_PARTITIONS_HASH_BITS)
 #define MSHV_MAX_MEM_REGIONS		64
 #define MSHV_MAX_VPS			256
 
@@ -53,6 +55,7 @@ struct mshv_irq_ack_notifier {
 };
 
 struct mshv_partition {
+	struct hlist_node hnode;
 	u64 id;
 	refcount_t ref_count;
 	struct mutex mutex;
@@ -116,7 +119,7 @@ struct mshv {
 	struct {
 		spinlock_t lock;
 		u64 count;
-		struct mshv_partition *array[MSHV_MAX_PARTITIONS];
+		DECLARE_HASHTABLE(items, MSHV_PARTITIONS_HASH_BITS);
 	} partitions;
 };
 
