@@ -78,7 +78,7 @@ struct mshv_partition {
 		spinlock_t        lock;
 		struct list_head  items;
 		struct mutex resampler_lock;
-		struct list_head  resampler_list;
+		struct hlist_head resampler_list;
 	} irqfds;
 	struct {
 		struct hlist_head items;

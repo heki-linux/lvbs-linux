@@ -37,7 +37,7 @@ struct mshv_kernel_irqfd_resampler {
 	 * Protected by irqfds.resampler_lock
 	 *
 	 */
-	struct list_head link;
+	struct hlist_node hnode;
 };
 
 struct mshv_kernel_irqfd {
