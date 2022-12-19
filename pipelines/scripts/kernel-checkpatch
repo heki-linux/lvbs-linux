@@ -5,7 +5,7 @@ __copyright__ = "Copyright (c) Microsoft Corporation."
 import os
 import sys
 import subprocess
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # noqa E402
 
 from lsgtools import log
 from lsgtools import cli
@@ -26,11 +26,13 @@ log.set_verbosity(args.verbose)
 ado.init_defaults(args.ado_org, args.ado_project, args.repo_id, args.pr_id,
                   args.token_type, args.ado_access_token)
 
+
 def separator():
     log.info('-' * 100)
 
+
 def main():
-    commits_json = ado.get_commits()
+    commits_json = ado.pr_get_commits()
     commits = [commit for commit in commits_json["value"]]
 
     separator()
@@ -69,11 +71,12 @@ def main():
             log.info("Commenting on PR")
             html_output = output.replace("\n", "<br/>")
             comment = f"checkpatch.pl found issues:<pre>{html_output}</pre>"
-            ado.comment_on_pr(comment)
+            ado.pr_add_comment(comment)
 
         separator()
 
     if issues > 0:
         sys.exit(1)
+
 
 main()

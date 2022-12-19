@@ -5,6 +5,7 @@ variables:
   CONTAINER_VOL: /linux-dom0
   CONTAINER_RT: docker
   BUILDING_TAG: $[startsWith(variables['Build.SourceBranch'], 'refs/tags')]
+  BUILDING_MAIN: $[or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/msft/mshv-stable'))]
   SOURCES_STORAGE_URL: https://lsgvirtstorage.blob.core.windows.net/dom0-mariner-sources-public
 
 resources:
@@ -18,6 +19,7 @@ trigger:
   batch: false
   branches:
     include:
+      - main
       - msft/mshv-stable
       - msft/mshv-rolling
   tags:
@@ -29,6 +31,7 @@ pr:
   drafts: false
   branches:
     include:
+      - main
       - msft/mshv-stable
       - msft/mshv-rolling
 
@@ -40,6 +43,9 @@ jobs:
     #      currently dom0-built-in. Should this change, conditions in
     #      some tasks need to be revised and adjusted accordingly;
     matrix:
+      'Dom0 vtl x86_64':
+        machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
+        FLAVOR: 'dom0-vtl'
       'Dom0 module x86_64':
         machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
         FLAVOR: 'dom0-module'
@@ -103,7 +109,7 @@ jobs:
         --source-branch "$(System.PullRequest.SourceBranch)" \
         -v
     displayName: 'Run checkpatch.pl'
-    condition: and(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/msft/mshv-stable'), eq(variables.FLAVOR, 'dom0-built-in'))
+    condition: and(eq(variables['Build.Reason'], 'PullRequest'), eq(variables.BUILDING_MAIN, 'true'), eq(variables.FLAVOR, 'dom0-built-in'))
     continueOnError: true
 
   - bash: |
@@ -118,6 +124,42 @@ jobs:
       $(CONTAINER_RT) rm -f $(CONTAINER_IMAGE)
     displayName: 'Cleanup container'
 
+- job: Revisions
+  timeoutInMinutes: 60
+  condition: or(eq(variables.BUILDING_TAG, 'true'), eq(variables.BUILDING_MAIN, 'true'))
+  pool:
+    name: lsg-virt-amd64-1es-agent-pool-1
+
+  steps:
+  - checkout: self
+    persistCredentials: true
+    clean: true
+    fetchDepth: 0
+    fetchTags: false
+  - template: templates/ubuntu-20.04-build.yml
+
+  - bash: |
+      set -e
+      set -x
+      # TODO Check how to replace user specific PAT with something system generated. This is a different org, though.
+      git remote add lsg-linux-rolling "https://$(PAT_MSAZURE)@msazure.visualstudio.com/DefaultCollection/LSG-linux/_git/LSG-linux-rolling"
+      git fetch --progress --verbose --tags lsg-linux-rolling
+    displayName: 'Fetch LSG-linux-rolling'
+
+  - bash: |
+      set -e
+      set -x
+      ./pipelines/scripts/rev-list
+      cat dom0-rev-list.txt
+      mkdir -p revs
+      mv dom0-rev-list.txt revs/
+    displayName: 'List revs'
+
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish artifacts'
+    inputs:
+      targetPath: revs
+      artifact: 'mshv revs'
 
 - job: Packaging
   timeoutInMinutes: 30
@@ -209,3 +251,24 @@ jobs:
     displayName: 'lsg-virt-mariner spec'
     env:
         SOURCES_STORAGE_URL: $(SOURCES_STORAGE_URL)
+
+- job: CHECK_SCRIPTS
+  condition: not(or(eq(variables.BUILDING_MAIN, 'true'), eq(variables.BUILDING_TAG, 'true')))
+  timeoutInMinutes: 30
+  pool:
+    name: 'lsg-virt-amd64-1es-agent-pool-3'
+  steps:
+  - checkout: self
+    persistCredentials: true
+    fetchTags: false
+  - template: templates/ubuntu-20.04-build.yml
+  - bash: |
+      set -e
+      set -x
+      ./pipelines/scripts/shellcheck
+    displayName: 'shellcheck'
+  - bash: |
+      set -e
+      set -x
+      ./pipelines/scripts/flake8check
+    displayName: 'flake8'
