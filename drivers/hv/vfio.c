@@ -218,7 +218,7 @@ static int mshv_vfio_create(struct mshv_device *dev, u32 type)
 	struct mshv_vfio *mv;
 
 	/* Only one VFIO "device" per VM */
-	list_for_each_entry(tmp, &dev->partition->devices, partition_node)
+	hlist_for_each_entry(tmp, &dev->partition->devices, partition_node)
 		if (tmp->ops == &mshv_vfio_ops)
 			return -EBUSY;
 

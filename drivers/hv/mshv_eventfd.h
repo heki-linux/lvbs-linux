@@ -30,7 +30,7 @@ struct mshv_kernel_irqfd_resampler {
 	 * Protected by irqfds.resampler_lock
 	 * and irq_srcu.
 	 */
-	struct list_head list;
+	struct hlist_head irqfds_list;
 	struct mshv_irq_ack_notifier notifier;
 	/*
 	 * Entry in the list of partition->irqfd.resampler_list.
@@ -56,7 +56,7 @@ struct mshv_kernel_irqfd {
 	/* Resampler related */
 	struct mshv_kernel_irqfd_resampler   *resampler;
 	struct eventfd_ctx                   *resamplefd;
-	struct list_head                     resampler_link;
+	struct hlist_node                    resampler_hnode;
 };
 
 int mshv_irqfd(struct mshv_partition *partition,
