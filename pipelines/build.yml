@@ -99,22 +99,6 @@ jobs:
   - bash: |
       set -e
       set -x
-      $(CONTAINER_RT) exec $(CONTAINER_NAME) git config --global --add safe.directory '*'
-      $(CONTAINER_RT) exec -w $(CONTAINER_VOL)/ $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/kernel-checkpatch \
-        --ado-org microsoft \
-        --ado-project LSG \
-        --ado-access-token "$(System.AccessToken)" \
-        --repo-id "$(Build.Repository.ID)" \
-        --pr-id "$(System.PullRequest.PullRequestId)" \
-        --source-branch "$(System.PullRequest.SourceBranch)" \
-        -v
-    displayName: 'Run checkpatch.pl'
-    condition: and(eq(variables['Build.Reason'], 'PullRequest'), eq(variables.BUILDING_MAIN, 'true'), eq(variables.FLAVOR, 'dom0-built-in'))
-    continueOnError: true
-
-  - bash: |
-      set -e
-      set -x
       $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/kernel-compile $(FLAVOR)
     displayName: 'Compile Kernel'
 
@@ -123,6 +107,32 @@ jobs:
       set -x
       $(CONTAINER_RT) rm -f $(CONTAINER_IMAGE)
     displayName: 'Cleanup container'
+
+- job: Checkpatch
+  timeoutInMinutes: 30
+  condition: not(or(eq(variables.BUILDING_MAIN, 'true'), eq(variables.BUILDING_TAG, 'true')))
+  pool:
+    name: lsg-virt-amd64-1es-agent-pool-3
+
+  steps:
+  - checkout: self
+    persistCredentials: true
+    fetchTags: false
+  - template: templates/ubuntu-20.04-build.yml
+
+  - bash: |
+      set -e
+      set -x
+      ./pipelines/scripts/kernel-checkpatch \
+        --ado-org microsoft \
+        --ado-project LSG \
+        --ado-access-token "$(System.AccessToken)" \
+        --repo-id "$(Build.Repository.ID)" \
+        --pr-id "$(System.PullRequest.PullRequestId)" \
+        --source-branch "$(System.PullRequest.SourceBranch)" \
+        -v
+    displayName: 'Run checkpatch.pl'
+    continueOnError: true
 
 - job: Revisions
   timeoutInMinutes: 60
