@@ -47,7 +47,7 @@ struct mshv_kernel_irqfd {
 	seqcount_spinlock_t                  msi_entry_sc;
 	u32                                  gsi;
 	struct mshv_lapic_irq                lapic_irq;
-	struct list_head                     list;
+	struct hlist_node                    hnode;
 	poll_table                           pt;
 	wait_queue_head_t                    *wqh;
 	wait_queue_entry_t                   wait;
