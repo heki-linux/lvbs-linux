@@ -1221,7 +1221,7 @@ static int mshv_device_release(struct inode *inode, struct file *filp)
 
 	if (dev->ops->release) {
 		mutex_lock(&partition->mutex);
-		list_del(&dev->partition_node);
+		hlist_del(&dev->partition_node);
 		dev->ops->release(dev);
 		mutex_unlock(&partition->mutex);
 	}
@@ -1305,7 +1305,7 @@ mshv_partition_ioctl_create_device(struct mshv_partition *partition,
 		goto out;
 	}
 
-	list_add(&dev->partition_node, &partition->devices);
+	hlist_add_head(&dev->partition_node, &partition->devices);
 
 	if (ops->init)
 		ops->init(dev);
@@ -1314,7 +1314,7 @@ mshv_partition_ioctl_create_device(struct mshv_partition *partition,
 	r = anon_inode_getfd(ops->name, &mshv_device_fops, dev, O_RDWR | O_CLOEXEC);
 	if (r < 0) {
 		mshv_partition_put(partition);
-		list_del(&dev->partition_node);
+		hlist_del(&dev->partition_node);
 		ops->destroy(dev);
 		goto out;
 	}
@@ -1332,14 +1332,15 @@ out:
 
 static void mshv_destroy_devices(struct mshv_partition *partition)
 {
-	struct mshv_device *dev, *tmp;
+	struct mshv_device *dev;
+	struct hlist_node *n;
 
 	/*
 	 * No need to take any lock since at this point nobody else can
 	 * reference this partition.
 	 */
-	list_for_each_entry_safe(dev, tmp, &partition->devices, partition_node) {
-		list_del(&dev->partition_node);
+	hlist_for_each_entry_safe(dev, n, &partition->devices, partition_node) {
+		hlist_del(&dev->partition_node);
 		dev->ops->destroy(dev);
 	}
 }
@@ -1673,7 +1674,7 @@ __mshv_ioctl_create_partition(void __user *user_arg)
 
 	INIT_HLIST_HEAD(&partition->irq_ack_notifier_list);
 
-	INIT_LIST_HEAD(&partition->devices);
+	INIT_HLIST_HEAD(&partition->devices);
 
 	mshv_eventfd_init(partition);
 

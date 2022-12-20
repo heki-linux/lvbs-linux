@@ -72,7 +72,7 @@ struct mshv_partition {
 	struct srcu_struct irq_srcu;
 	struct hlist_head irq_ack_notifier_list;
 
-	struct list_head devices;
+	struct hlist_head devices;
 
 	struct {
 		spinlock_t        lock;
@@ -126,7 +126,7 @@ struct mshv_device {
 	const struct mshv_device_ops *ops;
 	struct mshv_partition *partition;
 	void *private;
-	struct list_head partition_node;
+	struct hlist_node partition_node;
 
 };
 
