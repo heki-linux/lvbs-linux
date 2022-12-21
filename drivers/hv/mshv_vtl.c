@@ -34,6 +34,10 @@ MODULE_LICENSE("GPL");
 #define MSHV_ENTRY_REASON_INTERCEPT          0x3
 
 #define MAX_GUEST_MEM_SIZE	BIT_ULL(40)
+#define MSHV_PG_OFF_CPU_MASK	0xFFFF
+#define MSHV_REAL_OFF_SHIFT	16
+#define MSHV_RUN_PAGE_OFFSET	0
+#define MSHV_REG_PAGE_OFFSET	1
 #define VTL2_VMBUS_SINT_INDEX	7
 
 bool vtl_exist;
@@ -46,6 +50,7 @@ static wait_queue_head_t fd_wait_queue;
 static bool has_message;
 static struct eventfd_ctx *flag_eventfds[HV_EVENT_FLAGS_COUNT];
 static DEFINE_MUTEX(flag_lock);
+static bool __read_mostly mshv_has_reg_page;
 
 struct mshv_hvcall_fd {
 	u64 allow_bitmap[2 * PAGE_SIZE];
@@ -954,9 +959,45 @@ mshv_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 	return ret;
 }
 
+static vm_fault_t mshv_vtl_fault(struct vm_fault *vmf)
+{
+	struct page *page;
+	int cpu = vmf->pgoff & MSHV_PG_OFF_CPU_MASK;
+	int real_off = vmf->pgoff >> MSHV_REAL_OFF_SHIFT;
+
+	if (!cpu_online(cpu))
+		return VM_FAULT_SIGBUS;
+
+	if (real_off == MSHV_RUN_PAGE_OFFSET) {
+		page = virt_to_page(mshv_cpu_run(cpu));
+	} else if (real_off == MSHV_REG_PAGE_OFFSET) {
+		if (!mshv_has_reg_page)
+			return VM_FAULT_SIGBUS;
+		page = mshv_cpu_reg_page(cpu);
+	} else {
+		return VM_FAULT_NOPAGE;
+	}
+
+	get_page(page);
+	vmf->page = page;
+
+	return 0;
+}
+
+static const struct vm_operations_struct mshv_vtl_vm_ops = {
+	.fault = mshv_vtl_fault,
+};
+
+static int mshv_vtl_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	vma->vm_ops = &mshv_vtl_vm_ops;
+	return 0;
+}
+
 static const struct file_operations mshv_vtl_fops = {
     .owner = THIS_MODULE,
 	.unlocked_ioctl = mshv_vtl_ioctl,
+	.mmap = mshv_vtl_mmap,
 };
 
 static long __mshv_ioctl_create_vtl(void __user *user_arg)
