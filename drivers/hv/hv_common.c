@@ -21,6 +21,8 @@
 #include <linux/ptrace.h>
 #include <linux/slab.h>
 #include <linux/dma-map-ops.h>
+#include <linux/reboot.h>
+#include <linux/notifier.h>
 #include <asm/hyperv-tlfs.h>
 #include <asm/mshyperv.h>
 
@@ -105,11 +107,10 @@ int __init hv_common_init(void)
 	hyperv_pcpu_input_arg = alloc_percpu(void  *);
 	BUG_ON(!hyperv_pcpu_input_arg);
 
-	/* Allocate the per-CPU state for output arg for root */
-	if (hv_root_partition) {
-		hyperv_pcpu_output_arg = alloc_percpu(void *);
-		BUG_ON(!hyperv_pcpu_output_arg);
+	hyperv_pcpu_output_arg = alloc_percpu(void *);
+	BUG_ON(!hyperv_pcpu_output_arg);
 
+	if (hv_root_partition) {
 		hv_synic_eventring_tail = alloc_percpu(u8 *);
 		BUG_ON(hv_synic_eventring_tail == NULL);
 	}
@@ -139,20 +140,19 @@ int hv_common_cpu_init(unsigned int cpu)
 	u8 **synic_eventring_tail;
 	u64 msr_vp_index;
 	gfp_t flags;
-	int pgcount = hv_root_partition ? 2 : 1;
 
 	/* hv_cpu_init() can be called with IRQs disabled from hv_resume() */
 	flags = irqs_disabled() ? GFP_ATOMIC : GFP_KERNEL;
 
 	inputarg = (void **)this_cpu_ptr(hyperv_pcpu_input_arg);
-	*inputarg = kmalloc(pgcount * HV_HYP_PAGE_SIZE, flags);
+	*inputarg = kmalloc(2 * HV_HYP_PAGE_SIZE, flags);
 	if (!(*inputarg))
 		return -ENOMEM;
 
-	if (hv_root_partition) {
-		outputarg = (void **)this_cpu_ptr(hyperv_pcpu_output_arg);
-		*outputarg = (char *)(*inputarg) + HV_HYP_PAGE_SIZE;
+	outputarg = (void **)this_cpu_ptr(hyperv_pcpu_output_arg);
+	*outputarg = (char *)(*inputarg) + HV_HYP_PAGE_SIZE;
 
+	if (hv_root_partition) {
 		synic_eventring_tail = (u8 **)this_cpu_ptr(hv_synic_eventring_tail);
 		*synic_eventring_tail = kcalloc(HV_SYNIC_SINT_COUNT, sizeof(u8),
 						flags);
@@ -186,10 +186,10 @@ int hv_common_cpu_die(unsigned int cpu)
 	mem = *inputarg;
 	*inputarg = NULL;
 
-	if (hv_root_partition) {
-		outputarg = (void **)this_cpu_ptr(hyperv_pcpu_output_arg);
-		*outputarg = NULL;
+	outputarg = (void **)this_cpu_ptr(hyperv_pcpu_output_arg);
+	*outputarg = NULL;
 
+	if (hv_root_partition) {
 		synic_eventring_tail = (u8 **)this_cpu_ptr(hv_synic_eventring_tail);
 		kfree(*synic_eventring_tail);
 		*synic_eventring_tail = NULL;
@@ -481,3 +481,87 @@ free_buf:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(hv_call_deposit_pages);
+
+/*
+ * Corresponding sleep states have to be initialized, in order a subsequent
+ * HVCALL_ENTER_SLEEP_STATE call to succeed. Currently only S5 state as per
+ * ACPI 6.4 chapter 7.4.2 is relevant, while S1, S2 and S3 can be supported.
+ */
+static int hv_initialize_sleep_states(void)
+{
+	u64 status;
+	unsigned long flags;
+	struct hv_input_set_system_property *in;
+
+	local_irq_save(flags);
+	in = (struct hv_input_set_system_property *)(*this_cpu_ptr(
+		hyperv_pcpu_input_arg));
+
+	in->property_id = HV_SYSTEM_PROPERTY_SLEEP_STATE;
+	in->set_sleep_state_info.sleep_state = HV_SLEEP_STATE_S5;
+	in->set_sleep_state_info.pm1a_slp_typ = HV_SLEEP_STATE_S5;
+	in->set_sleep_state_info.pm1b_slp_typ = 0;
+
+	status = hv_do_hypercall(HVCALL_SET_SYSTEM_PROPERTY, in, NULL);
+	local_irq_restore(flags);
+
+	if (!hv_result_success(status)) {
+		pr_err("%s: %s\n",
+			__func__, hv_status_to_string(status));
+		return hv_status_to_errno(status);
+	}
+
+	return 0;
+}
+
+static int hv_call_enter_sleep_state(u32 sleep_state)
+{
+	u64 status;
+	unsigned long flags;
+	struct hv_input_enter_sleep_state *in;
+
+	local_irq_save(flags);
+	in = (struct hv_input_enter_sleep_state *)(*this_cpu_ptr(
+		hyperv_pcpu_input_arg));
+	in->sleep_state = (enum hv_sleep_state)sleep_state;
+
+	status = hv_do_hypercall(HVCALL_ENTER_SLEEP_STATE, in, NULL);
+	local_irq_restore(flags);
+
+	if (!hv_result_success(status)) {
+		pr_err("%s: %s\n",
+			__func__, hv_status_to_string(status));
+		return hv_status_to_errno(status);
+	}
+
+	return 0;
+}
+
+static int hv_reboot_notifier_handler(struct notifier_block *this, unsigned long code, void *another)
+{
+	int ret = 0;
+
+	if (SYS_HALT == code || SYS_POWER_OFF == code)
+		ret = hv_call_enter_sleep_state(HV_SLEEP_STATE_S5);
+
+	return ret ? NOTIFY_DONE : NOTIFY_OK;
+}
+
+static struct notifier_block hv_reboot_notifier = {
+	.notifier_call	= hv_reboot_notifier_handler,
+};
+
+int hv_sleep_notifiers_register(void)
+{
+	int ret;
+
+	ret = hv_initialize_sleep_states();
+	if (!ret) {
+		ret = register_reboot_notifier(&hv_reboot_notifier);
+		if (ret)
+			pr_err("%s: cannot register reboot notifier %d\n",
+				__func__, ret);
+	}
+
+	return ret;
+}

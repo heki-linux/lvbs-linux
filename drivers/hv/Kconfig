@@ -56,7 +56,7 @@ config HYPERV_BALLOON
 	  Select this option to enable Hyper-V Balloon driver.
 
 config HYPERV_VTL
-	bool "Microsoft Hyper-V VTL driver"
+	tristate "Microsoft Hyper-V VTL driver"
 	depends on HYPERV_VMM_API && X86
 	help
 	  Select this option to enable Hyper-V VTL driver.
@@ -69,6 +69,12 @@ config HYPERV_VTL
 	  (VTLs). Virtual Trust Levels are hierarchical, with higher levels
 	  being more privileged than lower levels. VTL0 is the least privileged
 	  level, and currently only other level supported is VTL2.
+
+config HYPERV_ROOT
+	tristate "Microsoft Hyper-V root partition APIs driver"
+	depends on HYPERV_VMM_API
+	help
+	  TODO
 
 source "drivers/hv/dxgkrnl/Kconfig"
 

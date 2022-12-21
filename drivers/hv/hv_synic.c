@@ -136,8 +136,7 @@ static void kick_vp(struct mshv_vp *vp)
 static void
 handle_bitset_message(const struct hv_vp_signal_bitset_scheduler_message *msg)
 {
-	unsigned long flags;
-	int i, bank_idx, vp_signaled, bank_mask_size;
+	int bank_idx, vp_signaled, bank_mask_size;
 	struct mshv_partition *partition;
 	const struct hv_vpset *vpset;
 	const u64 *bank_contents;
@@ -154,15 +153,10 @@ handle_bitset_message(const struct hv_vp_signal_bitset_scheduler_message *msg)
 		return;
 	}
 
-	spin_lock_irqsave(&mshv.partitions.lock, flags);
+	rcu_read_lock();
 
-	for (i = 0; i < MSHV_MAX_PARTITIONS; i++) {
-		partition = mshv.partitions.array[i];
-		if (partition && partition->id == partition_id)
-			break;
-	}
-
-	if (unlikely(i == MSHV_MAX_PARTITIONS)) {
+	partition = mshv_partition_find(partition_id);
+	if (unlikely(!partition)) {
 		pr_err("%s: failed to find partition %llu\n", __func__,
 			partition_id);
 		goto unlock_out;
@@ -217,7 +211,7 @@ handle_bitset_message(const struct hv_vp_signal_bitset_scheduler_message *msg)
 	}
 
 unlock_out:
-	spin_unlock_irqrestore(&mshv.partitions.lock, flags);
+	rcu_read_unlock();
 
 	if (vp_signaled != msg->vp_count)
 		pr_debug("%s: asked to signal %u VPs but only did %u\n",
@@ -230,24 +224,16 @@ handle_pair_message(const struct hv_vp_signal_pair_scheduler_message *msg)
 	struct mshv_partition *partition = NULL;
 	struct mshv_vp *vp;
 	int idx;
-	unsigned long flags;
 
-	spin_lock_irqsave(&mshv.partitions.lock, flags);
+	rcu_read_lock();
 
 	for (idx = 0; idx < msg->vp_count; idx++) {
 		u64 partition_id = msg->partition_ids[idx];
 		u32 vp_index = msg->vp_indexes[idx];
 
 		if (idx == 0 || partition->id != partition_id) {
-			int i;
-
-			for (i = 0; i < MSHV_MAX_PARTITIONS; i++) {
-				partition = mshv.partitions.array[i];
-				if (partition && partition->id == partition_id)
-					break;
-			}
-
-			if (!partition) {
+			partition = mshv_partition_find(partition_id);
+			if (unlikely(!partition)) {
 				pr_err("%s: failed to find partition %llu\n",
 					__func__, partition_id);
 				break;
@@ -270,7 +256,7 @@ handle_pair_message(const struct hv_vp_signal_pair_scheduler_message *msg)
 		kick_vp(vp);
 	}
 
-	spin_unlock_irqrestore(&mshv.partitions.lock, flags);
+	rcu_read_unlock();
 }
 
 static bool
@@ -295,30 +281,18 @@ mshv_intercept_isr(struct hv_message *msg)
 {
 	struct mshv_partition *partition;
 	bool handled = false;
-	unsigned long flags;
 	struct mshv_vp *vp;
 	u64 partition_id;
 	u32 vp_index;
-	int i;
 
-	/* Look for the partition */
 	partition_id = msg->header.sender;
 
-	/* Hold this lock for the rest of the isr, because the partition could
-	 * be released anytime.
-	 * e.g. the MSHV_RUN_VP thread could wake on another cpu; it could
-	 * release the partition unless we hold this!
-	 */
-	spin_lock_irqsave(&mshv.partitions.lock, flags);
+	rcu_read_lock();
 
-	for (i = 0; i < MSHV_MAX_PARTITIONS; i++) {
-		partition = mshv.partitions.array[i];
-		if (partition && partition->id == partition_id)
-			break;
-	}
-
-	if (unlikely(i == MSHV_MAX_PARTITIONS)) {
-		pr_err("%s: failed to find partition\n", __func__);
+	partition = mshv_partition_find(partition_id);
+	if (unlikely(!partition)) {
+		pr_err("%s: failed to find partition %llu\n",
+		       __func__, partition_id);
 		goto unlock_out;
 	}
 
@@ -373,7 +347,7 @@ mshv_intercept_isr(struct hv_message *msg)
 	handled = true;
 
 unlock_out:
-	spin_unlock_irqrestore(&mshv.partitions.lock, flags);
+	rcu_read_unlock();
 
 	return handled;
 }

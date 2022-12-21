@@ -17,6 +17,7 @@
 #include <linux/vfio.h>
 
 #include "mshv.h"
+#include "mshv_root.h"
 #include "vfio.h"
 
 

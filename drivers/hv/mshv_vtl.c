@@ -7,6 +7,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/miscdevice.h>
 #include <linux/anon_inodes.h>
 #include <linux/tracehook.h>
@@ -19,6 +20,7 @@
 #include <asm/mshv_vtl.h>
 #include <linux/count_zeros.h>
 #include <uapi/asm/mtrr.h>
+#include <uapi/linux/mshv.h>
 
 #include "mshv.h"
 #include "mshv_eventfd.h"
@@ -44,6 +46,13 @@ static wait_queue_head_t fd_wait_queue;
 static bool has_message;
 static struct eventfd_ctx *flag_eventfds[HV_EVENT_FLAGS_COUNT];
 static DEFINE_MUTEX(flag_lock);
+
+struct mshv_hvcall_fd {
+	u64 allow_bitmap[2 * PAGE_SIZE];
+	bool allow_map_intialized;
+	struct mutex init_mutex;
+	struct miscdevice *dev;
+};
 
 struct mshv_poll_file {
 	struct file *file;
@@ -949,7 +958,7 @@ static const struct file_operations mshv_vtl_fops = {
 	.unlocked_ioctl = mshv_vtl_ioctl,
 };
 
-long mshv_ioctl_create_vtl(void __user *user_arg)
+static long __mshv_ioctl_create_vtl(void __user *user_arg)
 {
 	struct mshv_vtl *vtl;
 	struct file *file;
@@ -1124,12 +1133,189 @@ static struct miscdevice mshv_vtl_sint_dev = {
 	.fops = &mshv_vtl_sint_ops,
 };
 
-static int __init mshv_vtl_sint_init(void)
+static int mshv_vtl_hvcall_open(struct inode *node, struct file *f)
 {
+	struct miscdevice *dev = f->private_data;
+	struct mshv_hvcall_fd *fd;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
+	fd = vzalloc(sizeof(*fd));
+	if (!fd)
+		return -ENOMEM;
+	fd->dev = dev;
+	mutex_init(&fd->init_mutex);
+
+	f->private_data = fd;
+
+	return 0;
+}
+
+static int mshv_vtl_hvcall_release(struct inode *node, struct file *f)
+{
+	struct mshv_hvcall_fd *fd;
+
+	fd = f->private_data;
+	f->private_data = NULL;
+	vfree(fd);
+
+	return 0;
+}
+
+static int mshv_vtl_hvcall_setup(struct mshv_hvcall_fd *fd,
+				 struct mshv_hvcall_setup __user *hvcall_setup_user)
+{
+	int ret = 0;
+	struct mshv_hvcall_setup hvcall_setup;
+
+	mutex_lock(&fd->init_mutex);
+
+	if (fd->allow_map_intialized) {
+		pr_err("%s: Hypercall allow map has already been set, pid %d\n",
+		       __func__, current->pid);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	if (copy_from_user(&hvcall_setup, hvcall_setup_user, sizeof(struct mshv_hvcall_setup))) {
+		ret = -EFAULT;
+		goto exit;
+	}
+	if (hvcall_setup.bitmap_size > ARRAY_SIZE(fd->allow_bitmap)) {
+		ret = -EINVAL;
+		goto exit;
+	}
+	if (copy_from_user(&fd->allow_bitmap, hvcall_setup.allow_bitmap,
+			   hvcall_setup.bitmap_size)) {
+		ret = -EFAULT;
+		goto exit;
+	}
+
+	pr_info("%s: Hypercall allow map has been set, pid %d\n", __func__, current->pid);
+	fd->allow_map_intialized = true;
+
+exit:
+
+	mutex_unlock(&fd->init_mutex);
+
+	return ret;
+}
+
+bool mshv_hvcall_is_allowed(struct mshv_hvcall_fd *fd, u16 call_code)
+{
+	u8 bits_per_item = 8 * sizeof(fd->allow_bitmap[0]);
+	u16 item_index = call_code / bits_per_item;
+	u64 mask = 1ULL << (call_code % bits_per_item);
+
+	return fd->allow_bitmap[item_index] & mask;
+}
+
+static int mshv_vtl_hvcall_call(struct mshv_hvcall_fd *fd, struct mshv_hvcall __user *hvcall_user)
+{
+	struct mshv_hvcall hvcall;
+	unsigned long flags;
+	void *in, *out;
+
+	if (copy_from_user(&hvcall, hvcall_user, sizeof(struct mshv_hvcall)))
+		return -EFAULT;
+	if (hvcall.input_size > HV_HYP_PAGE_SIZE)
+		return -EINVAL;
+	if (hvcall.output_size > HV_HYP_PAGE_SIZE)
+		return -EINVAL;
+
+	/*
+	 * By default, all hypercalls are not allowed.
+	 * The user mode code has to set up the allow bitmap once.
+	 */
+
+	if (!mshv_hvcall_is_allowed(fd, hvcall.control & 0xFFFF)) {
+		pr_err("%s: Hypercall with control data %#llx isn't allowed\n",
+		       __func__, hvcall.control);
+		return -EPERM;
+	}
+
+	local_irq_save(flags);
+	in = *this_cpu_ptr(hyperv_pcpu_input_arg);
+	out = *this_cpu_ptr(hyperv_pcpu_output_arg);
+
+	if (copy_from_user(in, hvcall.input_data, hvcall.input_size)) {
+		local_irq_restore(flags);
+		return -EFAULT;
+	}
+
+	hvcall.status = hv_do_hypercall(hvcall.control, in, out);
+
+	if (copy_to_user(hvcall.output_data, out, hvcall.output_size)) {
+		local_irq_restore(flags);
+		return -EFAULT;
+	}
+	local_irq_restore(flags);
+
+	return put_user(hvcall.status, &hvcall_user->status);
+}
+
+static long mshv_vtl_hvcall_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
+{
+	struct mshv_hvcall_fd *fd = f->private_data;
+
+	switch (cmd) {
+	case MSHV_HVCALL_SETUP:
+		return mshv_vtl_hvcall_setup(fd, (struct mshv_hvcall_setup __user *)arg);
+	case MSHV_HVCALL:
+		return mshv_vtl_hvcall_call(fd, (struct mshv_hvcall __user *)arg);
+	default:
+		break;
+	}
+
+	return -ENOIOCTLCMD;
+}
+
+static const struct file_operations mshv_hvcall_file_ops = {
+	.owner = THIS_MODULE,
+	.open = mshv_vtl_hvcall_open,
+	.release = mshv_vtl_hvcall_release,
+	.unlocked_ioctl = mshv_vtl_hvcall_ioctl,
+};
+
+static struct miscdevice mshv_vtl_hvcall = {
+	.name = "mshv_hvcall",
+	.nodename = "mshv_hvcall",
+	.fops = &mshv_hvcall_file_ops,
+	.mode = 0600,
+	.minor = MISC_DYNAMIC_MINOR,
+};
+
+static int __init mshv_vtl_init(void)
+{
+	int ret;
+
 	tasklet_init(&msg_dpc, mshv_sint_on_msg_dpc, 0);
 	init_waitqueue_head(&fd_wait_queue);
 
-	return misc_register(&mshv_vtl_sint_dev);
+	ret = misc_register(&mshv_vtl_sint_dev);
+	if (ret)
+		return ret;
+
+	ret = misc_register(&mshv_vtl_hvcall);
+	if (ret)
+		goto free_sint;
+
+	mshv_set_create_vtl_func(__mshv_ioctl_create_vtl);
+
+	return 0;
+
+free_sint:
+	misc_deregister(&mshv_vtl_sint_dev);
+	return ret;
 }
 
-module_init(mshv_vtl_sint_init)
+static void __exit mshv_vtl_exit(void)
+{
+	mshv_set_create_vtl_func(NULL);
+	misc_deregister(&mshv_vtl_sint_dev);
+	misc_deregister(&mshv_vtl_hvcall);
+}
+
+module_init(mshv_vtl_init);
+module_exit(mshv_vtl_exit);

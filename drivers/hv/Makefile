@@ -4,13 +4,16 @@ obj-$(CONFIG_HYPERV_VMM_API)	+= mshv.o
 obj-$(CONFIG_HYPERV_UTILS)	+= hv_utils.o
 obj-$(CONFIG_HYPERV_BALLOON)	+= hv_balloon.o
 obj-$(CONFIG_DXGKRNL)		+= dxgkrnl/
+obj-$(CONFIG_HYPERV_VTL)	+= mshv_vtl.o
+obj-$(CONFIG_HYPERV_ROOT)	+= mshv_root.o
 
 CFLAGS_hv_trace.o = -I$(src)
 CFLAGS_hv_balloon.o = -I$(src)
 
-mshv-y				+= mshv_main.o hv_call.o hv_synic.o hv_portid_table.o \
+mshv-y				+= mshv_main.o mshv_common.o hv_call.o
+mshv_root-y			:= mshv_root_main.o hv_synic.o hv_portid_table.o \
 				   hv_eventfd.o mshv_msi.o vfio.o
-mshv-$(CONFIG_HYPERV_VTL)	+= mshv_vtl.o
+
 obj-$(CONFIG_MSHV_XFER_TO_GUEST_WORK) += xfer_to_guest.o
 hv_vmbus-y := vmbus_drv.o \
 		 hv.o connection.o channel.o \
