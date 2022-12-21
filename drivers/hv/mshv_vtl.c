@@ -1131,6 +1131,8 @@ static const struct file_operations mshv_vtl_sint_ops = {
 static struct miscdevice mshv_vtl_sint_dev = {
 	.name = "mshv_sint",
 	.fops = &mshv_vtl_sint_ops,
+	.mode = 0600,
+	.minor = MISC_DYNAMIC_MINOR,
 };
 
 static int mshv_vtl_hvcall_open(struct inode *node, struct file *f)
