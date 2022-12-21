@@ -2,6 +2,8 @@
 /*
  * Copyright (c) 2023, Microsoft Corporation.
  *
+ * Generic hypercall helper functions provided by the core mshv module.
+ *
  * Authors:
  *   Nuno Das Neves <nunodasneves@linux.microsoft.com>
  *   Wei Liu <wei.liu@kernel.org>

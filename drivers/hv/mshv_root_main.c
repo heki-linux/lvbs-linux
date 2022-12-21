@@ -2,6 +2,9 @@
 /*
  * Copyright (c) 2023, Microsoft Corporation.
  *
+ * The main part of the mshv_root module, providing APIs to create
+ * and manage guest partitions.
+ *
  * Authors:
  *   Nuno Das Neves <nunodasneves@linux.microsoft.com>
  *   Lillian Grassin-Drake <ligrassi@microsoft.com>

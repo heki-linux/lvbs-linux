@@ -2,6 +2,9 @@
 /*
  * Copyright (c) 2023, Microsoft Corporation.
  *
+ * The /dev/mshv device.
+ * This is the core module mshv_root and mshv_vtl depend on.
+ *
  * Authors:
  *   Nuno Das Neves <nudasnev@microsoft.com>
  *   Lillian Grassin-Drake <ligrassi@microsoft.com>

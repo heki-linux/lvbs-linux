@@ -2,6 +2,8 @@
 /*
  * Copyright (c) 2023, Microsoft Corporation.
  *
+ * mshv_root module's main interrupt handler and associated functionality.
+ *
  * Authors:
  *   Nuno Das Neves <nunodasneves@linux.microsoft.com>
  *   Lillian Grassin-Drake <ligrassi@microsoft.com>
