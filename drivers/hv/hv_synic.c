@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021, Microsoft Corporation.
+ * Copyright (c) 2023, Microsoft Corporation.
  *
  * Authors:
- *   Nuno Das Neves <nudasnev@microsoft.com>
+ *   Nuno Das Neves <nunodasneves@linux.microsoft.com>
  *   Lillian Grassin-Drake <ligrassi@microsoft.com>
  *   Vineeth Remanan Pillai <viremana@linux.microsoft.com>
+ *   Wei Liu <wei.liu@kernel.org>
+ *   Stanislav Kinsburskii <skinsburskii@linux.microsoft.com>
  */
 
 #include <linux/kernel.h>

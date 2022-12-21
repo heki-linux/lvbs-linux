@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2021, Microsoft Corporation.
- *
- * Authors:
- *   Nuno Das Neves <nudasnev@microsoft.com>
- *   Lillian Grassin-Drake <ligrassi@microsoft.com>
- *   Vineeth Pillai <viremana@linux.microsoft.com>
+ * Copyright (c) 2023, Microsoft Corporation.
  */
 
 #ifndef _MSHV_H_

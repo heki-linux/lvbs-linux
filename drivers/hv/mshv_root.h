@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2022, Microsoft Corporation.
+ * Copyright (c) 2023, Microsoft Corporation.
  */
 
 #ifndef _MSHV_ROOT_H_
