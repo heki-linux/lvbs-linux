@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 5.15.82.mshv1 Kernel Configuration
+# Linux/arm64 5.15.82.mshv2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="gcc (GCC) 11.2.0"
 CONFIG_CC_IS_GCC=y
@@ -6749,6 +6749,7 @@ CONFIG_MSHV_XFER_TO_GUEST_WORK=y
 CONFIG_HYPERV=y
 CONFIG_HYPERV_VMM_API=y
 CONFIG_HYPERV_BALLOON=y
+CONFIG_HYPERV_ROOT=y
 CONFIG_DXGKRNL=y
 # end of Microsoft Hyper-V guest support
 

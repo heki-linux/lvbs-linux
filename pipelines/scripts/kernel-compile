@@ -35,9 +35,11 @@ case "${FLAVOR}" in
         ;;
 	dom0-module)
 		sed -i 's/HYPERV_VMM_API=y/HYPERV_VMM_API=m/' .config
+		sed -i 's/HYPERV_ROOT=y/HYPERV_ROOT=m/' .config
 		;;
 	dom0-disabled)
 		sed -i 's/HYPERV_VMM_API=.*//' .config
+		sed -i 's/HYPERV_ROOT=.*//' .config
 		;;
 esac
 

@@ -349,6 +349,10 @@ struct mshv_vp_run_registers {
 #define MSHV_SINT_POST_MESSAGE    _IOW(MSHV_IOCTL, 0x23, struct mshv_sint_post_msg)
 #define MSHV_SINT_SET_EVENTFD     _IOW(MSHV_IOCTL, 0x24, struct mshv_set_eventfd)
 
+/* hv_hvcall device */
+#define MSHV_HVCALL_SETUP        _IOW(MSHV_IOCTL, 0x1E, struct mshv_hvcall_setup)
+#define MSHV_HVCALL              _IOWR(MSHV_IOCTL, 0x1F, struct mshv_hvcall)
+
 /* ioctl for device fd */
 #define MSHV_CREATE_DEVICE	  _IOWR(MSHV_IOCTL, 0x13, struct mshv_create_device)
 

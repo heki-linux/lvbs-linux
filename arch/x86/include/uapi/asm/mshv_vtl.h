@@ -33,6 +33,20 @@ struct mshv_set_poll_file {
 	__u32 fd;
 } __packed;
 
+struct mshv_hvcall_setup {
+	u64 bitmap_size;
+	u64 *allow_bitmap;
+} __packed;
+
+struct mshv_hvcall {
+	u64 control;
+	u64 input_size;
+	void *input_data;
+	u64 status;
+	u64 output_size;
+	void *output_data;
+} __packed;
+
 struct mshv_cpu_context {
 	union {
 		struct {

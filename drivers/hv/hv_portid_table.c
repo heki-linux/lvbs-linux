@@ -7,6 +7,7 @@
 #include <asm/mshyperv.h>
 
 #include "mshv.h"
+#include "mshv_root.h"
 
 /*
  * Ports and connections are hypervisor struct used for inter-partition
