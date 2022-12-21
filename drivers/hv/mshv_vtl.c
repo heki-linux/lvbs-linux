@@ -955,6 +955,7 @@ mshv_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 }
 
 static const struct file_operations mshv_vtl_fops = {
+    .owner = THIS_MODULE,
 	.unlocked_ioctl = mshv_vtl_ioctl,
 };
 

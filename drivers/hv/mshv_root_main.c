@@ -49,6 +49,7 @@ static const struct vm_operations_struct mshv_vp_vm_ops = {
 };
 
 static const struct file_operations mshv_vp_fops = {
+	.owner = THIS_MODULE,
 	.release = mshv_vp_release,
 	.unlocked_ioctl = mshv_vp_ioctl,
 	.llseek = noop_llseek,
@@ -56,6 +57,7 @@ static const struct file_operations mshv_vp_fops = {
 };
 
 static const struct file_operations mshv_partition_fops = {
+	.owner = THIS_MODULE,
 	.release = mshv_partition_release,
 	.unlocked_ioctl = mshv_partition_ioctl,
 	.llseek = noop_llseek,
@@ -1231,6 +1233,7 @@ static int mshv_device_release(struct inode *inode, struct file *filp)
 }
 
 static const struct file_operations mshv_device_fops = {
+	.owner = THIS_MODULE,
 	.unlocked_ioctl = mshv_device_ioctl,
 	.release = mshv_device_release,
 };
