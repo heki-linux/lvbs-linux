@@ -160,8 +160,10 @@ static bool mshv_async_call_completion_isr(struct hv_message *msg)
 		goto unlock_out;
 	}
 
-	pr_debug("Partition ID: %llu received async hypercall completion\n",
-		 async_msg->partition_id);
+	pr_debug("%s: Partition ID: %llu completing async hypercall\n",
+		 __func__, async_msg->partition_id);
+
+	complete(&partition->async_hypercall);
 
 	handled = true;
 

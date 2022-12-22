@@ -910,6 +910,32 @@ mshv_partition_ioctl_get_property(struct mshv_partition *partition,
 	return 0;
 }
 
+static void
+mshv_root_async_hypecall_handler(u64 partition_id, u64 *status)
+{
+	struct mshv_partition *partition;
+
+	rcu_read_lock();
+
+	partition = mshv_partition_find(partition_id);
+	if (unlikely(!partition)) {
+		pr_err("%s: failed to find partition %llu\n", __func__,
+		       partition_id);
+		goto unlock_out;
+	}
+
+	wait_for_completion(&partition->async_hypercall);
+	reinit_completion(&partition->async_hypercall);
+
+	pr_debug("%s: Partition ID: %llu, async hypercall completed!\n",
+		 __func__, partition->id);
+
+	*status = HV_STATUS_SUCCESS;
+
+unlock_out:
+	rcu_read_unlock();
+}
+
 static long
 mshv_partition_ioctl_set_property(struct mshv_partition *partition,
 				  void __user *user_args)
@@ -922,7 +948,8 @@ mshv_partition_ioctl_set_property(struct mshv_partition *partition,
 	return hv_call_set_partition_property(
 			partition->id,
 			args.property_code,
-			args.property_value);
+			args.property_value,
+			mshv_root_async_hypecall_handler);
 }
 
 static long
@@ -1708,7 +1735,8 @@ __mshv_ioctl_create_partition(void __user *user_arg)
 	ret = hv_call_set_partition_property(
 				partition->id,
 				HV_PARTITION_PROPERTY_SYNTHETIC_PROC_FEATURES,
-				args.synthetic_processor_features.as_uint64[0]);
+				args.synthetic_processor_features.as_uint64[0],
+				mshv_root_async_hypecall_handler);
 	if (ret)
 		goto remove_partition;
 

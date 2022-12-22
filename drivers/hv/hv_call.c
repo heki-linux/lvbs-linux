@@ -777,7 +777,8 @@ EXPORT_SYMBOL_GPL(hv_call_get_partition_property);
 int hv_call_set_partition_property(
 		u64 partition_id,
 		u64 property_code,
-		u64 property_value)
+		u64 property_value,
+		void (*completion_handler)(u64/* partition_id */, u64 */* status */))
 {
 	u64 status;
 	unsigned long flags;
@@ -792,6 +793,14 @@ int hv_call_set_partition_property(
 	input->property_value = property_value;
 	status = hv_do_hypercall(HVCALL_SET_PARTITION_PROPERTY, input, NULL);
 	local_irq_restore(flags);
+
+	if (unlikely(status == HV_STATUS_CALL_PENDING)) {
+		if (completion_handler)
+			completion_handler(partition_id, &status);
+		else
+			pr_err("%s: Missing completion handler for async set partition hypercall, property_code: %llu!\n",
+			       __func__, property_code);
+	}
 
 	if (!hv_result_success(status))
 		pr_err("%s: %s\n", __func__, hv_status_to_string(status));
