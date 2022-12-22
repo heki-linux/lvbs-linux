@@ -1683,6 +1683,8 @@ __mshv_ioctl_create_partition(void __user *user_arg)
 
 	mutex_init(&partition->irq_lock);
 
+	init_completion(&partition->async_hypercall);
+
 	INIT_HLIST_HEAD(&partition->irq_ack_notifier_list);
 
 	INIT_HLIST_HEAD(&partition->devices);

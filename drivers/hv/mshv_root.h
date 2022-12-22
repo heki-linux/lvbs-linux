@@ -74,6 +74,8 @@ struct mshv_partition {
 
 	struct hlist_head devices;
 
+	struct completion async_hypercall;
+
 	struct {
 		spinlock_t        lock;
 		struct hlist_head items;
