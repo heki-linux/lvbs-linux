@@ -1531,12 +1531,13 @@ remove_partition(struct mshv_partition *partition)
 {
 	spin_lock(&mshv.partitions.lock);
 	hlist_del_rcu(&partition->hnode);
-	spin_unlock(&mshv.partitions.lock);
-
-	synchronize_rcu();
 
 	if (!--mshv.partitions.count)
 		hv_remove_mshv_irq();
+
+	spin_unlock(&mshv.partitions.lock);
+
+	synchronize_rcu();
 }
 
 static void
@@ -1640,19 +1641,20 @@ mshv_partition_release(struct inode *inode, struct file *filp)
 static int
 add_partition(struct mshv_partition *partition)
 {
+	spin_lock(&mshv.partitions.lock);
 	if (mshv.partitions.count >= MSHV_MAX_PARTITIONS) {
 		pr_err("%s: too many partitions\n", __func__);
+		spin_unlock(&mshv.partitions.lock);
 		return -ENOSPC;
 	}
 
-	mshv.partitions.count++;
-
-	spin_lock(&mshv.partitions.lock);
 	hash_add_rcu(mshv.partitions.items, &partition->hnode, partition->id);
-	spin_unlock(&mshv.partitions.lock);
 
+	mshv.partitions.count++;
 	if (mshv.partitions.count == 1)
 		hv_setup_mshv_irq(mshv_isr);
+
+	spin_unlock(&mshv.partitions.lock);
 
 	return 0;
 }
