@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/miscdevice.h>
 #include <linux/anon_inodes.h>
+#include <linux/pfn_t.h>
 #include <linux/tracehook.h>
 #include <linux/cpuhotplug.h>
 #include <linux/mshv.h>
@@ -1330,6 +1331,115 @@ static struct miscdevice mshv_vtl_hvcall = {
 	.minor = MISC_DYNAMIC_MINOR,
 };
 
+static int mshv_vtl_low_open(struct inode *inodep, struct file *filp)
+{
+	pid_t pid = task_pid_vnr(current);
+	uid_t uid = current_uid().val;
+	int ret = 0;
+
+	pr_debug("%s: Opening VTL low, task group %d, uid %d\n", __func__, pid, uid);
+
+	if (capable(CAP_SYS_ADMIN)) {
+		filp->private_data = inodep;
+	} else {
+		pr_err("%s: VTL low open failed: task group %d, uid %d", __func__, pid, uid);
+		ret = -EPERM;
+	}
+
+	return ret;
+}
+
+static bool can_fault(struct vm_fault *vmf, unsigned long size, pfn_t *pfn)
+{
+	unsigned long mask = size - 1;
+	unsigned long start = vmf->address & ~mask;
+	unsigned long end = start + size;
+	bool valid;
+
+	valid = (vmf->address & mask) == ((vmf->pgoff << PAGE_SHIFT) & mask) &&
+		start >= vmf->vma->vm_start &&
+		end <= vmf->vma->vm_end;
+
+	if (valid)
+		*pfn = __pfn_to_pfn_t(vmf->pgoff & ~(mask >> PAGE_SHIFT), PFN_DEV | PFN_MAP);
+
+	return valid;
+}
+
+static vm_fault_t mshv_vtl_low_huge_fault(struct vm_fault *vmf, enum page_entry_size pe_size)
+{
+	pfn_t pfn;
+	int ret = VM_FAULT_FALLBACK;
+
+	switch (pe_size) {
+	case PE_SIZE_PTE:
+		pfn = __pfn_to_pfn_t(vmf->pgoff, PFN_DEV | PFN_MAP);
+		return vmf_insert_mixed(vmf->vma, vmf->address, pfn);
+
+	case PE_SIZE_PMD:
+		if (can_fault(vmf, PMD_SIZE, &pfn))
+			ret = vmf_insert_pfn_pmd(vmf, pfn, vmf->flags & FAULT_FLAG_WRITE);
+		return ret;
+
+	case PE_SIZE_PUD:
+		if (can_fault(vmf, PUD_SIZE, &pfn))
+			ret = vmf_insert_pfn_pud(vmf, pfn, vmf->flags & FAULT_FLAG_WRITE);
+		return ret;
+
+	default:
+		return VM_FAULT_SIGBUS;
+	}
+}
+
+static vm_fault_t mshv_vtl_low_fault(struct vm_fault *vmf)
+{
+	return mshv_vtl_low_huge_fault(vmf, PE_SIZE_PTE);
+}
+
+static const struct vm_operations_struct mshv_vtl_low_vm_ops = {
+	.fault = mshv_vtl_low_fault,
+	.huge_fault = mshv_vtl_low_huge_fault,
+};
+
+static int mshv_vtl_low_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	const u64 start_pfn = vma->vm_pgoff;
+	const u64 size = vma->vm_end - vma->vm_start;
+	const u64 end_pfn = start_pfn + (size >> PAGE_SHIFT);
+
+	pr_debug("%s: Mapping VTL0 memory, start PFN=%#016llx, size=%#016llx bytes at %#016lx\n",
+		 __func__, start_pfn, size, vma->vm_start);
+
+	/*
+	 * TODO: this should be validated against the registered VTL0 memory ranges,
+	 * not the E820 table.
+	 */
+	if ((end_pfn > mshv_get_ram_start_pfn() && end_pfn <= mshv_get_ram_last_pfn()) ||
+	    (start_pfn >= mshv_get_ram_start_pfn() && start_pfn < mshv_get_ram_last_pfn())) {
+		pr_err("%s: Attempt to map the VTL2 RAM. Start PFN=%#016llx, end PFN=%#016llx\n",
+		       __func__, start_pfn, end_pfn);
+		return -EINVAL;
+	}
+
+	vma->vm_ops = &mshv_vtl_low_vm_ops;
+	vma->vm_flags |= VM_HUGEPAGE | VM_MIXEDMAP;
+	return 0;
+}
+
+static const struct file_operations mshv_vtl_low_file_ops = {
+	.owner		= THIS_MODULE,
+	.open		= mshv_vtl_low_open,
+	.mmap		= mshv_vtl_low_mmap,
+};
+
+static struct miscdevice mshv_vtl_low = {
+	.name = "mshv_vtl_low",
+	.nodename = "mshv_vtl_low",
+	.fops = &mshv_vtl_low_file_ops,
+	.mode = 0600,
+	.minor = MISC_DYNAMIC_MINOR,
+};
+
 static int __init mshv_vtl_init(void)
 {
 	int ret;
@@ -1345,10 +1455,16 @@ static int __init mshv_vtl_init(void)
 	if (ret)
 		goto free_sint;
 
+	ret = misc_register(&mshv_vtl_low);
+	if (ret)
+		goto free_hvcall;
+
 	mshv_set_create_vtl_func(__mshv_ioctl_create_vtl);
 
 	return 0;
 
+free_hvcall:
+	misc_deregister(&mshv_vtl_hvcall);
 free_sint:
 	misc_deregister(&mshv_vtl_sint_dev);
 	return ret;
@@ -1359,6 +1475,7 @@ static void __exit mshv_vtl_exit(void)
 	mshv_set_create_vtl_func(NULL);
 	misc_deregister(&mshv_vtl_sint_dev);
 	misc_deregister(&mshv_vtl_hvcall);
+	misc_deregister(&mshv_vtl_low);
 }
 
 module_init(mshv_vtl_init);
