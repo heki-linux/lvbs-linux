@@ -1701,25 +1701,25 @@ __mshv_ioctl_create_partition(void __user *user_arg)
 	if (ret)
 		goto cleanup_irq_srcu;
 
+	ret = add_partition(partition);
+	if (ret)
+		goto delete_partition;
+
 	ret = hv_call_set_partition_property(
 				partition->id,
 				HV_PARTITION_PROPERTY_SYNTHETIC_PROC_FEATURES,
 				args.synthetic_processor_features.as_uint64[0]);
 	if (ret)
-		goto delete_partition;
+		goto remove_partition;
 
 	ret = hv_call_initialize_partition(partition->id);
 	if (ret)
-		goto delete_partition;
-
-	ret = add_partition(partition);
-	if (ret)
-		goto finalize_partition;
+		goto remove_partition;
 
 	fd = get_unused_fd_flags(O_CLOEXEC);
 	if (fd < 0) {
 		ret = fd;
-		goto remove_partition;
+		goto finalize_partition;
 	}
 
 	file = anon_inode_getfile("mshv_partition", &mshv_partition_fops,
@@ -1735,10 +1735,10 @@ __mshv_ioctl_create_partition(void __user *user_arg)
 
 put_fd:
 	put_unused_fd(fd);
-remove_partition:
-	remove_partition(partition);
 finalize_partition:
 	hv_call_finalize_partition(partition->id);
+remove_partition:
+	remove_partition(partition);
 delete_partition:
 	hv_call_withdraw_memory(U64_MAX, NUMA_NO_NODE, partition->id);
 	hv_call_delete_partition(partition->id);
