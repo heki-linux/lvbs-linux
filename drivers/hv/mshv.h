@@ -46,6 +46,7 @@ int hv_call_withdraw_memory(u64 count, int node, u64 partition_id);
 int hv_call_create_partition(
 		u64 flags,
 		struct hv_partition_creation_properties creation_properties,
+		union hv_partition_isolation_properties isolation_properties,
 		u64 *partition_id);
 int hv_call_initialize_partition(u64 partition_id);
 int hv_call_finalize_partition(u64 partition_id);

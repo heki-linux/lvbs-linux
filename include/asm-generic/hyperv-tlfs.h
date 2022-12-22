@@ -838,6 +838,7 @@ struct hv_create_partition_in {
 	u32 compatibility_version;
 	u32 padding;
 	struct hv_partition_creation_properties partition_creation_properties;
+	union hv_partition_isolation_properties isolation_properties;
 } __packed;
 
 struct hv_create_partition_out {
