@@ -45,7 +45,7 @@ struct mshv_mem_region {
 	u64 size; /* bytes */
 	u64 guest_pfn;
 	u64 userspace_addr; /* start of the userspace allocated memory */
-	struct page **pages;
+	struct page *pages[];
 };
 
 struct mshv_irq_ack_notifier {
@@ -61,7 +61,7 @@ struct mshv_partition {
 	struct mutex mutex;
 	struct {
 		u32 count;
-		struct mshv_mem_region slots[MSHV_MAX_MEM_REGIONS];
+		struct mshv_mem_region *array[MSHV_MAX_MEM_REGIONS];
 	} regions;
 	struct {
 		u32 count;

@@ -940,7 +940,7 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 	u64 region_gpfn_start, region_gpfn_end;
 	long ret = 0;
 
-	/* Check we have enough slots*/
+	/* Check we have enough array slots */
 	if (partition->regions.count >= MSHV_MAX_MEM_REGIONS) {
 		pr_err("%s: not enough memory region slots\n", __func__);
 		return -ENOSPC;
@@ -962,8 +962,8 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 	gpfn_start = mem.guest_pfn;
 	gpfn_end = mem.guest_pfn + page_count;
 	for (i = 0; i < MSHV_MAX_MEM_REGIONS; ++i) {
-		region = &partition->regions.slots[i];
-		if (!region->size)
+		region = partition->regions.array[i];
+		if (region == NULL)
 			continue;
 		region_page_count = region->size >> HV_HYP_PAGE_SHIFT;
 		region_user_start = region->userspace_addr;
@@ -981,11 +981,15 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 		}
 	}
 
-	/* Pin the userspace pages */
-	pages = vzalloc(sizeof(struct page *) * page_count);
-	if (!pages)
+	region = vzalloc(sizeof(*region) + sizeof(*pages) * page_count);
+	if (!region)
 		return -ENOMEM;
+	region->size = mem.size;
+	region->guest_pfn = mem.guest_pfn;
+	region->userspace_addr = mem.userspace_addr;
+	pages = &region->pages[0];
 
+	/* Pin the userspace pages */
 	remaining = page_count;
 	while (remaining) {
 		/*
@@ -1012,28 +1016,21 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 	/* Map the pages to GPA pages */
 	ret = hv_call_map_gpa_pages(partition->id, mem.guest_pfn,
 				    page_count, mem.flags, pages);
-	if (ret)
-		goto err_unpin_pages;
 
 	/* Install the new region */
 	for (i = 0; i < MSHV_MAX_MEM_REGIONS; ++i) {
-		if (!partition->regions.slots[i].size) {
-			region = &partition->regions.slots[i];
+		if (partition->regions.array[i] == NULL) {
+			partition->regions.array[i] = region;
 			break;
 		}
 	}
-	region->pages = pages;
-	region->size = mem.size;
-	region->guest_pfn = mem.guest_pfn;
-	region->userspace_addr = mem.userspace_addr;
-
 	partition->regions.count++;
 
 	return 0;
 
 err_unpin_pages:
 	unpin_user_pages(pages, page_count - remaining);
-	vfree(pages);
+	vfree(region);
 
 	return ret;
 }
@@ -1043,7 +1040,7 @@ mshv_partition_ioctl_unmap_memory(struct mshv_partition *partition,
 				  struct mshv_user_mem_region __user *user_mem)
 {
 	struct mshv_user_mem_region mem;
-	struct mshv_mem_region *region_ptr;
+	struct mshv_mem_region *region;
 	int i;
 	u64 page_count;
 	long ret;
@@ -1056,28 +1053,28 @@ mshv_partition_ioctl_unmap_memory(struct mshv_partition *partition,
 
 	/* Find matching region */
 	for (i = 0; i < MSHV_MAX_MEM_REGIONS; ++i) {
-		if (!partition->regions.slots[i].size)
+		region = partition->regions.array[i];
+		if (region == NULL)
 			continue;
-		region_ptr = &partition->regions.slots[i];
-		if (region_ptr->userspace_addr == mem.userspace_addr &&
-		    region_ptr->size == mem.size &&
-		    region_ptr->guest_pfn == mem.guest_pfn)
+		if (region->userspace_addr == mem.userspace_addr &&
+		    region->size == mem.size &&
+		    region->guest_pfn == mem.guest_pfn)
 			break;
 	}
 
 	if (i == MSHV_MAX_MEM_REGIONS)
 		return -EINVAL;
 
-	page_count = region_ptr->size >> HV_HYP_PAGE_SHIFT;
-	ret = hv_call_unmap_gpa_pages(partition->id, region_ptr->guest_pfn,
+	partition->regions.array[i] = NULL;
+	partition->regions.count--;
+	page_count = region->size >> HV_HYP_PAGE_SHIFT;
+	ret = hv_call_unmap_gpa_pages(partition->id, region->guest_pfn,
 				      page_count, 0);
 	if (ret)
 		return ret;
 
-	unpin_user_pages(region_ptr->pages, page_count);
-	vfree(region_ptr->pages);
-	memset(region_ptr, 0, sizeof(*region_ptr));
-	partition->regions.count--;
+	unpin_user_pages(&region->pages[0], page_count);
+	vfree(region);
 
 	return 0;
 }
@@ -1583,12 +1580,12 @@ destroy_partition(struct mshv_partition *partition)
 
 	/* Remove regions and unpin the pages */
 	for (i = 0; i < MSHV_MAX_MEM_REGIONS; ++i) {
-		region = &partition->regions.slots[i];
-		if (!region->size)
+		region = partition->regions.array[i];
+		if (region == NULL)
 			continue;
 		page_count = region->size >> HV_HYP_PAGE_SHIFT;
-		unpin_user_pages(region->pages, page_count);
-		vfree(region->pages);
+		unpin_user_pages(&region->pages[0], page_count);
+		vfree(region);
 	}
 
 	mshv_destroy_devices(partition);
