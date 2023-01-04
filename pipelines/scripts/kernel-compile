@@ -31,7 +31,8 @@ make LC_ALL= ARCH="${ARCH}" ${CONFIG}
 
 case "${FLAVOR}" in
 	dom0-vtl)
-		sed -i 's/^# CONFIG_HYPERV_VTL is not set/CONFIG_HYPERV_VTL=y/' .config
+		sed -i 's/^# CONFIG_TRANSPARENT_HUGEPAGE is not set/CONFIG_TRANSPARENT_HUGEPAGE=y/' .config
+		echo 'CONFIG_HYPERV_VTL=y' >> .config
         ;;
 	dom0-module)
 		sed -i 's/HYPERV_VMM_API=y/HYPERV_VMM_API=m/' .config
