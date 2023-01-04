@@ -342,6 +342,23 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 			vp->run.flags.blocked_by_explicit_suspend = 0;
 		}
 
+		if (vp->run.flags.blocked) {
+			/*
+			 * Dispatch state of this VP is blocked. Need to wait
+			 * for the hypervisor to clear the blocked state before
+			 * dispatching it.
+			 */
+			ret = wait_event_interruptible(vp->run.suspend_queue,
+					vp->run.kicked_by_hv == 1);
+			if (ret) {
+				ret = -EINTR;
+				complete = true;
+				break;
+			}
+			vp->run.kicked_by_hv = 0;
+			vp->run.flags.blocked = 0;
+		}
+
 		preempt_disable();
 
 		while (!vp->run.flags.blocked_by_explicit_suspend && !got_intercept_message) {
@@ -416,13 +433,15 @@ mshv_run_vp_with_root_scheduler(struct mshv_vp *vp, void __user *ret_message)
 					WARN_ONCE(atomic64_read(&vp->run.signaled_count),
 						  "%s: vp#%d: unexpected explicit suspend\n", __func__, vp->index);
 				} else {
-					ret = wait_event_killable(vp->run.suspend_queue,
-								  vp->run.kicked_by_hv == 1);
+					vp->run.flags.blocked = 1;
+					ret = wait_event_interruptible(vp->run.suspend_queue,
+							vp->run.kicked_by_hv == 1);
 					if (ret) {
 						ret = -EINTR;
 						complete = true;
 						break;
 					}
+					vp->run.flags.blocked = 0;
 					vp->run.kicked_by_hv = 0;
 				}
 			} else {
