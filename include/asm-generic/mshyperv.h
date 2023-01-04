@@ -21,7 +21,7 @@
 #include <linux/types.h>
 #include <linux/atomic.h>
 #include <linux/bitops.h>
-#include <acpi/acpi_numa.h>
+#include <linux/acpi.h>
 #include <linux/cpumask.h>
 #include <linux/nmi.h>
 #include <asm/ptrace.h>
@@ -154,6 +154,18 @@ extern bool hv_nested;
 #define REG_EOM (hv_nested ? HV_REGISTER_NESTED_EOM : HV_REGISTER_EOM)
 #else
 #define REG_EOM (HV_REGISTER_EOM)
+#endif
+
+#ifdef CONFIG_ACPI
+static inline bool hv_is_hibernation_supported(void)
+{
+	return !hv_root_partition && acpi_sleep_state_supported(ACPI_STATE_S4);
+}
+#else
+static inline bool hv_is_hibernation_supported(void)
+{
+	return false;
+}
 #endif
 
 /* Free the message slot and signal end-of-message if required */

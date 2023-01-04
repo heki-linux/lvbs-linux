@@ -258,12 +258,6 @@ void hv_setup_dma_ops(struct device *dev, bool coherent)
 }
 EXPORT_SYMBOL_GPL(hv_setup_dma_ops);
 
-bool hv_is_hibernation_supported(void)
-{
-	return !hv_root_partition && acpi_sleep_state_supported(ACPI_STATE_S4);
-}
-EXPORT_SYMBOL_GPL(hv_is_hibernation_supported);
-
 /*
  * Default function to read the Hyper-V reference counter, independent
  * of whether Hyper-V enlightened clocks/timers are being used. But on
