@@ -736,6 +736,9 @@ hv_vmbus_dynid_match(struct hv_driver *drv, const guid_t *guid)
 
 	spin_lock(&drv->dynids.lock);
 	list_for_each_entry(dynid, &drv->dynids.list, node) {
+		if (!dynid)
+			break;
+
 		if (guid_equal(&dynid->id.guid, guid)) {
 			id = &dynid->id;
 			break;
@@ -757,6 +760,11 @@ static const struct hv_vmbus_device_id *hv_vmbus_get_id(struct hv_driver *drv,
 {
 	const guid_t *guid = &dev->dev_type;
 	const struct hv_vmbus_device_id *id;
+
+	if (!guid) {
+		pr_err("Unknown vmbus device type\n");
+		return NULL;
+	}
 
 	/* When driver_override is set, only bind to the matching driver */
 	if (dev->driver_override && strcmp(dev->driver_override, drv->name))
