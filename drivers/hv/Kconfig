@@ -18,7 +18,7 @@ config HYPERV
 	  Select this option to run Linux as a Hyper-V client operating
 	  system.
 
-config HYPERV_VMM_API
+config MSHV
 	tristate "Microsoft Hypervisor root partition interfaces: /dev/mshv"
 	depends on HYPERV
 	select EVENTFD
@@ -55,9 +55,9 @@ config HYPERV_BALLOON
 	help
 	  Select this option to enable Hyper-V Balloon driver.
 
-config HYPERV_VTL
+config MSHV_VTL
 	tristate "Microsoft Hyper-V VTL driver"
-	depends on HYPERV_VMM_API && X86 && TRANSPARENT_HUGEPAGE
+	depends on MSHV && X86 && TRANSPARENT_HUGEPAGE
 	help
 	  Select this option to enable Hyper-V VTL driver.
 	  Virtual Secure Mode (VSM) is a set of hypervisor capabilities and
@@ -70,9 +70,9 @@ config HYPERV_VTL
 	  being more privileged than lower levels. VTL0 is the least privileged
 	  level, and currently only other level supported is VTL2.
 
-config HYPERV_ROOT
+config MSHV_ROOT
 	tristate "Microsoft Hyper-V root partition APIs driver"
-	depends on HYPERV_VMM_API
+	depends on MSHV
 	help
 	  TODO
 
