@@ -32,15 +32,15 @@ make LC_ALL= ARCH="${ARCH}" ${CONFIG}
 case "${FLAVOR}" in
 	dom0-vtl)
 		sed -i 's/^# CONFIG_TRANSPARENT_HUGEPAGE is not set/CONFIG_TRANSPARENT_HUGEPAGE=y/' .config
-		echo 'CONFIG_HYPERV_VTL=y' >> .config
+		echo 'CONFIG_MSHV_VTL=y' >> .config
         ;;
 	dom0-module)
-		sed -i 's/HYPERV_VMM_API=y/HYPERV_VMM_API=m/' .config
-		sed -i 's/HYPERV_ROOT=y/HYPERV_ROOT=m/' .config
+		sed -i 's/MSHV=y/MSHV=m/' .config
+		sed -i 's/MSHV_ROOT=y/MSHV_ROOT=m/' .config
 		;;
 	dom0-disabled)
-		sed -i 's/HYPERV_VMM_API=.*//' .config
-		sed -i 's/HYPERV_ROOT=.*//' .config
+		sed -i 's/MSHV=.*//' .config
+		sed -i 's/MSHV_ROOT=.*//' .config
 		;;
 esac
 
