@@ -2,12 +2,6 @@
 
 menu "Microsoft Hyper-V guest support"
 
-config MSHV_VFIO
-	bool
-
-config MSHV_XFER_TO_GUEST_WORK
-	bool
-
 config HYPERV
 	tristate "Microsoft Hyper-V client drivers"
 	depends on ACPI && ((X86 && X86_LOCAL_APIC && HYPERVISOR_GUEST) \
@@ -17,26 +11,6 @@ config HYPERV
 	help
 	  Select this option to run Linux as a Hyper-V client operating
 	  system.
-
-config MSHV
-	tristate "Microsoft Hypervisor root partition interfaces: /dev/mshv"
-	depends on HYPERV
-	select EVENTFD
-	select MSHV_VFIO
-	select MSHV_XFER_TO_GUEST_WORK
-	help
-	  Provides access to interfaces for managing guest virtual machines
-	  running under the Microsoft Hypervisor.
-
-	  These interfaces will only work when Linux is running as root
-	  partition on the Microsoft Hypervisor.
-
-	  The interfaces are provided via a device named /dev/mshv.
-
-	  To compile this as a module, choose M here.
-	  The module is named mshv.
-
-	  If unsure, say N.
 
 config HYPERV_TIMER
 	def_bool HYPERV && X86
@@ -55,6 +29,33 @@ config HYPERV_BALLOON
 	help
 	  Select this option to enable Hyper-V Balloon driver.
 
+config MSHV
+	tristate "Microsoft Hypervisor root partition interfaces: /dev/mshv"
+	depends on HYPERV
+	select EVENTFD
+	select MSHV_VFIO
+	select MSHV_XFER_TO_GUEST_WORK
+	help
+	  Select this option to enable core functionality for managing guest
+	  virtual machines running under the Microsoft Hypervisor.
+
+	  The interfaces are provided via a device named /dev/mshv.
+
+	  To compile this as a module, choose M here.
+
+	  If unsure, say N.
+
+config MSHV_ROOT
+	tristate "Microsoft Hyper-V root partition APIs driver"
+	depends on MSHV
+	help
+	  Select this option to provide /dev/mshv interfaces specific to
+	  running as the root partition on Microsoft Hypervisor.
+
+	  To compile this as a module, choose M here.
+
+	  If unsure, say N.
+
 config MSHV_VTL
 	tristate "Microsoft Hyper-V VTL driver"
 	depends on MSHV && X86 && TRANSPARENT_HUGEPAGE
@@ -70,11 +71,15 @@ config MSHV_VTL
 	  being more privileged than lower levels. VTL0 is the least privileged
 	  level, and currently only other level supported is VTL2.
 
-config MSHV_ROOT
-	tristate "Microsoft Hyper-V root partition APIs driver"
-	depends on MSHV
-	help
-	  TODO
+	  To compile this as a module, choose M here.
+
+	  If unsure, say N.
+
+config MSHV_VFIO
+	bool
+
+config MSHV_XFER_TO_GUEST_WORK
+	bool
 
 source "drivers/hv/dxgkrnl/Kconfig"
 
