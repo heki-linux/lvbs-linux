@@ -1461,8 +1461,25 @@ static int __init mshv_vtl_init(void)
 
 	mshv_set_create_vtl_func(__mshv_ioctl_create_vtl);
 
+	mem_dev = kzalloc(sizeof(*mem_dev), GFP_KERNEL);
+	if (!mem_dev) {
+		ret = -ENOMEM;
+		goto free_low;
+	}
+
+	device_initialize(mem_dev);
+	dev_set_name(mem_dev, "mshv vtl mem dev");
+	ret = device_add(mem_dev);
+	if (ret) {
+		pr_err("%s: mshv vtl mem dev add: %d\n", __func__, ret);
+		goto free_mem;
+	}
 	return 0;
 
+free_mem:
+	kfree(mem_dev);
+free_low:
+	misc_deregister(&mshv_vtl_low);
 free_hvcall:
 	misc_deregister(&mshv_vtl_hvcall);
 free_sint:
@@ -1476,6 +1493,8 @@ static void __exit mshv_vtl_exit(void)
 	misc_deregister(&mshv_vtl_sint_dev);
 	misc_deregister(&mshv_vtl_hvcall);
 	misc_deregister(&mshv_vtl_low);
+	device_del(mem_dev);
+	kfree(mem_dev);
 }
 
 module_init(mshv_vtl_init);
