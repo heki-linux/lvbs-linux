@@ -1607,6 +1607,18 @@ destroy_partition(struct mshv_partition *partition)
 	int i;
 
 	/*
+	 * This must be done before we drain all the vps and call
+	 * remove_partition, otherwise we won't receive the interrupt
+	 * for completion of this async hypercall.
+	 */
+	if (mshv_partition_isolation_type_snp(partition)) {
+		WARN_ON(hv_call_set_partition_property(
+			partition->id, HV_PARTITION_PROPERTY_ISOLATION_STATE,
+			HV_PARTITION_ISOLATION_INSECURE_DIRTY,
+			mshv_root_async_hypecall_handler));
+	}
+
+	/*
 	 * We only need to drain signals for root scheduler. This should be
 	 * done before removing the partition from the partition list.
 	 */
