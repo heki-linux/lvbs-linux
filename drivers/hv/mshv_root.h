@@ -87,6 +87,7 @@ struct mshv_partition {
 		struct hlist_head items;
 	} ioeventfds;
 	struct mshv_msi_routing_table __rcu *msi_routing;
+	u64 isolation_type;
 };
 
 struct mshv_lapic_irq {

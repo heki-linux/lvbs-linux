@@ -1738,6 +1738,8 @@ __mshv_ioctl_create_partition(void __user *user_arg)
 	if (!partition)
 		return -ENOMEM;
 
+	partition->isolation_type = args.isolation_properties.isolation_type;
+
 	refcount_set(&partition->ref_count, 1);
 
 	mutex_init(&partition->mutex);
