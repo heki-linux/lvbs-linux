@@ -237,6 +237,11 @@ void mshv_isr(void);
 int mshv_synic_init(unsigned int cpu);
 int mshv_synic_cleanup(unsigned int cpu);
 
+static inline bool mshv_partition_isolation_type_snp(struct mshv_partition *partition)
+{
+	return partition->isolation_type == HV_PARTITION_ISOLATION_TYPE_SNP;
+}
+
 extern struct mshv mshv;
 
 #endif /* _MSHV_ROOT_H_ */
