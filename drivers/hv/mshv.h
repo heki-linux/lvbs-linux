@@ -172,9 +172,11 @@ struct mshv_partition *mshv_partition_find(u64 partition_id) __must_hold(RCU);
 
 int mshv_xfer_to_guest_mode_handle_work(unsigned long ti_work);
 
-typedef long (*mshv_ioctl_func_t)(void __user *user_arg);
-void mshv_set_create_vtl_func(const mshv_ioctl_func_t func);
-void mshv_set_create_partition_func(const mshv_ioctl_func_t func);
+typedef long (*mshv_create_func_t)(void __user *user_arg);
+typedef long (*mshv_check_ext_func_t)(u32 arg);
+void mshv_setup_vtl_func(const mshv_create_func_t create_vtl,
+			 const mshv_check_ext_func_t check_ext);
+void mshv_set_create_partition_func(const mshv_create_func_t func);
 
 long mshv_ioctl_signal_event_direct(u64 partition_id, void __user *user_args);
 long mshv_ioctl_translate_gva(u32 vp_index, u64 partition_id, void __user *user_args);
