@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Microsoft Corporation.
+ * Copyright (c) 2023, Microsoft Corporation.
  *
+ * Common ioctl functionality shared by mshv_root and mshv_vtl.
+ * Provided by the core mshv module.
  */
 
 #include <linux/kernel.h>

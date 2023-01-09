@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, Microsoft Corporation.
+ * Copyright (c) 2023, Microsoft Corporation.
+ *
+ * The /dev/mshv device.
+ * This is the core module mshv_root and mshv_vtl depend on.
  *
  * Authors:
  *   Nuno Das Neves <nudasnev@microsoft.com>

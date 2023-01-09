@@ -1,10 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, Microsoft Corporation.
+ * Copyright (c) 2023, Microsoft Corporation.
+ *
+ * The main part of the mshv_root module, providing APIs to create
+ * and manage guest partitions.
  *
  * Authors:
- *   Nuno Das Neves <nudasnev@microsoft.com>
+ *   Nuno Das Neves <nunodasneves@linux.microsoft.com>
  *   Lillian Grassin-Drake <ligrassi@microsoft.com>
+ *   Wei Liu <wei.liu@kernel.org>
+ *   Vineeth Remanan Pillai <viremana@linux.microsoft.com>
+ *   Stanislav Kinsburskii <skinsburskii@linux.microsoft.com>
+ *   Asher Kariv <askariv@microsoft.com>
+ *   Muminul Islam <Muminul.Islam@microsoft.com>
+ *   Anatol Belski <anbelski@linux.microsoft.com>
  */
 
 #include <linux/kernel.h>
@@ -49,6 +58,7 @@ static const struct vm_operations_struct mshv_vp_vm_ops = {
 };
 
 static const struct file_operations mshv_vp_fops = {
+	.owner = THIS_MODULE,
 	.release = mshv_vp_release,
 	.unlocked_ioctl = mshv_vp_ioctl,
 	.llseek = noop_llseek,
@@ -56,6 +66,7 @@ static const struct file_operations mshv_vp_fops = {
 };
 
 static const struct file_operations mshv_partition_fops = {
+	.owner = THIS_MODULE,
 	.release = mshv_partition_release,
 	.unlocked_ioctl = mshv_partition_ioctl,
 	.llseek = noop_llseek,
@@ -899,6 +910,32 @@ mshv_partition_ioctl_get_property(struct mshv_partition *partition,
 	return 0;
 }
 
+static void
+mshv_root_async_hypecall_handler(u64 partition_id, u64 *status)
+{
+	struct mshv_partition *partition;
+
+	rcu_read_lock();
+
+	partition = mshv_partition_find(partition_id);
+	if (unlikely(!partition)) {
+		pr_err("%s: failed to find partition %llu\n", __func__,
+		       partition_id);
+		goto unlock_out;
+	}
+
+	wait_for_completion(&partition->async_hypercall);
+	reinit_completion(&partition->async_hypercall);
+
+	pr_debug("%s: Partition ID: %llu, async hypercall completed!\n",
+		 __func__, partition->id);
+
+	*status = HV_STATUS_SUCCESS;
+
+unlock_out:
+	rcu_read_unlock();
+}
+
 static long
 mshv_partition_ioctl_set_property(struct mshv_partition *partition,
 				  void __user *user_args)
@@ -911,7 +948,8 @@ mshv_partition_ioctl_set_property(struct mshv_partition *partition,
 	return hv_call_set_partition_property(
 			partition->id,
 			args.property_code,
-			args.property_value);
+			args.property_value,
+			mshv_root_async_hypecall_handler);
 }
 
 static long
@@ -929,7 +967,7 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 	u64 region_gpfn_start, region_gpfn_end;
 	long ret = 0;
 
-	/* Check we have enough slots*/
+	/* Check we have enough array slots */
 	if (partition->regions.count >= MSHV_MAX_MEM_REGIONS) {
 		pr_err("%s: not enough memory region slots\n", __func__);
 		return -ENOSPC;
@@ -951,8 +989,8 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 	gpfn_start = mem.guest_pfn;
 	gpfn_end = mem.guest_pfn + page_count;
 	for (i = 0; i < MSHV_MAX_MEM_REGIONS; ++i) {
-		region = &partition->regions.slots[i];
-		if (!region->size)
+		region = partition->regions.array[i];
+		if (region == NULL)
 			continue;
 		region_page_count = region->size >> HV_HYP_PAGE_SHIFT;
 		region_user_start = region->userspace_addr;
@@ -970,11 +1008,15 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 		}
 	}
 
-	/* Pin the userspace pages */
-	pages = vzalloc(sizeof(struct page *) * page_count);
-	if (!pages)
+	region = vzalloc(sizeof(*region) + sizeof(*pages) * page_count);
+	if (!region)
 		return -ENOMEM;
+	region->size = mem.size;
+	region->guest_pfn = mem.guest_pfn;
+	region->userspace_addr = mem.userspace_addr;
+	pages = &region->pages[0];
 
+	/* Pin the userspace pages */
 	remaining = page_count;
 	while (remaining) {
 		/*
@@ -1001,28 +1043,21 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 	/* Map the pages to GPA pages */
 	ret = hv_call_map_gpa_pages(partition->id, mem.guest_pfn,
 				    page_count, mem.flags, pages);
-	if (ret)
-		goto err_unpin_pages;
 
 	/* Install the new region */
 	for (i = 0; i < MSHV_MAX_MEM_REGIONS; ++i) {
-		if (!partition->regions.slots[i].size) {
-			region = &partition->regions.slots[i];
+		if (partition->regions.array[i] == NULL) {
+			partition->regions.array[i] = region;
 			break;
 		}
 	}
-	region->pages = pages;
-	region->size = mem.size;
-	region->guest_pfn = mem.guest_pfn;
-	region->userspace_addr = mem.userspace_addr;
-
 	partition->regions.count++;
 
 	return 0;
 
 err_unpin_pages:
 	unpin_user_pages(pages, page_count - remaining);
-	vfree(pages);
+	vfree(region);
 
 	return ret;
 }
@@ -1032,7 +1067,7 @@ mshv_partition_ioctl_unmap_memory(struct mshv_partition *partition,
 				  struct mshv_user_mem_region __user *user_mem)
 {
 	struct mshv_user_mem_region mem;
-	struct mshv_mem_region *region_ptr;
+	struct mshv_mem_region *region;
 	int i;
 	u64 page_count;
 	long ret;
@@ -1045,28 +1080,28 @@ mshv_partition_ioctl_unmap_memory(struct mshv_partition *partition,
 
 	/* Find matching region */
 	for (i = 0; i < MSHV_MAX_MEM_REGIONS; ++i) {
-		if (!partition->regions.slots[i].size)
+		region = partition->regions.array[i];
+		if (region == NULL)
 			continue;
-		region_ptr = &partition->regions.slots[i];
-		if (region_ptr->userspace_addr == mem.userspace_addr &&
-		    region_ptr->size == mem.size &&
-		    region_ptr->guest_pfn == mem.guest_pfn)
+		if (region->userspace_addr == mem.userspace_addr &&
+		    region->size == mem.size &&
+		    region->guest_pfn == mem.guest_pfn)
 			break;
 	}
 
 	if (i == MSHV_MAX_MEM_REGIONS)
 		return -EINVAL;
 
-	page_count = region_ptr->size >> HV_HYP_PAGE_SHIFT;
-	ret = hv_call_unmap_gpa_pages(partition->id, region_ptr->guest_pfn,
+	partition->regions.array[i] = NULL;
+	partition->regions.count--;
+	page_count = region->size >> HV_HYP_PAGE_SHIFT;
+	ret = hv_call_unmap_gpa_pages(partition->id, region->guest_pfn,
 				      page_count, 0);
 	if (ret)
 		return ret;
 
-	unpin_user_pages(region_ptr->pages, page_count);
-	vfree(region_ptr->pages);
-	memset(region_ptr, 0, sizeof(*region_ptr));
-	partition->regions.count--;
+	unpin_user_pages(&region->pages[0], page_count);
+	vfree(region);
 
 	return 0;
 }
@@ -1221,7 +1256,7 @@ static int mshv_device_release(struct inode *inode, struct file *filp)
 
 	if (dev->ops->release) {
 		mutex_lock(&partition->mutex);
-		list_del(&dev->partition_node);
+		hlist_del(&dev->partition_node);
 		dev->ops->release(dev);
 		mutex_unlock(&partition->mutex);
 	}
@@ -1231,6 +1266,7 @@ static int mshv_device_release(struct inode *inode, struct file *filp)
 }
 
 static const struct file_operations mshv_device_fops = {
+	.owner = THIS_MODULE,
 	.unlocked_ioctl = mshv_device_ioctl,
 	.release = mshv_device_release,
 };
@@ -1305,7 +1341,7 @@ mshv_partition_ioctl_create_device(struct mshv_partition *partition,
 		goto out;
 	}
 
-	list_add(&dev->partition_node, &partition->devices);
+	hlist_add_head(&dev->partition_node, &partition->devices);
 
 	if (ops->init)
 		ops->init(dev);
@@ -1314,7 +1350,7 @@ mshv_partition_ioctl_create_device(struct mshv_partition *partition,
 	r = anon_inode_getfd(ops->name, &mshv_device_fops, dev, O_RDWR | O_CLOEXEC);
 	if (r < 0) {
 		mshv_partition_put(partition);
-		list_del(&dev->partition_node);
+		hlist_del(&dev->partition_node);
 		ops->destroy(dev);
 		goto out;
 	}
@@ -1332,14 +1368,15 @@ out:
 
 static void mshv_destroy_devices(struct mshv_partition *partition)
 {
-	struct mshv_device *dev, *tmp;
+	struct mshv_device *dev;
+	struct hlist_node *n;
 
 	/*
 	 * No need to take any lock since at this point nobody else can
 	 * reference this partition.
 	 */
-	list_for_each_entry_safe(dev, tmp, &partition->devices, partition_node) {
-		list_del(&dev->partition_node);
+	hlist_for_each_entry_safe(dev, n, &partition->devices, partition_node) {
+		hlist_del(&dev->partition_node);
 		dev->ops->destroy(dev);
 	}
 }
@@ -1518,12 +1555,13 @@ remove_partition(struct mshv_partition *partition)
 {
 	spin_lock(&mshv.partitions.lock);
 	hlist_del_rcu(&partition->hnode);
-	spin_unlock(&mshv.partitions.lock);
-
-	synchronize_rcu();
 
 	if (!--mshv.partitions.count)
 		hv_remove_mshv_irq();
+
+	spin_unlock(&mshv.partitions.lock);
+
+	synchronize_rcu();
 }
 
 static void
@@ -1569,12 +1607,12 @@ destroy_partition(struct mshv_partition *partition)
 
 	/* Remove regions and unpin the pages */
 	for (i = 0; i < MSHV_MAX_MEM_REGIONS; ++i) {
-		region = &partition->regions.slots[i];
-		if (!region->size)
+		region = partition->regions.array[i];
+		if (region == NULL)
 			continue;
 		page_count = region->size >> HV_HYP_PAGE_SHIFT;
-		unpin_user_pages(region->pages, page_count);
-		vfree(region->pages);
+		unpin_user_pages(&region->pages[0], page_count);
+		vfree(region);
 	}
 
 	mshv_destroy_devices(partition);
@@ -1627,19 +1665,20 @@ mshv_partition_release(struct inode *inode, struct file *filp)
 static int
 add_partition(struct mshv_partition *partition)
 {
+	spin_lock(&mshv.partitions.lock);
 	if (mshv.partitions.count >= MSHV_MAX_PARTITIONS) {
 		pr_err("%s: too many partitions\n", __func__);
+		spin_unlock(&mshv.partitions.lock);
 		return -ENOSPC;
 	}
 
-	mshv.partitions.count++;
-
-	spin_lock(&mshv.partitions.lock);
 	hash_add_rcu(mshv.partitions.items, &partition->hnode, partition->id);
-	spin_unlock(&mshv.partitions.lock);
 
+	mshv.partitions.count++;
 	if (mshv.partitions.count == 1)
 		hv_setup_mshv_irq(mshv_isr);
+
+	spin_unlock(&mshv.partitions.lock);
 
 	return 0;
 }
@@ -1671,9 +1710,11 @@ __mshv_ioctl_create_partition(void __user *user_arg)
 
 	mutex_init(&partition->irq_lock);
 
+	init_completion(&partition->async_hypercall);
+
 	INIT_HLIST_HEAD(&partition->irq_ack_notifier_list);
 
-	INIT_LIST_HEAD(&partition->devices);
+	INIT_HLIST_HEAD(&partition->devices);
 
 	mshv_eventfd_init(partition);
 
@@ -1687,25 +1728,26 @@ __mshv_ioctl_create_partition(void __user *user_arg)
 	if (ret)
 		goto cleanup_irq_srcu;
 
+	ret = add_partition(partition);
+	if (ret)
+		goto delete_partition;
+
 	ret = hv_call_set_partition_property(
 				partition->id,
 				HV_PARTITION_PROPERTY_SYNTHETIC_PROC_FEATURES,
-				args.synthetic_processor_features.as_uint64[0]);
+				args.synthetic_processor_features.as_uint64[0],
+				mshv_root_async_hypecall_handler);
 	if (ret)
-		goto delete_partition;
+		goto remove_partition;
 
 	ret = hv_call_initialize_partition(partition->id);
 	if (ret)
-		goto delete_partition;
-
-	ret = add_partition(partition);
-	if (ret)
-		goto finalize_partition;
+		goto remove_partition;
 
 	fd = get_unused_fd_flags(O_CLOEXEC);
 	if (fd < 0) {
 		ret = fd;
-		goto remove_partition;
+		goto finalize_partition;
 	}
 
 	file = anon_inode_getfile("mshv_partition", &mshv_partition_fops,
@@ -1721,10 +1763,10 @@ __mshv_ioctl_create_partition(void __user *user_arg)
 
 put_fd:
 	put_unused_fd(fd);
-remove_partition:
-	remove_partition(partition);
 finalize_partition:
 	hv_call_finalize_partition(partition->id);
+remove_partition:
+	remove_partition(partition);
 delete_partition:
 	hv_call_withdraw_memory(U64_MAX, NUMA_NO_NODE, partition->id);
 	hv_call_delete_partition(partition->id);

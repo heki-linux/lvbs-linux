@@ -279,7 +279,8 @@ enum HV_GENERIC_SET_FORMAT {
 	OP(HV_STATUS_INVALID_VP_STATE,			0x15) \
 	OP(HV_STATUS_NO_RESOURCES,			0x1D) \
 	OP(HV_STATUS_INVALID_LP_INDEX,			0x41) \
-	OP(HV_STATUS_INVALID_REGISTER_VALUE,		0x50)
+	OP(HV_STATUS_INVALID_REGISTER_VALUE,		0x50) \
+	OP(HV_STATUS_CALL_PENDING,			0x79)
 
 #define __HV_MAKE_HV_STATUS_ENUM(NAME, VAL) NAME = (VAL),
 #define __HV_MAKE_HV_STATUS_CASE(NAME, VAL) case (NAME): return (#NAME);
@@ -1530,6 +1531,13 @@ struct hv_input_notify_partition_event {
 
 struct hv_input_enter_sleep_state {
 	u32 sleep_state; /* enum hv_sleep_state */
+} __packed;
+
+struct hv_async_completion_message_payload {
+	u64 partition_id;
+	u32 status;
+	u32 completion_count;
+	u64 sub_status;
 } __packed;
 
 #endif

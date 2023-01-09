@@ -57,7 +57,7 @@ config HYPERV_BALLOON
 
 config HYPERV_VTL
 	tristate "Microsoft Hyper-V VTL driver"
-	depends on HYPERV_VMM_API && X86
+	depends on HYPERV_VMM_API && X86 && TRANSPARENT_HUGEPAGE
 	help
 	  Select this option to enable Hyper-V VTL driver.
 	  Virtual Secure Mode (VSM) is a set of hypervisor capabilities and

@@ -74,7 +74,7 @@ irqfd_resampler_ack(struct mshv_irq_ack_notifier *mian)
 
 	idx = srcu_read_lock(&partition->irq_srcu);
 
-	list_for_each_entry_rcu(irqfd, &resampler->list, resampler_link) {
+	hlist_for_each_entry_rcu(irqfd, &resampler->irqfds_list, resampler_hnode) {
 		if (hv_should_clear_interrupt(irqfd->lapic_irq.control.interrupt_type))
 			hv_call_clear_virtual_interrupt(partition->id);
 
@@ -123,11 +123,11 @@ irqfd_resampler_shutdown(struct mshv_kernel_irqfd *irqfd)
 
 	mutex_lock(&partition->irqfds.resampler_lock);
 
-	list_del_rcu(&irqfd->resampler_link);
+	hlist_del_rcu(&irqfd->resampler_hnode);
 	synchronize_srcu(&partition->irq_srcu);
 
-	if (list_empty(&resampler->list)) {
-		list_del(&resampler->link);
+	if (hlist_empty(&resampler->irqfds_list)) {
+		hlist_del(&resampler->hnode);
 		mshv_unregister_irq_ack_notifier(partition, &resampler->notifier);
 		kfree(resampler);
 	}
@@ -166,7 +166,7 @@ irqfd_shutdown(struct work_struct *work)
 static bool
 irqfd_is_active(struct mshv_kernel_irqfd *irqfd)
 {
-	return list_empty(&irqfd->list) ? false : true;
+	return !hlist_unhashed(&irqfd->hnode);
 }
 
 /*
@@ -179,7 +179,7 @@ irqfd_deactivate(struct mshv_kernel_irqfd *irqfd)
 {
 	BUG_ON(!irqfd_is_active(irqfd));
 
-	list_del_init(&irqfd->list);
+	hlist_del(&irqfd->hnode);
 
 	queue_work(irqfd_cleanup_wq, &irqfd->shutdown);
 }
@@ -251,9 +251,8 @@ void mshv_irqfd_routing_update(struct mshv_partition *partition)
 	struct mshv_kernel_irqfd *irqfd;
 
 	spin_lock_irq(&partition->irqfds.lock);
-	list_for_each_entry(irqfd, &partition->irqfds.items, list) {
+	hlist_for_each_entry(irqfd, &partition->irqfds.items, hnode)
 		irqfd_update(partition, irqfd);
-	}
 	spin_unlock_irq(&partition->irqfds.lock);
 }
 
@@ -285,7 +284,6 @@ mshv_irqfd_assign(struct mshv_partition *partition,
 
 	irqfd->partition = partition;
 	irqfd->gsi = args->gsi;
-	INIT_LIST_HEAD(&irqfd->list);
 	INIT_WORK(&irqfd->shutdown, irqfd_shutdown);
 	seqcount_spinlock_init(&irqfd->msi_entry_sc,
 			       &partition->irqfds.lock);
@@ -314,12 +312,11 @@ mshv_irqfd_assign(struct mshv_partition *partition,
 		}
 
 		irqfd->resamplefd = resamplefd;
-		INIT_LIST_HEAD(&irqfd->resampler_link);
 
 		mutex_lock(&partition->irqfds.resampler_lock);
 
-		list_for_each_entry(resampler,
-				    &partition->irqfds.resampler_list, link) {
+		hlist_for_each_entry(resampler,
+				    &partition->irqfds.resampler_list, hnode) {
 			if (resampler->notifier.gsi == irqfd->gsi) {
 				irqfd->resampler = resampler;
 				break;
@@ -336,18 +333,17 @@ mshv_irqfd_assign(struct mshv_partition *partition,
 			}
 
 			resampler->partition = partition;
-			INIT_LIST_HEAD(&resampler->list);
+			INIT_HLIST_HEAD(&resampler->irqfds_list);
 			resampler->notifier.gsi = irqfd->gsi;
 			resampler->notifier.irq_acked = irqfd_resampler_ack;
-			INIT_LIST_HEAD(&resampler->link);
 
-			list_add(&resampler->link, &partition->irqfds.resampler_list);
+			hlist_add_head(&resampler->hnode, &partition->irqfds.resampler_list);
 			mshv_register_irq_ack_notifier(partition,
 						      &resampler->notifier);
 			irqfd->resampler = resampler;
 		}
 
-		list_add_rcu(&irqfd->resampler_link, &irqfd->resampler->list);
+		hlist_add_head_rcu(&irqfd->resampler_hnode, &irqfd->resampler->irqfds_list);
 
 		mutex_unlock(&partition->irqfds.resampler_lock);
 	}
@@ -371,7 +367,7 @@ mshv_irqfd_assign(struct mshv_partition *partition,
 		goto fail;
 	}
 	ret = 0;
-	list_for_each_entry(tmp, &partition->irqfds.items, list) {
+	hlist_for_each_entry(tmp, &partition->irqfds.items, hnode) {
 		if (irqfd->eventfd != tmp->eventfd)
 			continue;
 		/* This fd is used for another irq already. */
@@ -382,7 +378,7 @@ mshv_irqfd_assign(struct mshv_partition *partition,
 
 	idx = srcu_read_lock(&partition->irq_srcu);
 	irqfd_update(partition, irqfd);
-	list_add_tail(&irqfd->list, &partition->irqfds.items);
+	hlist_add_head(&irqfd->hnode, &partition->irqfds.items);
 	spin_unlock_irq(&partition->irqfds.lock);
 
 	/*
@@ -427,21 +423,19 @@ static int
 mshv_irqfd_deassign(struct mshv_partition *partition,
 		    struct mshv_irqfd *args)
 {
-	struct mshv_kernel_irqfd *irqfd, *tmp;
+	struct mshv_kernel_irqfd *irqfd;
+	struct hlist_node *n;
 	struct eventfd_ctx *eventfd;
 
 	eventfd = eventfd_ctx_fdget(args->fd);
 	if (IS_ERR(eventfd))
 		return PTR_ERR(eventfd);
 
-	spin_lock_irq(&partition->irqfds.lock);
-
-	list_for_each_entry_safe(irqfd, tmp, &partition->irqfds.items, list) {
+	hlist_for_each_entry_safe(irqfd, n, &partition->irqfds.items, hnode) {
 		if (irqfd->eventfd == eventfd && irqfd->gsi == args->gsi)
 			irqfd_deactivate(irqfd);
 	}
 
-	spin_unlock_irq(&partition->irqfds.lock);
 	eventfd_ctx_put(eventfd);
 
 	/*
@@ -470,11 +464,12 @@ mshv_irqfd(struct mshv_partition *partition, struct mshv_irqfd *args)
 static void
 mshv_irqfd_release(struct mshv_partition *partition)
 {
-	struct mshv_kernel_irqfd *irqfd, *tmp;
+	struct mshv_kernel_irqfd *irqfd;
+	struct hlist_node *n;
 
 	spin_lock_irq(&partition->irqfds.lock);
 
-	list_for_each_entry_safe(irqfd, tmp, &partition->irqfds.items, list)
+	hlist_for_each_entry_safe(irqfd, n, &partition->irqfds.items, hnode)
 		irqfd_deactivate(irqfd);
 
 	spin_unlock_irq(&partition->irqfds.lock);
@@ -710,9 +705,9 @@ void
 mshv_eventfd_init(struct mshv_partition *partition)
 {
 	spin_lock_init(&partition->irqfds.lock);
-	INIT_LIST_HEAD(&partition->irqfds.items);
+	INIT_HLIST_HEAD(&partition->irqfds.items);
 
-	INIT_LIST_HEAD(&partition->irqfds.resampler_list);
+	INIT_HLIST_HEAD(&partition->irqfds.resampler_list);
 	mutex_init(&partition->irqfds.resampler_lock);
 
 	INIT_HLIST_HEAD(&partition->ioeventfds.items);

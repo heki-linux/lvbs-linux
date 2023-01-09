@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- *
  * irqfd: Allows an fd to be used to inject an interrupt to the guest.
  * ioeventfd: Allow an fd to be used to receive a signal from the guest.
  * All credit goes to kvm developers.
@@ -30,14 +29,14 @@ struct mshv_kernel_irqfd_resampler {
 	 * Protected by irqfds.resampler_lock
 	 * and irq_srcu.
 	 */
-	struct list_head list;
+	struct hlist_head irqfds_list;
 	struct mshv_irq_ack_notifier notifier;
 	/*
 	 * Entry in the list of partition->irqfd.resampler_list.
 	 * Protected by irqfds.resampler_lock
 	 *
 	 */
-	struct list_head link;
+	struct hlist_node hnode;
 };
 
 struct mshv_kernel_irqfd {
@@ -47,7 +46,7 @@ struct mshv_kernel_irqfd {
 	seqcount_spinlock_t                  msi_entry_sc;
 	u32                                  gsi;
 	struct mshv_lapic_irq                lapic_irq;
-	struct list_head                     list;
+	struct hlist_node                    hnode;
 	poll_table                           pt;
 	wait_queue_head_t                    *wqh;
 	wait_queue_entry_t                   wait;
@@ -56,7 +55,7 @@ struct mshv_kernel_irqfd {
 	/* Resampler related */
 	struct mshv_kernel_irqfd_resampler   *resampler;
 	struct eventfd_ctx                   *resamplefd;
-	struct list_head                     resampler_link;
+	struct hlist_node                    resampler_hnode;
 };
 
 int mshv_irqfd(struct mshv_partition *partition,

@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021, Microsoft Corporation.
+ * Copyright (c) 2023, Microsoft Corporation.
+ *
+ * mshv_root module's main interrupt handler and associated functionality.
  *
  * Authors:
- *   Nuno Das Neves <nudasnev@microsoft.com>
+ *   Nuno Das Neves <nunodasneves@linux.microsoft.com>
  *   Lillian Grassin-Drake <ligrassi@microsoft.com>
  *   Vineeth Remanan Pillai <viremana@linux.microsoft.com>
+ *   Wei Liu <wei.liu@kernel.org>
+ *   Stanislav Kinsburskii <skinsburskii@linux.microsoft.com>
  */
 
 #include <linux/kernel.h>
@@ -124,6 +128,49 @@ mshv_doorbell_isr(struct hv_message *msg)
 	}
 
 	return true;
+}
+
+static bool mshv_async_call_completion_isr(struct hv_message *msg)
+{
+	bool handled = false;
+	struct hv_async_completion_message_payload *async_msg;
+	struct mshv_partition *partition;
+	u64 partition_id;
+
+	if (msg->header.message_type != HVMSG_ASYNC_CALL_COMPLETION)
+		goto out;
+
+	async_msg =
+		(struct hv_async_completion_message_payload *)msg->u.payload;
+
+	partition_id = async_msg->partition_id;
+
+	/*
+	 * Hold this lock for the rest of the isr, because the partition could
+	 * be released anytime.
+	 * e.g. the MSHV_RUN_VP thread could wake on another cpu; it could
+	 * release the partition unless we hold this!
+	 */
+	rcu_read_lock();
+
+	partition = mshv_partition_find(partition_id);
+	if (unlikely(!partition)) {
+		pr_err("%s: failed to find partition %llu\n",
+		       __func__, partition_id);
+		goto unlock_out;
+	}
+
+	pr_debug("%s: Partition ID: %llu completing async hypercall\n",
+		 __func__, async_msg->partition_id);
+
+	complete(&partition->async_hypercall);
+
+	handled = true;
+
+unlock_out:
+	rcu_read_unlock();
+out:
+	return handled;
 }
 
 static void kick_vp(struct mshv_vp *vp)
@@ -379,12 +426,20 @@ void mshv_isr(void)
 		handled = mshv_scheduler_isr(msg);
 
 	if (!handled)
+		handled = mshv_async_call_completion_isr(msg);
+
+	if (!handled)
 		handled = mshv_intercept_isr(msg);
 
 	if (handled) {
-		/* Acknowledge message with hypervisor */
+		/*
+		 * Acknowledge message with hypervisor if another message is
+		 * pending.
+		 */
 		msg->header.message_type = HVMSG_NONE;
-		hv_set_register(HV_REGISTER_EOM, 0);
+		mb();
+		if (msg->header.message_flags.msg_pending)
+			hv_set_register(HV_REGISTER_EOM, 0);
 
 #ifdef HYPERVISOR_CALLBACK_VECTOR
 		add_interrupt_randomness(HYPERVISOR_CALLBACK_VECTOR);
