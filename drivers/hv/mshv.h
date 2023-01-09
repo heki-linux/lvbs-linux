@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2021, Microsoft Corporation.
- *
- * Authors:
- *   Nuno Das Neves <nudasnev@microsoft.com>
- *   Lillian Grassin-Drake <ligrassi@microsoft.com>
- *   Vineeth Pillai <viremana@linux.microsoft.com>
+ * Copyright (c) 2023, Microsoft Corporation.
  */
 
 #ifndef _MSHV_H_
@@ -126,7 +121,8 @@ int hv_call_get_partition_property(
 int hv_call_set_partition_property(
 		u64 partition_id,
 		u64 property_code,
-		u64 property_value);
+		u64 property_value,
+		void (*completion_handler)(u64/* partition_id */, u64 */* status */));
 int hv_call_translate_virtual_address(
 		u32 vp_index,
 		u64 partition_id,

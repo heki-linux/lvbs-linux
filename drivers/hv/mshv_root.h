@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2022, Microsoft Corporation.
+ * Copyright (c) 2023, Microsoft Corporation.
  */
 
 #ifndef _MSHV_ROOT_H_
@@ -45,7 +45,7 @@ struct mshv_mem_region {
 	u64 size; /* bytes */
 	u64 guest_pfn;
 	u64 userspace_addr; /* start of the userspace allocated memory */
-	struct page **pages;
+	struct page *pages[];
 };
 
 struct mshv_irq_ack_notifier {
@@ -61,7 +61,7 @@ struct mshv_partition {
 	struct mutex mutex;
 	struct {
 		u32 count;
-		struct mshv_mem_region slots[MSHV_MAX_MEM_REGIONS];
+		struct mshv_mem_region *array[MSHV_MAX_MEM_REGIONS];
 	} regions;
 	struct {
 		u32 count;
@@ -72,13 +72,15 @@ struct mshv_partition {
 	struct srcu_struct irq_srcu;
 	struct hlist_head irq_ack_notifier_list;
 
-	struct list_head devices;
+	struct hlist_head devices;
+
+	struct completion async_hypercall;
 
 	struct {
 		spinlock_t        lock;
-		struct list_head  items;
+		struct hlist_head items;
 		struct mutex resampler_lock;
-		struct list_head  resampler_list;
+		struct hlist_head resampler_list;
 	} irqfds;
 	struct {
 		struct hlist_head items;
@@ -126,7 +128,7 @@ struct mshv_device {
 	const struct mshv_device_ops *ops;
 	struct mshv_partition *partition;
 	void *private;
-	struct list_head partition_node;
+	struct hlist_node partition_node;
 
 };
 
