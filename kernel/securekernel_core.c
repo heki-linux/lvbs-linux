@@ -10,6 +10,13 @@
 
 #include <crypto/sha1.h>
 
+struct resource securek_res = {
+	.name  = "vsm",
+	.start = 0,
+	.end   = 0,
+	.flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM,
+	.desc  = IORES_DESC_SECURE_KERNEL
+};
 
 /*
  * parsing the "securekernel" commandline

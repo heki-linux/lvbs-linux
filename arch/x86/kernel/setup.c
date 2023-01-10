@@ -449,14 +449,14 @@ static void __init reserve_securekernel(void)
 		}
 	}
 
-	pr_info("Reserving %ldMB of memory at %ldMB for crashkernel (System RAM: %ldMB)\n",
+	pr_info("Reserving %ldMB of memory at %ldMB for securekernel (System RAM: %ldMB)\n",
 		(unsigned long)(securekernel_size >> 20),
 		(unsigned long)(securekernel_base >> 20),
 		(unsigned long)(total_mem >> 20));
 
-	// securek_res.start = securekernel_base;
-	// securek_res.end   = securekernel_base + securekernel_size - 1;
-	// insert_resource(&iomem_resource, &securek_res);
+	securek_res.start = securekernel_base;
+	securek_res.end   = securekernel_base + securekernel_size - 1;
+	insert_resource(&iomem_resource, &securek_res);
 }
 #else
 static void __init reserve_securekernel(void)
