@@ -15,7 +15,7 @@ struct resource securek_res = {
 	.start = 0,
 	.end   = 0,
 	.flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM,
-	.desc  = IORES_DESC_SECURE_KERNEL
+	.desc  = IORES_DESC_RESERVED
 };
 
 /*
