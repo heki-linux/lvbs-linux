@@ -278,6 +278,7 @@ enum HV_GENERIC_SET_FORMAT {
 	OP(HV_STATUS_NOT_ACKNOWLEDGED,			0x14) \
 	OP(HV_STATUS_INVALID_VP_STATE,			0x15) \
 	OP(HV_STATUS_NO_RESOURCES,			0x1D) \
+	OP(HV_STATUS_PROCESSOR_FEATURE_NOT_SUPPORTED,	0x20) \
 	OP(HV_STATUS_INVALID_LP_INDEX,			0x41) \
 	OP(HV_STATUS_INVALID_REGISTER_VALUE,		0x50) \
 	OP(HV_STATUS_CALL_PENDING,			0x79)
@@ -838,6 +839,7 @@ struct hv_create_partition_in {
 	u32 compatibility_version;
 	u32 padding;
 	struct hv_partition_creation_properties partition_creation_properties;
+	union hv_partition_isolation_properties isolation_properties;
 } __packed;
 
 struct hv_create_partition_out {

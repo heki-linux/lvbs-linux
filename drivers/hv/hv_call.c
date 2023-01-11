@@ -76,6 +76,7 @@ EXPORT_SYMBOL_GPL(hv_call_withdraw_memory);
 int hv_call_create_partition(
 		u64 flags,
 		struct hv_partition_creation_properties creation_properties,
+		union hv_partition_isolation_properties isolation_properties,
 		u64 *partition_id)
 {
 	struct hv_create_partition_in *input;
@@ -97,6 +98,9 @@ int hv_call_create_partition(
 
 		memcpy(&input->partition_creation_properties, &creation_properties,
 			sizeof(creation_properties));
+
+		memcpy(&input->isolation_properties, &isolation_properties,
+		       sizeof(isolation_properties));
 
 		status = hv_do_hypercall(HVCALL_CREATE_PARTITION,
 					 input, output);
