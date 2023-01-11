@@ -41,4 +41,10 @@ config HYPERV_AZURE_BLOB
 	  To compile this driver as a module, choose M here. The module will be
 	  called azure_blob.
 
+config HYPERV_VTL
+	tristate "Microsoft Hyper-V VTL driver"
+	depends on HYPERV
+	help
+	  Select this option to enable Hyper-V Virtual Trust Level driver.
+
 endmenu

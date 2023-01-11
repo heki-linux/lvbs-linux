@@ -24,6 +24,7 @@
 #include <linux/usb/xhci-dbgp.h>
 #include <linux/static_call.h>
 #include <linux/swiotlb.h>
+#include <linux/securekernel_core.h>
 
 #include <uapi/linux/mount.h>
 
@@ -406,6 +407,62 @@ static void __init memblock_x86_reserve_range_setup_data(void)
 		early_memunmap(data, len);
 	}
 }
+
+/*
+ * --------- Secure Kernel reservation ------------------------------
+ */
+
+#ifdef CONFIG_HYPERV_VTL
+
+/* 4K alignment for Secure Kernel regions */
+#define SECKERNEL_ALIGN		SZ_4K
+
+static void __init reserve_securekernel(void)
+{
+	unsigned long long securekernel_size, securekernel_base, total_mem;
+	int ret;
+
+	total_mem = memblock_phys_mem_size();
+
+	/* securekernel=XM */
+	ret = parse_securekernel(boot_command_line, total_mem, &securekernel_size, &securekernel_base);
+	if (ret != 0 || securekernel_size <= 0)
+		return;
+
+	/* 0 means: find the address automatically */
+	if (!securekernel_base) {
+		securekernel_base = memblock_phys_alloc_range(securekernel_size,
+					SECKERNEL_ALIGN, SECKERNEL_ALIGN,
+					total_mem);
+		if (!securekernel_base) {
+			pr_info("securekernel reservation failed - No suitable area found.\n");
+			return;
+		}
+	} else {
+		unsigned long long start;
+
+		start = memblock_phys_alloc_range(securekernel_size, SECKERNEL_ALIGN, securekernel_base,
+						  securekernel_base + securekernel_size);
+		if (start != securekernel_base) {
+			pr_info("securekernel reservation failed - memory is in use.\n");
+			return;
+		}
+	}
+
+	pr_info("Reserving %ldMB of memory at %ldMB for securekernel (System RAM: %ldMB)\n",
+		(unsigned long)(securekernel_size >> 20),
+		(unsigned long)(securekernel_base >> 20),
+		(unsigned long)(total_mem >> 20));
+
+	securek_res.start = securekernel_base;
+	securek_res.end   = securekernel_base + securekernel_size - 1;
+	insert_resource(&iomem_resource, &securek_res);
+}
+#else
+static void __init reserve_securekernel(void)
+{
+}
+#endif
 
 /*
  * --------- Crashkernel reservation ------------------------------
@@ -1149,6 +1206,8 @@ void __init setup_arch(char **cmdline_p)
 	 * won't consume hotpluggable memory.
 	 */
 	reserve_crashkernel();
+
+	reserve_securekernel();
 
 	memblock_find_dma_reserve();
 
