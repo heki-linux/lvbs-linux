@@ -124,7 +124,6 @@ union hv_partition_processor_features {
 
 struct hv_partition_creation_properties {
 	union hv_partition_processor_features disabled_processor_features;
-	union hv_partition_isolation_properties isolation_properties;
 } __packed;
 
 union hv_intercept_parameters {

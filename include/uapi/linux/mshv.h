@@ -140,6 +140,7 @@ struct mshv_create_partition {
 	__u64 flags;
 	struct hv_partition_creation_properties partition_creation_properties;
 	union hv_partition_synthetic_processor_features synthetic_processor_features;
+	union hv_partition_isolation_properties isolation_properties;
 };
 
 /*

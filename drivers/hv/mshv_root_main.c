@@ -1724,6 +1724,7 @@ __mshv_ioctl_create_partition(void __user *user_arg)
 
 	ret = hv_call_create_partition(args.flags,
 				       args.partition_creation_properties,
+				       args.isolation_properties,
 				       &partition->id);
 	if (ret)
 		goto cleanup_irq_srcu;
