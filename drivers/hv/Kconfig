@@ -62,6 +62,7 @@ config MSHV_VTL
 	select OF
 	select OF_EARLY_FLATTREE
 	select INTERVAL_TREE
+	select CPUMASK_OFFSTACK
 	help
 	  Select this option to enable Hyper-V VTL driver.
 	  Virtual Secure Mode (VSM) is a set of hypervisor capabilities and
