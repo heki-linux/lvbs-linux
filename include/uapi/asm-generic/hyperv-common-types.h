@@ -33,17 +33,6 @@ union hv_dispatch_suspend_register {
 	} __packed;
 };
 
-
-union hv_partition_isolation_properties {
-	__u64 as_uint64;
-	struct {
-		__u64 isolation_type: 5;
-		__u64 isolation_host_type : 2;
-		__u64 rsvd_z: 5;
-		__u64 shared_gpa_boundary_page_number: 52;
-	} __packed;
-};
-
 union hv_interrupt_control {
 	struct {
 		__u32 interrupt_type; /* enum hv_interrupt type */
