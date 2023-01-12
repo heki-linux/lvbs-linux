@@ -492,4 +492,14 @@ struct hv_opaque_intercept_message {
 	__u32 vp_index;
 } __packed;
 
+union hv_interrupt_control {
+	struct {
+		__u32 interrupt_type; /* enum hv_interrupt type */
+		__u32 level_triggered : 1;
+		__u32 logical_dest_mode : 1;
+		__u32 rsvd : 30;
+	} __packed;
+	__u64 as_uint64;
+};
+
 #endif

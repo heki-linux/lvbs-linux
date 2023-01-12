@@ -33,16 +33,6 @@ union hv_dispatch_suspend_register {
 	} __packed;
 };
 
-union hv_interrupt_control {
-	struct {
-		__u32 interrupt_type; /* enum hv_interrupt type */
-		__u32 level_triggered : 1;
-		__u32 logical_dest_mode : 1;
-		__u32 rsvd : 30;
-	} __packed;
-	__u64 as_uint64;
-};
-
 enum hv_register_name {
 	/* Suspend Registers */
 	HV_REGISTER_EXPLICIT_SUSPEND		= 0x00000000,
