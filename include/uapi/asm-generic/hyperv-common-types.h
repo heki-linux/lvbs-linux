@@ -1,6 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 #ifndef _UAPI_ASM_GENERIC_HYPERV_COMMON_TYPES_H
 #define _UAPI_ASM_GENERIC_HYPERV_COMMON_TYPES_H
+/*
+ * This file contains common definitions that arch-specific code depends on.
+ *
+ * This is in contrast to asm-generic/hyper-tlfs.h, which itself depends on
+ * arch-specific code.
+ */
 
 #include <linux/types.h>
 
