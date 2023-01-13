@@ -37,20 +37,29 @@ static long mshv_ioctl_dummy(void __user *user_arg)
 	return -ENOTTY;
 }
 
-static mshv_ioctl_func_t mshv_ioctl_create_vtl = mshv_ioctl_dummy;
-static mshv_ioctl_func_t mshv_ioctl_create_partition = mshv_ioctl_dummy;
-
-void mshv_set_create_vtl_func(const mshv_ioctl_func_t func)
+static long mshv_ioctl_dummy2(u32 arg)
 {
-	if (!func) {
+	return -ENOTTY;
+}
+
+static mshv_create_func_t mshv_ioctl_create_vtl = mshv_ioctl_dummy;
+static mshv_create_func_t mshv_ioctl_create_partition = mshv_ioctl_dummy;
+static mshv_check_ext_func_t mshv_vtl_ioctl_check_extension = mshv_ioctl_dummy2;
+
+void mshv_setup_vtl_func(const mshv_create_func_t create_vtl,
+			 const mshv_check_ext_func_t check_ext)
+{
+	if (!create_vtl) {
 		mshv_ioctl_create_vtl = mshv_ioctl_dummy;
+		mshv_vtl_ioctl_check_extension = mshv_ioctl_dummy2;
 	} else {
-		mshv_ioctl_create_vtl = func;
+		mshv_ioctl_create_vtl = create_vtl;
+		mshv_vtl_ioctl_check_extension = check_ext;
 	}
 }
-EXPORT_SYMBOL_GPL(mshv_set_create_vtl_func);
+EXPORT_SYMBOL_GPL(mshv_setup_vtl_func);
 
-void mshv_set_create_partition_func(const mshv_ioctl_func_t func)
+void mshv_set_create_partition_func(const mshv_create_func_t func)
 {
 	if (!func) {
 		mshv_ioctl_create_partition = mshv_ioctl_dummy;
@@ -90,6 +99,12 @@ mshv_ioctl_check_extension(void __user *user_arg)
 	switch (arg) {
 	case MSHV_CAP_CORE_API_STABLE:
 		return 0;
+#ifdef CONFIG_HYPERV_VTL
+	case MSHV_CAP_REGISTER_PAGE:
+	case MSHV_CAP_VTL_RETURN_ACTION:
+	case MSHV_CAP_DR6_SHARED:
+		return mshv_vtl_ioctl_check_extension(arg);
+#endif
 	}
 
 	return -EOPNOTSUPP;

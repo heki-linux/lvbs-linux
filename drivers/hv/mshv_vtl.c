@@ -144,6 +144,20 @@ static u64 mshv_get_ram_last_pfn(void)
 	return mshv_ram_last_pfn;
 }
 
+static long __mshv_vtl_ioctl_check_extension(u32 arg)
+{
+	switch (arg) {
+	case MSHV_CAP_REGISTER_PAGE:
+		return mshv_has_reg_page;
+	case MSHV_CAP_VTL_RETURN_ACTION:
+		return mshv_vsm_capabilities.return_action_available;
+	case MSHV_CAP_DR6_SHARED:
+		return mshv_vsm_capabilities.dr6_shared;
+	}
+
+	return -EOPNOTSUPP;
+}
+
 static int vtl_get_vp_registers(u16 count,
 				 struct hv_register_assoc *registers)
 {
@@ -1459,7 +1473,7 @@ static int __init mshv_vtl_init(void)
 	if (ret)
 		goto free_hvcall;
 
-	mshv_set_create_vtl_func(__mshv_ioctl_create_vtl);
+	mshv_setup_vtl_func(__mshv_ioctl_create_vtl, __mshv_vtl_ioctl_check_extension);
 
 	mem_dev = kzalloc(sizeof(*mem_dev), GFP_KERNEL);
 	if (!mem_dev) {
@@ -1489,7 +1503,7 @@ free_sint:
 
 static void __exit mshv_vtl_exit(void)
 {
-	mshv_set_create_vtl_func(NULL);
+	mshv_setup_vtl_func(NULL, NULL);
 	misc_deregister(&mshv_vtl_sint_dev);
 	misc_deregister(&mshv_vtl_hvcall);
 	misc_deregister(&mshv_vtl_low);

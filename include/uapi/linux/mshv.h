@@ -12,7 +12,11 @@
 #include <asm/hyperv-tlfs.h>
 #include <asm-generic/hyperv-tlfs.h>
 
-#define MSHV_CAP_CORE_API_STABLE    0x0
+#define MSHV_CAP_CORE_API_STABLE	0x0
+#define MSHV_CAP_REGISTER_PAGE		0x1
+#define MSHV_CAP_VTL_RETURN_ACTION	0x2
+#define MSHV_CAP_DR6_SHARED		0x3
+
 
 #define MSHV_VP_MMAP_REGISTERS_OFFSET (HV_VP_STATE_PAGE_REGISTERS * 0x1000)
 #define MAX_RUN_MSG_SIZE		256
