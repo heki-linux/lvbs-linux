@@ -225,7 +225,6 @@ struct mshv_vp_run_registers {
 
 /* vtl device */
 #define MSHV_CREATE_VTL			_IOR(MSHV_IOCTL, 0x1D, char)
-#define MSHV_VTL_RAM_DISPOSITION	_IOR(MSHV_IOCTL, 0x20, struct mshv_ram_disposition)
 #define MSHV_VTL_ADD_VTL0_MEMORY	_IOW(MSHV_IOCTL, 0x21, struct mshv_ram_disposition)
 #define MSHV_VTL_SET_POLL_FILE		_IOW(MSHV_IOCTL, 0x25, struct mshv_set_poll_file)
 #define MSHV_VTL_RETURN_TO_LOWER_VTL	_IO(MSHV_IOCTL, 0x27)

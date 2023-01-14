@@ -42,8 +42,6 @@ MODULE_LICENSE("GPL");
 #define VTL2_VMBUS_SINT_INDEX	7
 
 bool vtl_exist;
-static u64 mshv_ram_last_pfn;
-static u64 mshv_ram_start_pfn;
 static struct device *mem_dev;
 
 static struct tasklet_struct msg_dpc;
@@ -133,16 +131,6 @@ struct mshv_vtl_run *mshv_cpu_run(int cpu)
 struct page *mshv_cpu_reg_page(int cpu)
 {
 	return *per_cpu_ptr(&mshv_vtl_per_cpu.reg_page, cpu);
-}
-
-static u64 mshv_get_ram_start_pfn(void)
-{
-	return mshv_ram_start_pfn;
-}
-
-static u64 mshv_get_ram_last_pfn(void)
-{
-	return mshv_ram_last_pfn;
 }
 
 static long __mshv_vtl_ioctl_check_extension(u32 arg)
@@ -288,25 +276,6 @@ static int vtl_set_vp_registers(u16 count,
 	input_vtl.use_target_vtl = 1;
 	return hv_call_set_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
 					count, input_vtl, registers);
-}
-
-static int mshv_vtl_ioctl_ram_disposition(void __user *arg)
-{
-	struct mshv_ram_disposition ram_disposition = {
-		.start_pfn = mshv_get_ram_start_pfn(),
-		.last_pfn = mshv_get_ram_last_pfn()
-	};
-
-	if (copy_to_user(arg, &ram_disposition, sizeof(ram_disposition)))
-		return -EFAULT;
-
-	if (ram_disposition.start_pfn < (MAX_GUEST_MEM_SIZE >> PAGE_SHIFT) &&
-	    ram_disposition.last_pfn < (MAX_GUEST_MEM_SIZE >> PAGE_SHIFT) &&
-	    ram_disposition.start_pfn > 0 &&
-	    ram_disposition.start_pfn < ram_disposition.last_pfn)
-		return 0;
-
-	return -ENOMEM;
 }
 
 static int mshv_vtl_ioctl_add_vtl0_mem(void __user *arg)
@@ -1043,9 +1012,6 @@ mshv_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 	long ret;
 
 	switch (ioctl) {
-	case MSHV_INSTALL_INTERCEPT:
-		ret = mshv_ioctl_install_intercept(HV_PARTITION_ID_SELF, (void __user *)arg);
-		break;
 	case MSHV_VTL_SET_POLL_FILE:
 		ret = mshv_vtl_ioctl_set_poll_file((struct mshv_set_poll_file *)arg);
 		break;
@@ -1067,9 +1033,6 @@ mshv_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 	case MSHV_TRANSLATE_GVA:
 		ret = mshv_ioctl_translate_gva(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
 							(void __user *)arg);
-		break;
-	case MSHV_VTL_RAM_DISPOSITION:
-		ret = mshv_vtl_ioctl_ram_disposition((void __user *)arg);
 		break;
 	case MSHV_VTL_ADD_VTL0_MEMORY:
 		ret = mshv_vtl_ioctl_add_vtl0_mem((void __user *)arg);
@@ -1528,24 +1491,6 @@ static const struct vm_operations_struct mshv_vtl_low_vm_ops = {
 
 static int mshv_vtl_low_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-	const u64 start_pfn = vma->vm_pgoff;
-	const u64 size = vma->vm_end - vma->vm_start;
-	const u64 end_pfn = start_pfn + (size >> PAGE_SHIFT);
-
-	pr_debug("%s: Mapping VTL0 memory, start PFN=%#016llx, size=%#016llx bytes at %#016lx\n",
-		 __func__, start_pfn, size, vma->vm_start);
-
-	/*
-	 * TODO: this should be validated against the registered VTL0 memory ranges,
-	 * not the E820 table.
-	 */
-	if ((end_pfn > mshv_get_ram_start_pfn() && end_pfn <= mshv_get_ram_last_pfn()) ||
-	    (start_pfn >= mshv_get_ram_start_pfn() && start_pfn < mshv_get_ram_last_pfn())) {
-		pr_err("%s: Attempt to map the VTL2 RAM. Start PFN=%#016llx, end PFN=%#016llx\n",
-		       __func__, start_pfn, end_pfn);
-		return -EINVAL;
-	}
-
 	vma->vm_ops = &mshv_vtl_low_vm_ops;
 	vma->vm_flags |= VM_HUGEPAGE | VM_MIXEDMAP;
 	return 0;
