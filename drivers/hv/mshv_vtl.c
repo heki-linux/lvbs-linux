@@ -73,6 +73,15 @@ struct mshv_vtl {
 	refcount_t ref_count;
 };
 
+union mshv_synic_overlay_page_msr {
+	u64 as_u64;
+	struct {
+		u64 enabled: 1;
+		u64 reserved: 11;
+		u64 pfn: 52;
+	};
+};
+
 union hv_register_vsm_capabilities {
 	u64 as_uint64;
 	struct {
@@ -100,8 +109,6 @@ union hv_register_vsm_page_offsets {
 
 struct mshv_vtl_per_cpu {
 	struct mshv_vtl_run *run;
-	struct page *hvcall_in_page;
-	struct page *hvcall_out_page;
 	struct page *reg_page;
 };
 
@@ -150,6 +157,116 @@ static long __mshv_vtl_ioctl_check_extension(u32 arg)
 	}
 
 	return -EOPNOTSUPP;
+}
+
+static void mshv_configure_reg_page(struct mshv_vtl_per_cpu *per_cpu)
+{
+	struct hv_register_assoc reg_assoc = {};
+	union mshv_synic_overlay_page_msr overlay = {};
+	struct page *reg_page;
+	union hv_input_vtl vtl = { .as_uint8 = 0 };
+
+	reg_page = alloc_page(GFP_KERNEL | __GFP_ZERO | __GFP_RETRY_MAYFAIL);
+	if (!reg_page) {
+		WARN_ON("failed to allocate register page\n");
+		return;
+	}
+
+	overlay.enabled = 1;
+	overlay.pfn = page_to_phys(reg_page) >> HV_HYP_PAGE_SHIFT;
+	reg_assoc.name = HV_X64_REGISTER_REG_PAGE;
+	reg_assoc.value.reg64 = overlay.as_u64;
+
+	if (hv_call_set_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
+				     1, vtl, &reg_assoc)) {
+		WARN_ON("failed to setup register page\n");
+		__free_page(reg_page);
+		return;
+	}
+
+	per_cpu->reg_page = reg_page;
+	mshv_has_reg_page = true;
+}
+
+static void mshv_synic_enable_regs(unsigned int cpu)
+{
+	/* Setup VTL2 Host VSP SINT. */
+	hv_synic_unmask_sint(HV_REGISTER_SINT0 + VTL2_VMBUS_SINT_INDEX,
+			     HYPERVISOR_CALLBACK_VECTOR);
+
+	/* Enable intercepts */
+	if (!mshv_vsm_capabilities.intercept_page_available)
+		hv_synic_unmask_sint(HV_REGISTER_SINT0 + HV_SYNIC_INTERCEPTION_SINT_INDEX,
+				     HYPERVISOR_CALLBACK_VECTOR);
+}
+
+static void mshv_vtl_vmbus_isr(void)
+{
+	struct hv_per_cpu_context *per_cpu;
+	struct hv_message *msg;
+	u32 message_type;
+	union hv_synic_event_flags *event_flags;
+	unsigned long word;
+	int i, j;
+	struct eventfd_ctx *eventfd;
+
+	per_cpu = this_cpu_ptr(hv_context.cpu_context);
+	if (smp_processor_id() == 0) {
+		msg = (struct hv_message *)per_cpu->synic_message_page + VTL2_VMBUS_SINT_INDEX;
+		message_type = READ_ONCE(msg->header.message_type);
+		if (message_type != HVMSG_NONE)
+			tasklet_schedule(&msg_dpc);
+	}
+
+	event_flags = (union hv_synic_event_flags *)per_cpu->synic_event_page +
+			VTL2_VMBUS_SINT_INDEX;
+	for (i = 0; i < HV_EVENT_FLAGS_LONG_COUNT; i++) {
+		if (READ_ONCE(event_flags->flags[i])) {
+			word = xchg(&event_flags->flags[i], 0);
+			for_each_set_bit(j, &word, BITS_PER_LONG) {
+				rcu_read_lock();
+				eventfd = READ_ONCE(flag_eventfds[i * BITS_PER_LONG + j]);
+				if (eventfd)
+					eventfd_signal(eventfd, 1);
+				rcu_read_unlock();
+			}
+		}
+	}
+
+	vmbus_isr();
+}
+
+static int mshv_alloc_context(unsigned int cpu)
+{
+	struct mshv_vtl_per_cpu *per_cpu = this_cpu_ptr(&mshv_vtl_per_cpu);
+	struct page *run_page;
+
+	run_page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+	if (!run_page)
+		return -ENOMEM;
+
+	per_cpu->run = page_address(run_page);
+	if (mshv_vsm_capabilities.intercept_page_available)
+		mshv_configure_reg_page(per_cpu);
+
+	mshv_synic_enable_regs(cpu);
+
+	return 0;
+}
+
+static int hv_vtl_setup_synic(void)
+{
+	int ret;
+
+	/* Use our isr to first filter out packets destined for userspace */
+	hv_setup_vmbus_handler(mshv_vtl_vmbus_isr);
+
+	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "hyperv/vtl:online",
+				mshv_alloc_context, NULL);
+	if (ret < 0)
+		return ret;
+
+	return 0;
 }
 
 static int vtl_get_vp_registers(u16 count,
@@ -1454,6 +1571,10 @@ static int __init mshv_vtl_init(void)
 
 	tasklet_init(&msg_dpc, mshv_sint_on_msg_dpc, 0);
 	init_waitqueue_head(&fd_wait_queue);
+
+	ret = hv_vtl_setup_synic();
+	if (ret)
+		return ret;
 
 	ret = misc_register(&mshv_vtl_sint_dev);
 	if (ret)
