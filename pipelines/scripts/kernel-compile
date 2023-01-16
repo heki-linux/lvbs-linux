@@ -8,7 +8,7 @@ FLAVOR=$1
 SOURCE_ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 cd "${SOURCE_ROOT}"
 
-ARCH=$(uname -p)
+ARCH=$(uname -m)
 if [ "$ARCH" == "aarch64" ];
 then
     ARCH="arm64"
