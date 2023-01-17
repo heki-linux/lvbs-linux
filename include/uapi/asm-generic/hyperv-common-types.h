@@ -1,6 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 #ifndef _UAPI_ASM_GENERIC_HYPERV_COMMON_TYPES_H
 #define _UAPI_ASM_GENERIC_HYPERV_COMMON_TYPES_H
+/*
+ * This file contains common definitions that arch-specific code depends on.
+ *
+ * This is in contrast to asm-generic/hyper-tlfs.h, which itself depends on
+ * arch-specific code.
+ */
 
 #include <linux/types.h>
 
@@ -31,27 +37,6 @@ union hv_dispatch_suspend_register {
 		__u64 suspended : 1;
 		__u64 reserved : 63;
 	} __packed;
-};
-
-
-union hv_partition_isolation_properties {
-	__u64 as_uint64;
-	struct {
-		__u64 isolation_type: 5;
-		__u64 isolation_host_type : 2;
-		__u64 rsvd_z: 5;
-		__u64 shared_gpa_boundary_page_number: 52;
-	} __packed;
-};
-
-union hv_interrupt_control {
-	struct {
-		__u32 interrupt_type; /* enum hv_interrupt type */
-		__u32 level_triggered : 1;
-		__u32 logical_dest_mode : 1;
-		__u32 rsvd : 30;
-	} __packed;
-	__u64 as_uint64;
 };
 
 enum hv_register_name {
