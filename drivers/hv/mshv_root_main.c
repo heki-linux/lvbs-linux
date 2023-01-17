@@ -1150,6 +1150,21 @@ mshv_partition_ioctl_irqfd(struct mshv_partition *partition,
 }
 
 static long
+mshv_ioctl_install_intercept(u64 partition_id, void __user *user_args)
+{
+	struct mshv_install_intercept args;
+
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+	return hv_call_install_intercept(
+			partition_id,
+			args.access_type_mask,
+			args.intercept_type,
+			args.intercept_parameter);
+}
+
+static long
 mshv_partition_ioctl_get_gpa_access_state(struct mshv_partition *partition,
 	void __user *user_args)
 {

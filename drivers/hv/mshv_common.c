@@ -45,22 +45,6 @@ mshv_ioctl_translate_gva(u32 vp_index, u64 partition_id, void __user *user_args)
 EXPORT_SYMBOL_GPL(mshv_ioctl_translate_gva);
 
 long
-mshv_ioctl_install_intercept(u64 partition_id, void __user *user_args)
-{
-	struct mshv_install_intercept args;
-
-	if (copy_from_user(&args, user_args, sizeof(args)))
-		return -EFAULT;
-
-	return hv_call_install_intercept(
-			partition_id,
-			args.access_type_mask,
-			args.intercept_type,
-			args.intercept_parameter);
-}
-EXPORT_SYMBOL_GPL(mshv_ioctl_install_intercept);
-
-long
 mshv_ioctl_assert_interrupt(u64 partition_id, void __user *user_args)
 {
 	struct mshv_assert_interrupt args;
