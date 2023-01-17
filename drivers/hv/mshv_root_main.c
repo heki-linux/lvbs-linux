@@ -2037,7 +2037,7 @@ void __exit mshv_root_exit(void)
 	cpuhp_remove_state(mshv_cpuhp_online);
 	free_percpu(mshv.synic_pages);
 
-	hv_port_table_fini();
+	mshv_port_table_fini();
 
 	mshv_vfio_ops_exit();
 }

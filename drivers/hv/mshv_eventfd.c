@@ -511,7 +511,7 @@ static void
 ioeventfd_release(struct kernel_mshv_ioeventfd *p, u64 partition_id)
 {
 	if (p->doorbell_id > 0)
-		hv_unregister_doorbell(partition_id, p->doorbell_id);
+		mshv_unregister_doorbell(partition_id, p->doorbell_id);
 	eventfd_ctx_put(p->eventfd);
 	kfree(p);
 }
@@ -622,9 +622,9 @@ mshv_assign_ioeventfd(struct mshv_partition *partition,
 		goto unlock_fail;
 	}
 
-	ret = hv_register_doorbell(partition->id, ioeventfd_mmio_write,
-				   (void *)partition, p->addr,
-				   p->datamatch, doorbell_flags);
+	ret = mshv_register_doorbell(partition->id, ioeventfd_mmio_write,
+				     (void *)partition, p->addr,
+				     p->datamatch, doorbell_flags);
 	if (ret < 0) {
 		pr_err("Failed to register ioeventfd doorbell!\n");
 		goto unlock_fail;
