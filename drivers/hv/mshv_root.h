@@ -87,6 +87,7 @@ struct mshv_partition {
 		struct hlist_head items;
 	} ioeventfds;
 	struct mshv_msi_routing_table __rcu *msi_routing;
+	u64 isolation_type;
 };
 
 struct mshv_lapic_irq {
@@ -235,6 +236,11 @@ void mshv_unregister_device_ops(u32 type);
 void mshv_isr(void);
 int mshv_synic_init(unsigned int cpu);
 int mshv_synic_cleanup(unsigned int cpu);
+
+static inline bool mshv_partition_isolation_type_snp(struct mshv_partition *partition)
+{
+	return partition->isolation_type == HV_PARTITION_ISOLATION_TYPE_SNP;
+}
 
 extern struct mshv mshv;
 
