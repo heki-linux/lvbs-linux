@@ -118,17 +118,17 @@ static DEFINE_PER_CPU(struct mshv_poll_file, mshv_poll_file);
 static DEFINE_PER_CPU(unsigned long long, num_vtl0_transitions);
 static DEFINE_PER_CPU(struct mshv_vtl_per_cpu, mshv_vtl_per_cpu);
 
-struct mshv_vtl_run *mshv_this_run(void)
+static struct mshv_vtl_run *mshv_this_run(void)
 {
 	return *this_cpu_ptr(&mshv_vtl_per_cpu.run);
 }
 
-struct mshv_vtl_run *mshv_cpu_run(int cpu)
+static struct mshv_vtl_run *mshv_cpu_run(int cpu)
 {
 	return *per_cpu_ptr(&mshv_vtl_per_cpu.run, cpu);
 }
 
-struct page *mshv_cpu_reg_page(int cpu)
+static struct page *mshv_cpu_reg_page(int cpu)
 {
 	return *per_cpu_ptr(&mshv_vtl_per_cpu.reg_page, cpu);
 }
