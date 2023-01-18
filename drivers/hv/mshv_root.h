@@ -221,14 +221,14 @@ void mshv_set_msi_irq(struct mshv_kernel_msi_routing_entry *e,
 
 void mshv_irqfd_routing_update(struct mshv_partition *partition);
 
-void hv_port_table_fini(void);
-int hv_portid_alloc(struct port_table_info *info);
-int hv_portid_lookup(int port_id, struct port_table_info *info);
-void hv_portid_free(int port_id);
+void mshv_port_table_fini(void);
+int mshv_portid_alloc(struct port_table_info *info);
+int mshv_portid_lookup(int port_id, struct port_table_info *info);
+void mshv_portid_free(int port_id);
 
-int hv_register_doorbell(u64 partition_id, doorbell_cb_t doorbell_cb,
-			 void *data, u64 gpa, u64 val, u64 flags);
-int hv_unregister_doorbell(u64 partition_id, int doorbell_portid);
+int mshv_register_doorbell(u64 partition_id, doorbell_cb_t doorbell_cb,
+			   void *data, u64 gpa, u64 val, u64 flags);
+int mshv_unregister_doorbell(u64 partition_id, int doorbell_portid);
 
 int mshv_register_device_ops(const struct mshv_device_ops *ops, u32 type);
 void mshv_unregister_device_ops(u32 type);

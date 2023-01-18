@@ -112,7 +112,7 @@ mshv_doorbell_isr(struct hv_message *msg)
 					HV_SYNIC_DOORBELL_SINT_INDEX))) {
 		struct port_table_info ptinfo = { 0 };
 
-		if (hv_portid_lookup(port, &ptinfo)) {
+		if (mshv_portid_lookup(port, &ptinfo)) {
 			pr_err("Failed to get port information from port_table!\n");
 			continue;
 		}
@@ -451,7 +451,7 @@ void mshv_isr(void)
 }
 
 int
-hv_register_doorbell(u64 partition_id, doorbell_cb_t doorbell_cb, void *data,
+mshv_register_doorbell(u64 partition_id, doorbell_cb_t doorbell_cb, void *data,
 		     u64 gpa, u64 val, u64 flags)
 {
 	struct hv_connection_info connection_info = { 0 };
@@ -469,7 +469,7 @@ hv_register_doorbell(u64 partition_id, doorbell_cb_t doorbell_cb, void *data,
 	port_table_info->port_type = HV_PORT_TYPE_DOORBELL;
 	port_table_info->port_doorbell.doorbell_cb = doorbell_cb;
 	port_table_info->port_doorbell.data = data;
-	ret = hv_portid_alloc(port_table_info);
+	ret = mshv_portid_alloc(port_table_info);
 	if (ret < 0) {
 		pr_err("Failed to create the doorbell port!\n");
 		kfree(port_table_info);
@@ -486,7 +486,7 @@ hv_register_doorbell(u64 partition_id, doorbell_cb_t doorbell_cb, void *data,
 
 	if (ret < 0) {
 		pr_err("Failed to create the port!\n");
-		hv_portid_free(port_id.u.id);
+		mshv_portid_free(port_id.u.id);
 		return ret;
 	}
 
@@ -500,7 +500,7 @@ hv_register_doorbell(u64 partition_id, doorbell_cb_t doorbell_cb, void *data,
 				   connection_id, &connection_info, 0, NUMA_NO_NODE);
 	if (ret < 0) {
 		hv_call_delete_port(hv_current_partition_id, port_id);
-		hv_portid_free(port_id.u.id);
+		mshv_portid_free(port_id.u.id);
 		return ret;
 	}
 
@@ -509,7 +509,7 @@ hv_register_doorbell(u64 partition_id, doorbell_cb_t doorbell_cb, void *data,
 }
 
 int
-hv_unregister_doorbell(u64 partition_id, int doorbell_portid)
+mshv_unregister_doorbell(u64 partition_id, int doorbell_portid)
 {
 	int ret = 0;
 	union hv_port_id port_id = { 0 };
@@ -525,7 +525,7 @@ hv_unregister_doorbell(u64 partition_id, int doorbell_portid)
 	if (ret < 0)
 		pr_err("Failed to disconnect the doorbell connection!\n");
 
-	hv_portid_free(doorbell_portid);
+	mshv_portid_free(doorbell_portid);
 
 	return ret;
 }

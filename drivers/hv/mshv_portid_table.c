@@ -23,7 +23,7 @@
 static DEFINE_IDR(port_table_idr);
 
 void
-hv_port_table_fini(void)
+mshv_port_table_fini(void)
 {
 	struct port_table_info *port_info;
 	unsigned long i, tmp;
@@ -39,7 +39,7 @@ hv_port_table_fini(void)
 }
 
 int
-hv_portid_alloc(struct port_table_info *info)
+mshv_portid_alloc(struct port_table_info *info)
 {
 	int ret = 0;
 
@@ -52,7 +52,7 @@ hv_portid_alloc(struct port_table_info *info)
 }
 
 void
-hv_portid_free(int port_id)
+mshv_portid_free(int port_id)
 {
 	struct port_table_info *info;
 
@@ -66,7 +66,7 @@ hv_portid_free(int port_id)
 }
 
 int
-hv_portid_lookup(int port_id, struct port_table_info *info)
+mshv_portid_lookup(int port_id, struct port_table_info *info)
 {
 	struct port_table_info *_info;
 	int ret = -ENOENT;
