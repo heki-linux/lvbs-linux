@@ -99,7 +99,7 @@ mshv_ioctl_check_extension(void __user *user_arg)
 	switch (arg) {
 	case MSHV_CAP_CORE_API_STABLE:
 		return 0;
-#ifdef CONFIG_HYPERV_VTL
+#ifdef CONFIG_MSHV_VTL
 	case MSHV_CAP_REGISTER_PAGE:
 	case MSHV_CAP_VTL_RETURN_ACTION:
 	case MSHV_CAP_DR6_SHARED:
