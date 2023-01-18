@@ -4,7 +4,7 @@ menu "Microsoft Hyper-V guest support"
 
 config HYPERV
 	tristate "Microsoft Hyper-V client drivers"
-	depends on ACPI && ((X86 && X86_LOCAL_APIC && HYPERVISOR_GUEST) \
+	depends on ((X86 && X86_LOCAL_APIC && HYPERVISOR_GUEST) \
 		|| (ARM64 && !CPU_BIG_ENDIAN))
 	select PARAVIRT
 	select X86_HV_CALLBACK_VECTOR if X86
@@ -59,6 +59,9 @@ config MSHV_ROOT
 config MSHV_VTL
 	tristate "Microsoft Hyper-V VTL driver"
 	depends on MSHV && X86 && TRANSPARENT_HUGEPAGE
+	select OF
+	select OF_EARLY_FLATTREE
+	select INTERVAL_TREE
 	help
 	  Select this option to enable Hyper-V VTL driver.
 	  Virtual Secure Mode (VSM) is a set of hypervisor capabilities and

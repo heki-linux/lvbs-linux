@@ -1,0 +1,317 @@
+commit c9e4797d45e296feaf096780efadf9f68a632317
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Wed Jan 27 13:38:02 2021 -0800
+
+    Less logging
+
+commit 9e565f2ecd08b404a0efc4fafe1dc83af0427995
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Wed Jan 27 13:07:11 2021 -0800
+
+    Windows boots in MP
+
+commit 84cedffefd717fec516a1cd8f3de022b5f879ec2
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Wed Jan 27 01:02:27 2021 -0800
+
+    Updating the initramfs works
+
+commit 6d934eca4a983deb6225cb3f1f9cf954d6996c65
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Tue Jan 26 20:10:09 2021 -0800
+
+    Small imptovementds
+
+commit 4616e08fe6d09c538d7ae6df1a39aa7bbbda0cc6
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Tue Jan 26 19:53:15 2021 -0800
+
+    Tool to create initramfs in any repo
+
+commit bc50b6c6e3ca527e7187e58f687a08027f11a5ad
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Tue Jan 26 00:50:09 2021 -0800
+
+    Remove excessive locking
+
+commit fb8f3865602ef8f464e5620860d99e51aaa22c06
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Tue Jan 26 00:49:47 2021 -0800
+
+    NEw build tools for the kernel
+
+commit 62c9fc7391ec7d3eef665bc1877a43e9dc07c2e5
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Fri Jan 22 21:51:22 2021 -0800
+
+    WIndows starts booting, waits on IOAPIC
+
+commit 4e0350f1340a373c26a54120ac20e3373969b6b8
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Fri Jan 22 01:14:47 2021 -0800
+
+    AP starup with kthreads, refactoring
+
+commit 50eaaac60706e1b3f18543063681e3349f02a657
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Jan 21 00:37:57 2021 -0800
+
+    Adjust the ld script to update initramfs after the build
+
+commit 67f8453fb23468e7685d682321d81344eac2ea46
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Wed Jan 20 18:58:54 2021 -0800
+
+    Processing VP startup hypercall
+
+commit 15bcc97ecaf2c3dadea207d1d95d11c59be23c0f
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Tue Jan 19 17:05:27 2021 -0800
+
+    MP boot
+
+commit 2824a9e8cac1f1da4f71bceafc1352296b08678b
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Sat Jan 16 12:18:25 2021 -0800
+
+    Refactoring
+
+commit ac6fe64de34283437607596c3ab2e7536cf9ea94
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Fri Jan 15 22:47:18 2021 -0800
+
+    VP lands in VTL2
+
+commit 463479fab32a2b5dc61035425593459285049125
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Fri Jan 15 15:34:22 2021 -0800
+
+    More on MP
+
+commit 01abc5758bcb5f674b6b89265d0743c14684fea2
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Jan 14 23:15:56 2021 -0800
+
+    Buidling CPU context
+
+commit f947be7f16c9cdc8c332889286e0202787096ed4
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Jan 14 19:42:47 2021 -0800
+
+    Getting SIPI and setting VTL permissions
+
+commit 5fbdd1760f373c0ebcac37e45b947b005cece04a
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Fri Oct 30 12:03:50 2020 -0700
+
+    Boots windows
+
+commit 189fef56a4a400e187a79174f8907fa33ce9d4d8
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Fri Oct 30 00:13:14 2020 -0700
+
+    Attempt translating addresses when logging
+
+commit 45a9f20b5325d1e4ecc896aaded46a7b13ef6798
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Oct 29 23:43:13 2020 -0700
+
+    Dumping code bytes using GVA
+
+commit 5b86cb6fced7865074e65655ae3d3db693d4d3a5
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Oct 29 20:31:16 2020 -0700
+
+    Translating GVA to GPA
+
+commit 6cf74b94e27c019c67236091acc7a816c0bd4865
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Wed Oct 28 14:19:09 2020 -0700
+
+    Asserting interrupts
+
+commit 4ef407671ac09c8615ed533e995d86d25c10d5e1
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Tue Oct 27 14:22:11 2020 -0700
+
+    Comment out debug statements
+
+commit ee1631b4b3b85e27e7edf0bf2c178cfc44a4b86c
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Sun Oct 25 20:45:55 2020 -0700
+
+    Hvlite loads up to Secure boot device checks
+
+commit dab581cd412d8e8a0dcdd276f71e414d09c2ed3e
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Sat Oct 24 01:53:21 2020 -0700
+
+    Intrecepts for exceptions
+
+commit fd483ea7d3393b82fdf55df4d0d6f8af3764ac2d
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Fri Oct 23 23:25:13 2020 -0700
+
+    Proper usage and init for per-cpu pointers
+
+commit e8bb86e5652c383a9d5e4f914c986810e75fa963
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Oct 22 20:29:14 2020 -0700
+
+    Setting GPRs, cleanup
+
+commit 0988a5d2f1005b1cf2d136d4a4381229155b272a
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Oct 22 12:46:07 2020 -0700
+
+    Enable stack protector
+
+commit 2fc9b0c9c69b4e832e9c83b5bd2450ee81cf4bbb
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Oct 22 12:45:34 2020 -0700
+
+    Do not allow to map the kernel memory into the user-space
+
+commit 4556b6b827b3ad39053baddc4155f2225ce10710
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Oct 22 02:02:29 2020 -0700
+
+    Better code for context switching
+
+commit 2d1538f0a5a0b628b02b13f27dccbf545fbd2983
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Oct 15 15:19:16 2020 -0700
+
+    Setting individual registers
+
+commit c7b05822cf1994db5c683a54d4d618dd1009827c
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Tue Oct 13 20:24:27 2020 -0700
+
+    Don't use the first two COM ports
+
+commit 6ac0d8f2cfc05f419c3283d3e4855a1f84f92240
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Oct 8 19:56:37 2020 -0700
+
+    REading and writing from the user mode
+
+commit 4a430f1ca102b6e869ff3aeded70ff32d958b25b
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Oct 8 14:05:42 2020 -0700
+
+    Negotiaging th version as a test
+
+commit 17b2d5eba5affeee2ec594124c0fae13173a38e7
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Wed Oct 7 21:13:17 2020 -0700
+
+    the version request comes through
+
+commit 7186f7e1c747b00d85bafdd1828e560809ced659
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Wed Oct 7 00:51:37 2020 -0700
+
+    The get pseudo file
+
+commit 8ab0275331595e70a205ff400749dd90da06af72
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Tue Oct 6 16:04:11 2020 -0700
+
+    Getting GET version from the host
+
+commit 80afe116b4b2b8a600928d68313ba41b120a3833
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Sat Oct 3 20:04:08 2020 -0700
+
+    Fix format string warning
+
+commit ccacd9b3bd6fdadd90e721f872cadacf0e74bfd0
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Sat Oct 3 20:03:52 2020 -0700
+
+    Non-acpi device vmbus matching
+
+commit 40c2905e0501b32ee482b45a7f7e5eee6c0d93f5
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Fri Oct 2 14:10:49 2020 -0700
+
+    Non-ACPI dependant root device
+
+commit f79048ecc1fe474999518173064dc96d0a3587ad
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Oct 1 21:56:24 2020 -0700
+
+    Fix oops when a channel is unknown
+
+commit 3e166ddfdfe5da2ddd95a36986d59ca79e9d6c6a
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Oct 1 14:42:43 2020 -0700
+
+    WIP for GET
+
+commit 8dbc8a8cbb5bf143ec84f26e90cf16bf3d14a359
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Wed Sep 23 18:54:27 2020 -0700
+
+    Max guest memory size of 1TiB
+
+commit 6b828a63ea36aa919d9427c9d8ee0fc46b8bdfe0
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Tue Sep 22 15:39:13 2020 -0700
+
+    Correction for computing PFN
+
+commit ce69049d1114f5adb44e7d861b5c7ffe1fb89696
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Mon Sep 21 21:05:42 2020 -0700
+
+    the GPA device
+
+commit c4f25ae93770951ea84e78137afeaa9fc7629b77
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Mon Sep 21 17:39:59 2020 -0700
+
+    Use the capabilities API
+
+commit 0bd903a18b8973bedcad6fa6e4fc07711724bc87
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Sun Sep 20 21:34:09 2020 -0700
+
+    get and set context
+
+commit 0c6b9e1477a71e8cb3ee35d7b9cccee97213f9c7
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Sun Sep 20 15:18:20 2020 -0700
+
+    Initialize per-cpu context
+
+commit 5d4c104cb0540679c1eeae43e10021b42db60a94
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Fri Sep 18 04:18:26 2020 +0000
+
+    Using dom0 headers for intercept data
+
+commit 9af2b73e7a188a47df3d6654400c7c608e6a6891
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Thu Sep 17 03:11:37 2020 +0000
+
+    Enable running hvlite
+
+commit 8cd7847bc082cfc0611e6f8c114e4c6ea3384d00
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Sat Sep 5 19:07:29 2020 -0700
+
+    SMP-friendlier code
+
+commit 624067d9063909a8b9f411e9b89f7195ff452d1f
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Tue Sep 1 19:23:43 2020 -0700
+
+    HCL device
+
+commit 642efc5ddb59b58143fb1feba32fd47252e7bd31
+Author: Roman Kiselev <romank@microsoft.com>
+Date:   Tue Sep 1 00:53:48 2020 -0700
+
+    Converging the source code

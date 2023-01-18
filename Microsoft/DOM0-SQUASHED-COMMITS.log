@@ -1,0 +1,179 @@
+commit 08f50d6964a7849e28c04740f2fcc4f3d19a5d5f
+Author: Sunil Muthuswamy <sunilmut@microsoft.com>
+Date:   Thu Aug 1 17:05:43 2019 -0700
+
+    some review comments
+    
+    Signed-off-by: Sunil Muthuswamy <sunilmut@microsoft.com>
+
+commit ac75cbf31ec5d7faad508d439bfba3ab2000bb5f
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Thu Aug 1 13:16:27 2019 -0700
+
+    mshv: print statements and bug fixes, pushing to save
+
+commit 856c58133855713c9e92f06560fd3494f925feb8
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Wed Jul 31 17:18:39 2019 -0700
+
+    pushing in case of crash
+
+commit cc1f508779832e74b32a160be08b2bc9b6b4f5d8
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Mon Jul 29 15:12:32 2019 -0700
+
+    mshv: mapped intercept page
+
+commit 02ac32d7266491710a52e9689f351a64c55503cb
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Wed Jul 24 18:31:33 2019 -0700
+
+    pushing in case of crash
+
+commit 96b2b8799a2bfa1dc03d78af8983bce4e7a206b6
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Tue Jul 23 15:02:15 2019 -0700
+
+    mshv: register page
+
+commit 9b934a433c4d4a59eba14913f6a2d66d6090c843
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Mon Jul 15 15:20:04 2019 -0700
+
+    IT WORKS
+    
+    [ wei: fix conflicts, adapt to previous changes ]
+    Signed-off-by: Wei Liu <wei.liu@kernel.org>
+
+commit 92aebdb44cc8f98e02ab2273b5ec7547b1042196
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Mon Jul 1 16:46:02 2019 -0700
+
+    mshv: run vp ioctl
+    
+    [ wei: fix conflicts, drop useless changes ]
+    Signed-off-by: Wei Liu <wei.liu@kernel.org>
+
+commit a3a686f4f2fd1a8d4a4bf99060e56087948f9f5a
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Wed Jun 26 13:40:42 2019 -0700
+
+    mshv: map physical pages into guest
+
+commit 5426bb77399e9f86a416d2a9427aa901476a9ee6
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Mon Jun 24 14:07:34 2019 -0700
+
+    mshv: get and set special registers
+    It's janky but whatever
+
+commit 8dd7dcdba10114cc2914132c66de40b3f1d2f6e1
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Thu Jun 20 13:46:37 2019 -0700
+
+    mshv: add get and set vp register ioctls
+    
+    [ wei: fix conflicts ]
+    Signed-off-by: Wei Liu <wei.liu@kernel.org>
+
+commit 0c730b59b18c2584086f505190e7c2088ce518d2
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Wed Jun 19 11:57:11 2019 -0700
+
+    mshv: Add create and delete VP ioctls
+    
+    [ wei: fix conflicts ]
+    Signed-off-by: Wei Liu <wei.liu@kernel.org>
+
+commit f5f8457f84ce98011d1a9102489a9306c54f5ccf
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Tue Jun 18 10:47:15 2019 -0700
+
+    mshv: partition setup and teardown
+    
+    [ wei: fix conflicts ]
+    Signed-off-by: Wei Liu <wei.liu@kernel.org>
+
+commit cc5f540cd3d599775206ab073537594ddf174f14
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Fri Jun 14 15:20:14 2019 -0700
+
+    mshv: Add create and delete partition IOCTLs
+
+commit 6e3a067844e0ba0835f60895bb51d06a33110c8f
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Fri Jun 14 15:12:57 2019 -0700
+
+    mshv: Add mshv module and register misc device
+    
+    This doesn't build because hv_host.h was added in a later commit.
+    
+    Signed-off-by: Wei Liu <wei.liu@kernel.org>
+
+commit 389f2b4745bf5f6bed8f3fa385d7432b5bcb3809
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Thu Jun 6 10:01:42 2019 -0700
+
+    hyperv: Adding multiprocessing to linux host
+    
+    Added the 4 necessary hypercalls to allow a Linux host to boot
+    application processors on Hyper-V. Previously smpboot would fail to
+    bring up any processors other than the root during the boot sequence.
+    
+    Added hypercalls:
+    HVCALL_GET_PARTITION_ID: The partition ID is necessary to make several
+    hypercalls including HVCALL_DEPOSIT_MEMORY. The hypercall is made
+    at the end of hv_init since it must be made after hypercalls are
+    enabled, but before smp.
+    
+    HVCALL_DEPOSIT_MEMORY: The host must deposit memory into the hypervisor
+    before making other more complex hypercalls, such as the following.
+    
+    HVCALL_ADD_LOGICAL_PROCESSOR and HVCALL_CREATE_VP: The host must notify
+    the hypervisor of any logical APs so that the hypervisor can create a
+    VP. These hypercalls are made during hv_smp_prepare_cpus so that the
+    VPs can be achitecturally started by the host during smp.
+    
+    Signed-off-by: Lillian Grassin-Drake <t-ligra@microsoft.com>
+    [ wei: fix conflicts ]
+    Signed-off-by: Wei Liu <wei.liu@kernel.org>
+
+commit d392984106a394c77b319a8ff2de84259369d61a
+Author: Lillian Grassin-Drake <t-ligra@microsoft.com>
+Date:   Thu Jun 6 09:55:44 2019 -0700
+
+    hyperv: Moving hv nested bit to hypercall caller
+    
+    Changed responsibility of nested bit from 4 hypercall functions
+    (hv_do_hypercall, hv_do_rep_hypercall, hv_do_fast_hypercall8,
+    hv_do_fast_hypercall16) to each function's caller. This allows
+    hypercalls to be routed to the nested hypervisor and since each caller
+    is more informed about the intended target, the caller should be
+    applying the bit, not the generic hypercall function.
+    
+    Changed the latter 3 hypercall signatures to accept the full u64 control
+    rather than the u16 call code for consistency with hv_do_hypercall and
+    to accommodate the nested bit (the 31st bit).
+    
+    Signed-off-by: Lillian Grassin-Drake <t-ligra@microsoft.com>
+    [ wei: fix build ]
+    Signed-off-by: Wei Liu <wei.liu@kernel.org>
+
+commit 57fdc1f4955ec95125ed3dff8c29626067955335
+Author: root <root@jostarks-d.ntdev.corp.microsoft.com>
+Date:   Fri Apr 12 09:00:52 2019 -0700
+
+    remove auto-eoi thing
+
+commit 5e0b450b62a13973a0c5fa170f604bc8a98828d1
+Author: Wei Liu <wei.liu@kernel.org>
+Date:   Tue Apr 14 16:19:51 2020 +0000
+
+    Hack to run nested
+    
+    This is a forward port version of John Stark's patch.
+    
+    It seems that when running as Dom0, we should skip setting up some
+    pages. Need to confirmv this later.
+    
+    Signed-off-by: Wei Liu <wei.liu@kernel.org>
