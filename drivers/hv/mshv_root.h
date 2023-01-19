@@ -18,7 +18,6 @@
 
 #define MSHV_PARTITIONS_HASH_BITS	9
 #define MSHV_MAX_PARTITIONS		(1 << MSHV_PARTITIONS_HASH_BITS)
-#define MSHV_MAX_MEM_REGIONS		64
 #define MSHV_MAX_VPS			256
 
 struct mshv_vp {
@@ -43,6 +42,7 @@ struct mshv_vp {
 };
 
 struct mshv_mem_region {
+	struct hlist_node hnode;
 	u64 size; /* bytes */
 	u64 guest_pfn;
 	u64 userspace_addr; /* start of the userspace allocated memory */
@@ -60,10 +60,7 @@ struct mshv_partition {
 	u64 id;
 	refcount_t ref_count;
 	struct mutex mutex;
-	struct {
-		u32 count;
-		struct mshv_mem_region *array[MSHV_MAX_MEM_REGIONS];
-	} regions;
+	struct hlist_head mem_regions; // not ordered
 	struct {
 		u32 count;
 		struct mshv_vp *array[MSHV_MAX_VPS];
