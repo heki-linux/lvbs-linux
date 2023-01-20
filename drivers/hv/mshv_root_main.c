@@ -713,6 +713,37 @@ mshv_vp_ioctl_get_cpuid_values(struct mshv_vp *vp, void __user *user_args)
 }
 
 static long
+mshv_vp_ioctl_translate_gva(struct mshv_vp *vp, void __user *user_args)
+{
+	long ret;
+	struct mshv_translate_gva args;
+	u64 gpa;
+	union hv_translate_gva_result result;
+
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+	ret = hv_call_translate_virtual_address(
+			vp->index,
+			vp->partition->id,
+			args.flags,
+			args.gva,
+			&gpa,
+			&result);
+
+	if (ret)
+		return ret;
+
+	if (copy_to_user(args.result, &result, sizeof(*args.result)))
+		return -EFAULT;
+
+	if (copy_to_user(args.gpa, &gpa, sizeof(*args.gpa)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static long
 mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
 	struct mshv_vp *vp = filp->private_data;
@@ -743,7 +774,7 @@ mshv_vp_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		break;
 #endif
 	case MSHV_TRANSLATE_GVA:
-		r = mshv_ioctl_translate_gva(vp->index, vp->partition->id, (void __user *)arg);
+		r = mshv_vp_ioctl_translate_gva(vp, (void __user *)arg);
 		break;
 #ifdef HV_SUPPORTS_REGISTER_INTERCEPT
 	case MSHV_VP_REGISTER_INTERCEPT_RESULT:
@@ -1130,7 +1161,8 @@ mshv_partition_ioctl_irqfd(struct mshv_partition *partition,
 }
 
 static long
-mshv_ioctl_install_intercept(u64 partition_id, void __user *user_args)
+mshv_partition_ioctl_install_intercept(struct mshv_partition *partition,
+				       void __user *user_args)
 {
 	struct mshv_install_intercept args;
 
@@ -1138,10 +1170,76 @@ mshv_ioctl_install_intercept(u64 partition_id, void __user *user_args)
 		return -EFAULT;
 
 	return hv_call_install_intercept(
-			partition_id,
+			partition->id,
 			args.access_type_mask,
 			args.intercept_type,
 			args.intercept_parameter);
+}
+
+static long
+mshv_partition_ioctl_post_message_direct(struct mshv_partition *partition,
+					 void __user *user_args)
+{
+	struct mshv_post_message_direct args;
+	u8 message[HV_MESSAGE_SIZE];
+
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+	if (args.length > HV_MESSAGE_SIZE)
+		return -E2BIG;
+
+	memset(&message[0], 0, sizeof(message));
+	if (copy_from_user(&message[0], args.message, args.length))
+		return -EFAULT;
+
+	return hv_call_post_message_direct(args.vp,
+					partition->id,
+					args.vtl,
+					args.sint,
+					&message[0]);
+}
+
+static long
+mshv_partition_ioctl_signal_event_direct(struct mshv_partition *partition,
+					 void __user *user_args)
+{
+	struct mshv_signal_event_direct args;
+	long ret;
+
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+	ret = hv_call_signal_event_direct(args.vp,
+					partition->id,
+					args.vtl,
+					args.sint,
+					args.flag,
+					&args.newly_signaled);
+
+	if (ret)
+		return ret;
+
+	if (copy_to_user(user_args, &args, sizeof(args)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static long
+mshv_partition_ioctl_assert_interrupt(struct mshv_partition *partition,
+				      void __user *user_args)
+{
+	struct mshv_assert_interrupt args;
+
+	if (copy_from_user(&args, user_args, sizeof(args)))
+		return -EFAULT;
+
+	return hv_call_assert_virtual_interrupt(
+			partition->id,
+			args.vector,
+			args.dest_addr,
+			args.control);
 }
 
 static long
@@ -1415,15 +1513,15 @@ mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		break;
 	case MSHV_CREATE_VP:
 		ret = mshv_partition_ioctl_create_vp(partition,
-							(void __user *)arg);
+						     (void __user *)arg);
 		break;
 	case MSHV_INSTALL_INTERCEPT:
-		ret = mshv_ioctl_install_intercept(partition->id,
-							(void __user *)arg);
+		ret = mshv_partition_ioctl_install_intercept(partition,
+							     (void __user *)arg);
 		break;
 	case MSHV_ASSERT_INTERRUPT:
-		ret = mshv_ioctl_assert_interrupt(partition->id,
-							(void __user *)arg);
+		ret = mshv_partition_ioctl_assert_interrupt(partition,
+							    (void __user *)arg);
 		break;
 	case MSHV_GET_PARTITION_PROPERTY:
 		ret = mshv_partition_ioctl_get_property(partition,
@@ -1454,12 +1552,12 @@ mshv_partition_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 							 (void __user *)arg);
 		break;
 	case MSHV_SIGNAL_EVENT_DIRECT:
-		ret = mshv_ioctl_signal_event_direct(partition->id,
-							 (void __user *)arg);
+		ret = mshv_partition_ioctl_signal_event_direct(partition,
+							       (void __user *)arg);
 		break;
 	case MSHV_POST_MESSAGE_DIRECT:
-		ret = mshv_ioctl_post_message_direct(partition->id,
-							 (void __user *)arg);
+		ret = mshv_partition_ioctl_post_message_direct(partition,
+							       (void __user *)arg);
 		break;
 #ifdef HV_SUPPORTS_REGISTER_DELIVERABILITY_NOTIFICATIONS
 	case MSHV_REGISTER_DELIVERABILITY_NOTIFICATIONS:
