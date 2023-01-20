@@ -62,9 +62,9 @@ def rev_get_file_list(rev):
 def rev_is_ignored(rev):
     files = rev_get_file_list(rev)
 
-    # Exclude pipeline stuff
+    # Exclude pipeline and ADO stuff
     for f in files:
-        if f.find("pipelines/") == 0:
+        if f.find("pipelines/") == 0 or f.find(".azuredevops") == 0:
             return True
 
     # Exclude usual set version business
