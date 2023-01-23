@@ -322,6 +322,18 @@ static int handle_cpuid(struct pt_regs *regs, struct ve_info *ve)
 	};
 
 	/*
+	 * Work around the segfault issue in glibc 2.35 in Ubuntu 22.04.
+	 * See https://sourceware.org/bugzilla/show_bug.cgi?id=28784
+	 * Ubuntu 22.04/22.10/23.04's glibc should pick up this glibc fix:
+	 * https://sourceware.org/git/?p=glibc.git;a=commitdiff;h=c242fcce06e3102ca663b2f992611d0bda4f2668
+	 */
+	if (regs->ax == 2) {
+		regs->ax = 0xf1ff01;
+		regs->bx = regs->cx = regs->dx = 0;
+		return ve_instr_len(ve);
+	}
+
+	/*
 	 * Only allow VMM to control range reserved for hypervisor
 	 * communication.
 	 *
