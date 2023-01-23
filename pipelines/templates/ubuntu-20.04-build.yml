@@ -14,8 +14,8 @@ steps:
           docker.io containerd runc
       docker -v
 
-      command -v az || (sudo apt install -y azure-cli;
-        az extension add --name azure-devops)
+      command -v az || (sudo pip3 install azure-cli;
+          az extension add --name azure-devops)
       az version
 
       sudo apt install -y \
