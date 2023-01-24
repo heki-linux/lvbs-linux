@@ -5,7 +5,7 @@ variables:
 trigger: none
 
 schedules:
-- cron: "* * * * Tue,Thu"
+- cron: "42 0 * * Tue,Thu"
   displayName: Daily automated SPEC update
   branches:
     include:
