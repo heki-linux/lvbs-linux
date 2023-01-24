@@ -979,18 +979,11 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 	struct mshv_mem_region *region;
 	int completed;
 	unsigned long remaining, batch_size;
-	int i;
 	struct page **pages;
 	u64 page_count, user_start, user_end, gpfn_start, gpfn_end;
 	u64 region_page_count, region_user_start, region_user_end;
 	u64 region_gpfn_start, region_gpfn_end;
 	long ret = 0;
-
-	/* Check we have enough array slots */
-	if (partition->regions.count >= MSHV_MAX_MEM_REGIONS) {
-		pr_err("%s: not enough memory region slots\n", __func__);
-		return -ENOSPC;
-	}
 
 	if (copy_from_user(&mem, user_mem, sizeof(mem)))
 		return -EFAULT;
@@ -1007,10 +1000,8 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 	user_end = mem.userspace_addr + mem.size;
 	gpfn_start = mem.guest_pfn;
 	gpfn_end = mem.guest_pfn + page_count;
-	for (i = 0; i < MSHV_MAX_MEM_REGIONS; ++i) {
-		region = partition->regions.array[i];
-		if (region == NULL)
-			continue;
+
+	hlist_for_each_entry(region, &partition->mem_regions, hnode) {
 		region_page_count = region->size >> HV_HYP_PAGE_SHIFT;
 		region_user_start = region->userspace_addr;
 		region_user_end = region->userspace_addr + region->size;
@@ -1064,13 +1055,7 @@ mshv_partition_ioctl_map_memory(struct mshv_partition *partition,
 				    page_count, mem.flags, pages);
 
 	/* Install the new region */
-	for (i = 0; i < MSHV_MAX_MEM_REGIONS; ++i) {
-		if (partition->regions.array[i] == NULL) {
-			partition->regions.array[i] = region;
-			break;
-		}
-	}
-	partition->regions.count++;
+	hlist_add_head(&region->hnode, &partition->mem_regions);
 
 	return 0;
 
@@ -1087,32 +1072,27 @@ mshv_partition_ioctl_unmap_memory(struct mshv_partition *partition,
 {
 	struct mshv_user_mem_region mem;
 	struct mshv_mem_region *region;
-	int i;
 	u64 page_count;
 	long ret;
 
-	if (!partition->regions.count)
+	if (hlist_empty(&partition->mem_regions))
 		return -EINVAL;
 
 	if (copy_from_user(&mem, user_mem, sizeof(mem)))
 		return -EFAULT;
 
 	/* Find matching region */
-	for (i = 0; i < MSHV_MAX_MEM_REGIONS; ++i) {
-		region = partition->regions.array[i];
-		if (region == NULL)
-			continue;
+	hlist_for_each_entry(region, &partition->mem_regions, hnode) {
 		if (region->userspace_addr == mem.userspace_addr &&
 		    region->size == mem.size &&
 		    region->guest_pfn == mem.guest_pfn)
 			break;
 	}
 
-	if (i == MSHV_MAX_MEM_REGIONS)
+	if (region == NULL)
 		return -EINVAL;
 
-	partition->regions.array[i] = NULL;
-	partition->regions.count--;
+	hlist_del(&region->hnode);
 	page_count = region->size >> HV_HYP_PAGE_SHIFT;
 	ret = hv_call_unmap_gpa_pages(partition->id, region->guest_pfn,
 				      page_count, 0);
@@ -1605,6 +1585,7 @@ destroy_partition(struct mshv_partition *partition)
 	struct mshv_vp *vp;
 	struct mshv_mem_region *region;
 	int i;
+	struct hlist_node *n;
 
 	/*
 	 * This must be done before we drain all the vps and call
@@ -1652,10 +1633,8 @@ destroy_partition(struct mshv_partition *partition)
 	hv_call_delete_partition(partition->id);
 
 	/* Remove regions and unpin the pages */
-	for (i = 0; i < MSHV_MAX_MEM_REGIONS; ++i) {
-		region = partition->regions.array[i];
-		if (region == NULL)
-			continue;
+	hlist_for_each_entry_safe(region, n, &partition->mem_regions, hnode) {
+		hlist_del(&region->hnode);
 		page_count = region->size >> HV_HYP_PAGE_SHIFT;
 		unpin_user_pages(&region->pages[0], page_count);
 		vfree(region);
@@ -1763,6 +1742,8 @@ __mshv_ioctl_create_partition(void __user *user_arg)
 	INIT_HLIST_HEAD(&partition->irq_ack_notifier_list);
 
 	INIT_HLIST_HEAD(&partition->devices);
+
+	INIT_HLIST_HEAD(&partition->mem_regions);
 
 	mshv_eventfd_init(partition);
 
