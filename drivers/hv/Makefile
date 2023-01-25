@@ -10,7 +10,7 @@ obj-$(CONFIG_MSHV_ROOT)		+= mshv_root.o
 CFLAGS_hv_trace.o = -I$(src)
 CFLAGS_hv_balloon.o = -I$(src)
 
-mshv-y				+= mshv_main.o mshv_common.o hv_call.o
+mshv-y				+= mshv_main.o hv_call.o
 mshv_root-y			:= mshv_root_main.o mshv_synic.o mshv_portid_table.o \
 				   mshv_eventfd.o mshv_msi.o vfio.o
 

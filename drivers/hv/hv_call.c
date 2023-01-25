@@ -1124,6 +1124,7 @@ int hv_call_signal_event_direct(u32 vp_index,
 	}
 	return 0;
 }
+EXPORT_SYMBOL_GPL(hv_call_signal_event_direct);
 
 int hv_call_post_message_direct(u32 vp_index,
 				u64 partition_id,
@@ -1154,6 +1155,7 @@ int hv_call_post_message_direct(u32 vp_index,
 	}
 	return 0;
 }
+EXPORT_SYMBOL_GPL(hv_call_post_message_direct);
 
 int hv_call_get_vp_cpuid_values(u32 vp_index,
 				u64 partition_id,

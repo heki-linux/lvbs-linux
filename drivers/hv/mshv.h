@@ -178,11 +178,6 @@ void mshv_setup_vtl_func(const mshv_create_func_t create_vtl,
 			 const mshv_check_ext_func_t check_ext);
 void mshv_set_create_partition_func(const mshv_create_func_t func);
 
-long mshv_ioctl_signal_event_direct(u64 partition_id, void __user *user_args);
-long mshv_ioctl_translate_gva(u32 vp_index, u64 partition_id, void __user *user_args);
-long mshv_ioctl_assert_interrupt(u64 partition_id, void __user *user_args);
-long mshv_ioctl_post_message_direct(u64 partition_id, void __user *user_args);
-
 extern struct mshv mshv;
 
 #endif /* _MSHV_H */

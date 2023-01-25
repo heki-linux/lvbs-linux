@@ -1024,21 +1024,8 @@ mshv_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 	case MSHV_VTL_RETURN_TO_LOWER_VTL:
 		ret = mshv_vtl_ioctl_return_to_lower_vtl();
 		break;
-	case MSHV_POST_MESSAGE_DIRECT:
-		ret = mshv_ioctl_post_message_direct(HV_PARTITION_ID_SELF, (void __user *)arg);
-		break;
-	case MSHV_ASSERT_INTERRUPT:
-		ret = mshv_ioctl_assert_interrupt(HV_PARTITION_ID_SELF, (void __user *)arg);
-		break;
-	case MSHV_TRANSLATE_GVA:
-		ret = mshv_ioctl_translate_gva(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
-							(void __user *)arg);
-		break;
 	case MSHV_VTL_ADD_VTL0_MEMORY:
 		ret = mshv_vtl_ioctl_add_vtl0_mem((void __user *)arg);
-		break;
-	case MSHV_SIGNAL_EVENT_DIRECT:
-		ret = mshv_ioctl_signal_event_direct(HV_PARTITION_ID_SELF, (void __user *)arg);
 		break;
 	default:
 		pr_err("%s: invalid vtl ioctl: %#x\n", __func__, ioctl);
