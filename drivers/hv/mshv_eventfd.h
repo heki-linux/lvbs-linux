@@ -50,6 +50,7 @@ struct mshv_kernel_irqfd {
 	poll_table                           pt;
 	wait_queue_head_t                    *wqh;
 	wait_queue_entry_t                   wait;
+	struct work_struct                   assert;
 	struct work_struct                   shutdown;
 
 	/* Resampler related */
