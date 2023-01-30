@@ -10,6 +10,10 @@ Describe how the issue is solved.
 
 What are the tests done?
 
+# Changelog record
+
+Anything relevant for the changelog, otherwise N/A.
+
 # References
 
 Provide any references that may help the reviewers (documents, code etc)
