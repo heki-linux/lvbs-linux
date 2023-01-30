@@ -85,6 +85,18 @@ irqfd_resampler_ack(struct mshv_irq_ack_notifier *mian)
 }
 
 static void
+irqfd_assert(struct work_struct *work)
+{
+	struct mshv_kernel_irqfd *irqfd =
+		container_of(work, struct mshv_kernel_irqfd, assert);
+	struct mshv_lapic_irq *irq = &irqfd->lapic_irq;
+
+	hv_call_assert_virtual_interrupt(irqfd->partition->id,
+					 irq->vector, irq->apic_id,
+					 irq->control);
+}
+
+static void
 irqfd_inject(struct mshv_kernel_irqfd *irqfd)
 {
 	struct mshv_partition *partition = irqfd->partition;
@@ -109,10 +121,9 @@ irqfd_inject(struct mshv_kernel_irqfd *irqfd)
 		} while (read_seqcount_retry(&irqfd->msi_entry_sc, seq));
 	}
 
-	hv_call_assert_virtual_interrupt(irqfd->partition->id,
-					 irq->vector, irq->apic_id,
-					 irq->control);
 	srcu_read_unlock(&partition->irq_srcu, idx);
+
+	schedule_work(&irqfd->assert);
 }
 
 static void
@@ -154,6 +165,12 @@ irqfd_shutdown(struct work_struct *work)
 		irqfd_resampler_shutdown(irqfd);
 		eventfd_ctx_put(irqfd->resamplefd);
 	}
+
+	/*
+	 * We know no new events will be scheduled at this point, so block
+	 * until all previously outstanding events have completed
+	 */
+	flush_work(&irqfd->assert);
 
 	/*
 	 * It is now safe to release the object's resources
@@ -285,6 +302,7 @@ mshv_irqfd_assign(struct mshv_partition *partition,
 	irqfd->partition = partition;
 	irqfd->gsi = args->gsi;
 	INIT_WORK(&irqfd->shutdown, irqfd_shutdown);
+	INIT_WORK(&irqfd->assert, irqfd_assert);
 	seqcount_spinlock_init(&irqfd->msi_entry_sc,
 			       &partition->irqfds.lock);
 
