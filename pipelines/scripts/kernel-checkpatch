@@ -26,6 +26,11 @@ log.set_verbosity(args.verbose)
 ado.init_defaults(args.ado_org, args.ado_project, args.repo_id, args.pr_id,
                   args.token_type, args.ado_access_token)
 
+# View with checkpatch.pl --list-types
+ignore_types = [
+    "UNKNOWN_COMMIT_ID"
+]
+
 
 def separator():
     log.info('-' * 100)
@@ -57,7 +62,7 @@ def main():
 
         log.info("Running scripts/checkpatch.pl")
         result = subprocess.run(
-            ["./scripts/checkpatch.pl", "-g", commit_id],
+            ["./scripts/checkpatch.pl", "-g", commit_id, "--ignore", ",".join(ignore_types)],
             capture_output=True,
         )
 
