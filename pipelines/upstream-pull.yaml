@@ -1,6 +1,7 @@
 
 variables:
   TAG_FLAG_FILE: /tmp/upstream-latest.txt
+  TARGET_BRANCH: main
 
 trigger: none
 
@@ -43,7 +44,7 @@ jobs:
   - bash: |
       set -e
       set -x
-      ./pipelines/scripts/kernel-upstream-pull --out-file=$(TAG_FLAG_FILE) -v --in-pipeline
+      ./pipelines/scripts/kernel-upstream-pull --out-file=$(TAG_FLAG_FILE) -vv --in-pipeline --target-branch=$(TARGET_BRANCH)
     displayName: 'Pull Upstream'
 
   - bash: |
