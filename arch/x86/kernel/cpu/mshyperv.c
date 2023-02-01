@@ -473,6 +473,7 @@ static void __init hv_vtl2_init_platform(void)
 
 	x86_platform.get_wallclock = hv_vtl2_get_wallclock;
 	x86_platform.set_wallclock = hv_vtl2_set_wallclock;
+	x86_platform.get_nmi_reason = hv_get_nmi_reason;
 
 	x86_platform.legacy.i8042 = X86_LEGACY_I8042_PLATFORM_ABSENT;
 	x86_platform.legacy.rtc = 0;
