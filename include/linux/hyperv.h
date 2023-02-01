@@ -661,7 +661,8 @@ struct vmbus_channel_initiate_contact {
 		u64 interrupt_page;
 		struct {
 			u8	msg_sint;
-			u8	padding1[3];
+			u8	msg_vtl;
+			u8	padding1[2];
 			u32	padding2;
 		};
 	};
@@ -1773,5 +1774,9 @@ static inline unsigned long virt_to_hvpfn(void *addr)
 #define HVPFN_UP(x)	(((x) + HV_HYP_PAGE_SIZE-1) >> HV_HYP_PAGE_SHIFT)
 #define HVPFN_DOWN(x)	((x) >> HV_HYP_PAGE_SHIFT)
 #define page_to_hvpfn(page)	(page_to_pfn(page) * NR_HV_HYP_PAGES_IN_PAGE)
+
+#define HV_VTL_NORMAL 0x0
+#define HV_VTL_SECURE 0x1
+#define HV_VTL_MGMT   0x2
 
 #endif /* _HYPERV_H */

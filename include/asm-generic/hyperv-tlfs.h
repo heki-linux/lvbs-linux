@@ -154,6 +154,7 @@ union hv_reference_tsc_msr {
 /* Declare the various hypercall operations. */
 #define HVCALL_FLUSH_VIRTUAL_ADDRESS_SPACE	0x0002
 #define HVCALL_FLUSH_VIRTUAL_ADDRESS_LIST	0x0003
+#define HVCALL_ENABLE_VP_VTL			0x000f
 #define HVCALL_NOTIFY_LONG_SPIN_WAIT		0x0008
 #define HVCALL_SEND_IPI				0x000b
 #define HVCALL_FLUSH_VIRTUAL_ADDRESS_SPACE_EX	0x0013
@@ -196,6 +197,7 @@ union hv_reference_tsc_msr {
 #define HVCALL_ASSERT_VIRTUAL_INTERRUPT		0x0094
 #define HVCALL_CREATE_PORT			0x0095
 #define HVCALL_CONNECT_PORT			0x0096
+#define HVCALL_START_VP				0x0099
 #define HVCALL_FLUSH_GUEST_PHYSICAL_ADDRESS_SPACE 0x00af
 #define HVCALL_FLUSH_GUEST_PHYSICAL_ADDRESS_LIST 0x00b0
 #define HVCALL_GET_GPA_PAGES_ACCESS_STATES 0x00c9
@@ -1185,6 +1187,39 @@ union hv_device_domain_id {
 		u32 reserved: 28;
 		u32 id;
 	};
+} __packed;
+
+struct hv_init_vp_context_t {
+	u64 rip;
+	u64 rsp;
+	u64 rflags;
+
+	struct hv_x64_segment_register cs;
+	struct hv_x64_segment_register ds;
+	struct hv_x64_segment_register es;
+	struct hv_x64_segment_register fs;
+	struct hv_x64_segment_register gs;
+	struct hv_x64_segment_register ss;
+	struct hv_x64_segment_register tr;
+	struct hv_x64_segment_register ldtr;
+
+	struct hv_x64_table_register idtr;
+	struct hv_x64_table_register gdtr;
+
+	u64 efer;
+	u64 cr0;
+	u64 cr3;
+	u64 cr4;
+	u64 msr_cr_pat;
+} __packed;
+
+struct hv_enable_vp_vtl {
+	u64				partition_id;
+	u32				vp_index;
+	union hv_input_vtl		target_vtl;
+	u8				mbz0;
+	u16				mbz1;
+	struct hv_init_vp_context_t	vp_context;
 } __packed;
 
 struct hv_input_device_domain {

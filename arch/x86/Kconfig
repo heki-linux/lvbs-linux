@@ -765,6 +765,23 @@ menuconfig HYPERVISOR_GUEST
 
 if HYPERVISOR_GUEST
 
+config HYPERV_VTL
+	bool "Enable VTL"
+	default n
+	help
+	  Select this option to enable Hyper-V VTL configuration at boot
+	  time.
+
+	  Virtual Secure Mode (VSM) is a set of hypervisor capabilities and
+	  enlightenments offered to host and guest partitions which enables
+	  the creation and management of new security boundaries within
+	  operating system software.
+
+	  VSM achieves and maintains isolation through Virtual Trust Levels
+	  (VTLs). Virtual Trust Levels are hierarchical, with higher levels
+	  being more privileged than lower levels. VTL0 is the least privileged
+	  level, and currently only other level supported is VTL2.
+
 config PARAVIRT
 	bool "Enable paravirtualization code"
 	depends on HAVE_STATIC_CALL

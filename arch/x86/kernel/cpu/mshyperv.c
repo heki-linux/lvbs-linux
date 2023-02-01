@@ -439,6 +439,59 @@ void __init hv_mark_resources(void)
 		insert_resource(&iomem_resource, &hv_mshv_res[i]);
 }
 
+#ifdef CONFIG_HYPERV_VTL
+static struct legacy_pic vtl2_pic;
+
+static void __init hv_vtl2_apic_intr_mode_select(void)
+{
+	apic_intr_mode = APIC_SYMMETRIC_IO;
+}
+
+static void hv_vtl2_get_wallclock(struct timespec64 *now)
+{
+	now->tv_sec = now->tv_nsec = 0;
+}
+
+static int hv_vtl2_set_wallclock(const struct timespec64 *now)
+{
+	return -EINVAL;
+}
+
+static int vtl2_pic_probe(void)
+{
+	null_legacy_pic.probe();
+	return vtl2_pic.nr_legacy_irqs;
+}
+
+static void __init hv_vtl2_init_platform(void)
+{
+	pr_info("Initializing Hyper-V MSHV\n");
+
+	x86_init.irqs.intr_mode_select = hv_vtl2_apic_intr_mode_select;
+	x86_init.irqs.pre_vector_init = x86_init_noop;
+	x86_init.timers.timer_init = x86_init_noop;
+
+	x86_platform.get_wallclock = hv_vtl2_get_wallclock;
+	x86_platform.set_wallclock = hv_vtl2_set_wallclock;
+
+	x86_platform.legacy.i8042 = X86_LEGACY_I8042_PLATFORM_ABSENT;
+	x86_platform.legacy.rtc = 0;
+	x86_platform.legacy.warm_reset = 0;
+	x86_platform.legacy.reserve_bios_regions = 0;
+	x86_platform.legacy.devices.pnpbios = 0;
+	/*
+	 * Do not try to access the PIC (even if it is there).
+	 * Reserve 1 IRQ so that PCI MSIs to not get allocated to virq 0,
+	 * which is not generally considered a valid IRQ by Linux (and so
+	 * causes various problems).
+	 */
+	vtl2_pic = null_legacy_pic;
+	vtl2_pic.nr_legacy_irqs = 1;
+	vtl2_pic.probe = vtl2_pic_probe;
+	legacy_pic = &vtl2_pic;
+}
+#endif
+
 static void __init ms_hyperv_init_platform(void)
 {
 	int hv_max_functions_eax;
@@ -629,6 +682,9 @@ static void __init ms_hyperv_init_platform(void)
 
 	/* Register Hyper-V specific clocksource */
 	hv_init_clocksource();
+#ifdef CONFIG_HYPERV_VTL
+	hv_vtl2_init_platform();
+#endif
 #endif
 	/*
 	 * TSC should be marked as unstable only after Hyper-V
