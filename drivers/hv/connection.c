@@ -69,6 +69,16 @@ module_param(max_version, uint, S_IRUGO);
 MODULE_PARM_DESC(max_version,
 		 "Maximal VMBus protocol version which can be negotiated");
 
+/*
+ * User requested connection id used to connect to the host. Useful for testing
+ * or when running a vmbus server on a non-standard connection id.
+ */
+static uint message_connection_id;
+
+module_param(message_connection_id, uint, 0444);
+MODULE_PARM_DESC(message_connection_id,
+		 "The VMBus message connection id used to communicate with the Host");
+
 int vmbus_negotiate_version(struct vmbus_channel_msginfo *msginfo, u32 version)
 {
 	int ret = 0;
@@ -96,11 +106,17 @@ int vmbus_negotiate_version(struct vmbus_channel_msginfo *msginfo, u32 version)
 	 */
 	if (version >= VERSION_WIN10_V5) {
 		msg->msg_sint = VMBUS_MESSAGE_SINT;
+#ifdef CONFIG_MSHV_VTL
+               msg->msg_vtl = 2;
+#endif
 		vmbus_connection.msg_conn_id = VMBUS_MESSAGE_CONNECTION_ID_4;
 	} else {
 		msg->interrupt_page = virt_to_phys(vmbus_connection.int_page);
 		vmbus_connection.msg_conn_id = VMBUS_MESSAGE_CONNECTION_ID;
 	}
+
+	if (message_connection_id > 0)
+		vmbus_connection.msg_conn_id = message_connection_id;
 
 	msg->monitor_page1 = virt_to_phys(vmbus_connection.monitor_pages[0]);
 	msg->monitor_page2 = virt_to_phys(vmbus_connection.monitor_pages[1]);
