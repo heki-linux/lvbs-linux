@@ -381,6 +381,22 @@ union hv_stimer_config {
 	} __packed;
 };
 
+union hv_vsm_partition_config {
+	u64 as_u64;
+	struct {
+		u64 enable_vtl_protection : 1;
+		u64 default_vtl_protection_mask : 4;
+		u64 zero_memory_on_reset : 1;
+		u64 deny_lower_vtl_startup : 1;
+		u64 intercept_acceptance : 1;
+		u64 intercept_enable_vtl_protection : 1;
+		u64 intercept_vp_startup : 1;
+		u64 intercept_cpuid_unimplemented : 1;
+		u64 intercept_unrecoverable_exception : 1;
+		u64 intercept_page : 1;
+		u64 mbz	: 51;
+	};
+};
 
 /* Define the synthetic interrupt controller event flags format. */
 union hv_synic_event_flags {

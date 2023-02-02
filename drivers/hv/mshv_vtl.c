@@ -188,6 +188,58 @@ static void mshv_synic_enable_regs(unsigned int cpu)
 				     HYPERVISOR_CALLBACK_VECTOR);
 }
 
+static int mshv_vtl_get_vsm_regs(void)
+{
+	struct hv_register_assoc registers[2];
+	union hv_input_vtl input_vtl;
+	int ret, count = 2;
+
+	input_vtl.as_uint8 = 0;
+	registers[0].name = HV_REGISTER_VSM_CODE_PAGE_OFFSETS;
+	registers[1].name = HV_REGISTER_VSM_CAPABILITIES;
+
+	ret = hv_call_get_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
+				       count, input_vtl, registers);
+	if (ret)
+		return ret;
+
+	mshv_vsm_page_offsets.as_uint64 = registers[0].value.reg64;
+	mshv_vsm_capabilities.as_uint64 = registers[1].value.reg64;
+
+	pr_info("%s: VSM code page offsets: %#016llx\n", __func__,
+		mshv_vsm_page_offsets.as_uint64);
+	pr_info("%s: VSM capabilities: %#016llx\n", __func__,
+		mshv_vsm_capabilities.as_uint64);
+
+	return ret;
+}
+
+static int mshv_vtl_configure_vsm_partition(void)
+{
+	union hv_vsm_partition_config config;
+	struct hv_register_assoc reg_assoc;
+	union hv_input_vtl input_vtl;
+
+	config.as_u64 = 0;
+	config.default_vtl_protection_mask = HV_MAP_GPA_PERMISSIONS_MASK;
+	config.enable_vtl_protection = 1;
+	config.zero_memory_on_reset = 1;
+	config.intercept_vp_startup = 1;
+	config.intercept_cpuid_unimplemented = 1;
+
+	if (mshv_vsm_capabilities.intercept_page_available) {
+		pr_info("%s: using intercept page", __func__);
+		config.intercept_page = 1;
+	}
+
+	reg_assoc.name = HV_REGISTER_VSM_PARTITION_CONFIG;
+	reg_assoc.value.reg64 = config.as_u64;
+	input_vtl.as_uint8 = 0;
+
+	return hv_call_set_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
+				       1, input_vtl, &reg_assoc);
+}
+
 static void mshv_vtl_vmbus_isr(void)
 {
 	struct hv_per_cpu_context *per_cpu;
@@ -1503,6 +1555,15 @@ static int __init mshv_vtl_init(void)
 
 	tasklet_init(&msg_dpc, mshv_sint_on_msg_dpc, 0);
 	init_waitqueue_head(&fd_wait_queue);
+
+	if (mshv_vtl_get_vsm_regs()) {
+		pr_emerg("%s: Unable to get VSM capabilities !!\n", __func__);
+		BUG();
+	}
+	if (mshv_vtl_configure_vsm_partition()) {
+		pr_emerg("%s: VSM configuration failed !!\n", __func__);
+		BUG();
+	}
 
 	ret = hv_vtl_setup_synic();
 	if (ret)
