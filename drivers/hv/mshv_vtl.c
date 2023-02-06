@@ -206,8 +206,8 @@ static int mshv_vtl_get_vsm_regs(void)
 	mshv_vsm_page_offsets.as_uint64 = registers[0].value.reg64;
 	mshv_vsm_capabilities.as_uint64 = registers[1].value.reg64;
 
-	pr_info("%s: VSM code page offsets: %#016llx\n", __func__,
-		mshv_vsm_page_offsets.as_uint64);
+	pr_debug("%s: VSM code page offsets: %#016llx\n", __func__,
+		 mshv_vsm_page_offsets.as_uint64);
 	pr_info("%s: VSM capabilities: %#016llx\n", __func__,
 		mshv_vsm_capabilities.as_uint64);
 
@@ -228,7 +228,7 @@ static int mshv_vtl_configure_vsm_partition(void)
 	config.intercept_cpuid_unimplemented = 1;
 
 	if (mshv_vsm_capabilities.intercept_page_available) {
-		pr_info("%s: using intercept page", __func__);
+		pr_debug("%s: using intercept page", __func__);
 		config.intercept_page = 1;
 	}
 
