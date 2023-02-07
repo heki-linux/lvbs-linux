@@ -21,6 +21,8 @@
 #include <asm/mshyperv.h>
 #include <asm/mshv_vtl.h>
 #include <linux/count_zeros.h>
+#include <linux/seq_file.h>
+#include <linux/proc_fs.h>
 #include <asm/pgalloc.h>
 #include <uapi/asm/mtrr.h>
 #include <uapi/linux/mshv.h>
@@ -148,6 +150,73 @@ static long __mshv_vtl_ioctl_check_extension(u32 arg)
 
 	return -EOPNOTSUPP;
 }
+
+#ifdef CONFIG_PROC_FS
+/*
+ * This iterator needs some explanation.
+ * It returns 1 (SEQ_START_TOKEN) for the header position.
+ * This means 2 is cpu 0.
+ * In a hotplugged system some CPUs, including cpu 0, may be missing so we have
+ * to use cpumask_* to iterate over the CPUs.
+ */
+static void *mshv_proc_start(struct seq_file *file, loff_t *offset)
+{
+	unsigned long n = *offset;
+
+	if (n == 0)
+		return SEQ_START_TOKEN;
+
+	n--;
+	if (n > 0)
+		n = cpumask_next(n - 1, cpu_online_mask);
+	else
+		n = cpumask_first(cpu_online_mask);
+
+	*offset = n + 1;
+	if (n < nr_cpu_ids)
+		return (void *)(unsigned long)(n + 2);
+
+	return NULL;
+}
+
+static void *mshv_proc_next(struct seq_file *file, void *p, loff_t *offset)
+{
+	(*offset)++;
+
+	return mshv_proc_start(file, offset);
+}
+
+static void mshv_proc_stop(struct seq_file *m, void *p)
+{
+}
+
+#define MSHV_VTL_VERSION 1
+static int mshv_proc_show(struct seq_file *file, void *v)
+{
+	int cpu;
+
+	if (v == SEQ_START_TOKEN) {
+		seq_printf(file, "version %d\n", MSHV_VTL_VERSION);
+		seq_puts(file, "cpu#x vtl-transitions\n");
+	} else {
+		cpu = (unsigned long)(v - 2);
+		seq_printf(file,
+			   "cpu%d %llu",
+			cpu,
+			per_cpu(num_vtl0_transitions, cpu));
+		seq_puts(file, "\n");
+	}
+
+	return 0;
+}
+
+static const struct seq_operations mshv_proc_op = {
+	.start		= mshv_proc_start,
+	.next		= mshv_proc_next,
+	.stop		= mshv_proc_stop,
+	.show		= mshv_proc_show
+};
+#endif
 
 static void mshv_configure_reg_page(struct mshv_vtl_per_cpu *per_cpu)
 {
@@ -1642,6 +1711,9 @@ static int __init mshv_vtl_init(void)
 
 	mshv_vmbus_mod_init();
 
+#ifdef CONFIG_PROC_FS
+	proc_create_seq("mshv", 0400, NULL, &mshv_proc_op);
+#endif
 	return 0;
 
 free_mem:
