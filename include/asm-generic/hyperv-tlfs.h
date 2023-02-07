@@ -198,6 +198,7 @@ union hv_reference_tsc_msr {
 #define HVCALL_CREATE_PORT			0x0095
 #define HVCALL_CONNECT_PORT			0x0096
 #define HVCALL_START_VP				0x0099
+#define HVCALL_GET_VP_ID_FROM_APIC_ID		0x009a
 #define HVCALL_FLUSH_GUEST_PHYSICAL_ADDRESS_SPACE 0x00af
 #define HVCALL_FLUSH_GUEST_PHYSICAL_ADDRESS_LIST 0x00b0
 #define HVCALL_GET_GPA_PAGES_ACCESS_STATES 0x00c9
@@ -1318,6 +1319,13 @@ struct hv_device_domain_settings {
 struct hv_input_configure_device_domain {
 	struct hv_input_device_domain device_domain;
 	struct hv_device_domain_settings settings;
+} __packed;
+
+struct hv_get_vp_from_apic_id_in {
+	u64 partition_id;
+	union hv_input_vtl target_vtl;
+	u8 res[7];
+	u32 apic_ids[]; /* TODO: 64-bit for aarch64 */
 } __packed;
 
 struct hv_input_modify_sparse_spa_page_host_access {

@@ -125,11 +125,57 @@ static void mshv_bringup_vpcu(u32 target_vp_index, u64 eip_ignored)
 		panic("HVCALL_START_VP failed: error %#llx\n", status);
 }
 
+static int hv_mshv_apicid_to_vp_id(u32 apic_id)
+{
+	u64 control;
+	u64 status;
+	unsigned long irq_flags;
+	struct hv_get_vp_from_apic_id_in *input;
+	u32 *output;
+
+	local_irq_save(irq_flags);
+
+	input = (struct hv_get_vp_from_apic_id_in*)(*this_cpu_ptr(hyperv_pcpu_input_arg));
+	memset(input, 0, sizeof(*input));
+	input->partition_id = HV_PARTITION_ID_SELF;
+	input->apic_ids[0] = apic_id;
+
+	output = (u32*)(*this_cpu_ptr(hyperv_pcpu_output_arg));
+
+	control = HV_HYPERCALL_REP_COMP_1 | HVCALL_GET_VP_ID_FROM_APIC_ID;
+	status = hv_do_hypercall(control, input, output);
+
+	local_irq_restore(irq_flags);
+
+	if (!hv_result_success(status)) {
+		pr_err("failed to get vp id from apic id %d, status %#llx\n", apic_id, status);
+		return -1;
+	}
+
+	return output[0];
+}
+
 static int hv_mshv_wakeup_secondary_cpu(int apicid, unsigned long start_eip)
 {
-	pr_debug("Bringing up VCPU %d in VTL2...\n", apicid);
-	mshv_bringup_vpcu(apicid, start_eip);
-	pr_debug("Waiting for VCPU %d to come up...\n", apicid);
+	int vp_id;
+
+	pr_debug("Bringing up VCPU with APIC id %d in VTL2...\n", apicid);
+	vp_id = hv_mshv_apicid_to_vp_id(apicid);
+
+	/*
+	 * This is a hard error when booting. Various fundamental parts have failed
+	 * in concert to let this happen. If the code nevertheless got this far, fail
+	 * here not to make the evidence trail colder.
+	 * Another argument for the panic is that the VMM requires all VPs to start in
+	 * VTL2.
+	 */
+	if (vp_id < 0)
+		panic("Couldn't find VCPU with APIC id %d\n", apicid);
+	if (vp_id > ms_hyperv.max_vp_index)
+		panic("Invalid VCPU id %d for APIC id %d\n", vp_id, apicid);
+
+	mshv_bringup_vpcu(vp_id, start_eip);
+	pr_debug("Waiting for VCPU %d to come up...\n", vp_id);
 
 	return 0;
 }
