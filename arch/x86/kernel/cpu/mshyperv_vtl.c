@@ -116,7 +116,7 @@ static void mshv_bringup_vpcu(u32 target_vp_index, u64 eip_ignored)
 
 	status = hv_do_hypercall(HVCALL_ENABLE_VP_VTL, &initial_vp_context, NULL);
 
-	if (status != HV_STATUS_SUCCESS)
+	if (status != HV_STATUS_SUCCESS && status != HV_STATUS_VTL_ALREADY_ENABLED)
 		panic("HVCALL_ENABLE_VP_VTL failed: error %#llx\n", status);
 
 	status = hv_do_hypercall(HVCALL_START_VP, &initial_vp_context, NULL);
