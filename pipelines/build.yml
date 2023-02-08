@@ -4,22 +4,11 @@ variables:
   CONTAINER_NAME: dom0kerneltest
   CONTAINER_VOL: /linux-dom0
   CONTAINER_RT: docker
-  BUILDING_TAG: $[startsWith(variables['Build.SourceBranch'], 'refs/tags')]
-  BUILDING_MAIN: $[or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/msft/mshv-stable'))]
-  SOURCES_STORAGE_URL: https://lsgvirtstorage.blob.core.windows.net/dom0-mariner-sources-public
-
-resources:
-  repositories:
-    - repository: lsg-virt-mariner
-      type: git
-      name: LSG/lsg-virt-mariner
-      ref: refs/heads/main
 
 trigger:
   batch: false
   branches:
     include:
-      - main
       - msft/mshv-stable
       - msft/mshv-rolling
   tags:
@@ -31,59 +20,21 @@ pr:
   drafts: false
   branches:
     include:
-      - main
       - msft/mshv-stable
       - msft/mshv-rolling
 
 jobs:
-- job: Kernel
-  timeoutInMinutes: 120
-  strategy:
-    # NOTE The default configuration used for the validation image is
-    #      currently dom0-built-in. Should this change, conditions in
-    #      some tasks need to be revised and adjusted accordingly;
-    matrix:
-      'Dom0 vtl x86_64':
-        machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
-        FLAVOR: 'dom0-vtl'
-      'Dom0 module x86_64':
-        machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
-        FLAVOR: 'dom0-module'
-      'Dom0 module aarch64':
-        machinePool: 'lsg-virt-aarch64-1es-agent-pool-2'
-        FLAVOR: 'dom0-module'
-      'Dom0 built-in x86_64':
-        machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
-        FLAVOR: 'dom0-built-in'
-      'Dom0 built-in aarch64':
-        machinePool: 'lsg-virt-aarch64-1es-agent-pool-2'
-        FLAVOR: 'dom0-built-in'
-      'Dom0 disabled x86_64':
-        machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
-        FLAVOR: 'dom0-disabled'
-      'Dom0 disabled aarch64':
-        machinePool: 'lsg-virt-aarch64-1es-agent-pool-2'
-        FLAVOR: 'dom0-disabled'
-      'Mariner x86_64':
-        machinePool: 'lsg-virt-amd64-1es-agent-pool-2'
-        FLAVOR: 'mariner'
+- job: KERNEL
+  timeoutInMinutes: 30
   pool:
-    name: $(machinePool)
+    name: 'lsg-virt-amd64-1es-agent-pool-2'
 
   steps:
-  - checkout: self
-    persistCredentials: true
-    fetchTags: false
   - template: templates/ubuntu-20.04-build.yml
   - bash: |
       set -e
       set -x
-
       sudo systemctl enable --now docker
-
-      # Allow agent to run docker operations without sudo
-      sudo chmod a+rw /run/docker.sock
-
       $(CONTAINER_RT) pull $(CONTAINER_IMAGE)
       $(CONTAINER_RT) run -d -t --name $(CONTAINER_NAME) --volume $PWD:$(CONTAINER_VOL) $(CONTAINER_IMAGE)
       $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/mariner-prepare
@@ -93,13 +44,12 @@ jobs:
       set -e
       set -x
       $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/config-validate
-    condition: eq(variables.FLAVOR, 'dom0-built-in')
     displayName: 'Validate Config'
 
   - bash: |
       set -e
       set -x
-      $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/kernel-compile $(FLAVOR)
+      $(CONTAINER_RT) exec $(CONTAINER_NAME) $(CONTAINER_VOL)/pipelines/scripts/kernel-compile
     displayName: 'Compile Kernel'
 
   - bash: |
@@ -107,178 +57,3 @@ jobs:
       set -x
       $(CONTAINER_RT) rm -f $(CONTAINER_IMAGE)
     displayName: 'Cleanup container'
-
-- job: Checkpatch
-  timeoutInMinutes: 30
-  condition: not(or(eq(variables.BUILDING_MAIN, 'true'), eq(variables.BUILDING_TAG, 'true')))
-  pool:
-    name: lsg-virt-amd64-1es-agent-pool-3
-
-  steps:
-  - checkout: self
-    persistCredentials: true
-    fetchTags: false
-  - template: templates/ubuntu-20.04-build.yml
-
-  - bash: |
-      set -e
-      set -x
-      ./pipelines/scripts/kernel-checkpatch \
-        --ado-org microsoft \
-        --ado-project LSG \
-        --ado-access-token "$(System.AccessToken)" \
-        --repo-id "$(Build.Repository.ID)" \
-        --pr-id "$(System.PullRequest.PullRequestId)" \
-        --source-branch "$(System.PullRequest.SourceBranch)" \
-        -v
-    displayName: 'Run checkpatch.pl'
-    continueOnError: true
-
-- job: Revisions
-  timeoutInMinutes: 60
-  condition: or(eq(variables.BUILDING_TAG, 'true'), eq(variables.BUILDING_MAIN, 'true'))
-  pool:
-    name: lsg-virt-amd64-1es-agent-pool-1
-
-  steps:
-  - checkout: self
-    persistCredentials: true
-    clean: true
-    fetchDepth: 0
-    fetchTags: false
-  - template: templates/ubuntu-20.04-build.yml
-
-  - bash: |
-      set -e
-      set -x
-      # TODO Check how to replace user specific PAT with something system generated. This is a different org, though.
-      git remote add lsg-linux-rolling "https://$(PAT_MSAZURE)@msazure.visualstudio.com/DefaultCollection/LSG-linux/_git/LSG-linux-rolling"
-      git fetch --progress --verbose --tags lsg-linux-rolling
-    displayName: 'Fetch LSG-linux-rolling'
-
-  - bash: |
-      set -e
-      set -x
-      ./pipelines/scripts/rev-list
-      cat dom0-rev-list.txt
-      mkdir -p revs
-      mv dom0-rev-list.txt revs/
-    displayName: 'List revs'
-
-  - task: PublishPipelineArtifact@1
-    displayName: 'Publish artifacts'
-    inputs:
-      targetPath: revs
-      artifact: 'mshv revs'
-
-- job: Packaging
-  timeoutInMinutes: 30
-  condition: eq(variables.BUILDING_TAG, 'true')
-  dependsOn: Kernel
-  pool:
-    name: lsg-virt-amd64-1es-agent-pool-3
-
-  steps:
-  - checkout: self
-    persistCredentials: true
-    clean: true
-  - template: templates/ubuntu-20.04-build.yml
-
-  - bash: |
-      set -e
-      set -x
-      ./pipelines/scripts/tag-validate "$(Build.SourceBranchName)"
-    displayName: 'Validate Tag'
-
-  - bash: |
-      set -e
-      set -x
-      ./pipelines/scripts/ref-package "$(Build.SourceBranch)"
-    displayName: 'Package tarball'
-
-  - bash: |
-      set -e
-      set -x
-      TGZ=$(ls -1 *.tar.gz | head -1)
-      SUM="${TGZ}.sha256"
-      # TODO might move the checksum calculation to the packaging script instead
-      sha256sum "${TGZ}" | cut -d ' ' -f1 > "${SUM}"
-      for i in "${TGZ}" "${SUM}"; do
-              az storage blob upload \
-                --sas-token '$(SOURCES_STORAGE_SAS)' \
-                --account-name '$(SOURCES_STORAGE_ACCOUNT)' \
-                --container-name '$(SOURCES_STORAGE_CONTAINER)' \
-                --file "${i}" \
-                --name "${i}"
-      done
-    displayName: 'Upload tarball'
-
-- job: Kernel_Spec
-  timeoutInMinutes: 30
-  condition: eq(variables.BUILDING_TAG, 'true')
-  dependsOn: Packaging
-  pool:
-    name: lsg-virt-amd64-1es-agent-pool-3
-
-  steps:
-  - checkout: self
-    persistCredentials: true
-    fetchTags: false
-    clean: true
-  - checkout: lsg-virt-mariner
-    persistCredentials: true
-    fetchTags: false
-    clean: true
-  - template: templates/ubuntu-20.04-build.yml
-
-  - bash: |
-      set -e
-      set -x
-      git config --global user.email "$(Build.RequestedForEmail)"
-      git config --global user.name "$(Build.RequestedFor)"
-      pushd "$(Agent.BuildDirectory)/s/lsg-virt-mariner"
-      "$(Agent.BuildDirectory)/s/linux-dom0/pipelines/scripts/kernel-spec-update" "$(Build.SourceBranch)" "$(Build.SourceVersion)"
-      # If the script above succeeded, the current checkout is now on something like autoupdate/kernel-mshv-.... branch
-      # and all the updates are commited here. So lets push the branch. This part might need to be moved into the script,
-      # if the branch names are to change.
-      git status
-      AUTOREF="autoupdate/kernel-mshv-$(Build.SourceBranchName)"
-      REPO_ID="ec147866-5bb7-4dfc-88b8-b144fca51529"
-      # REPO_ID=$(az repos list --organization https://dev.azure.com/microsoft --project LSG --query "[?name == 'lsg-virt-mariner'].id" --output tsv)
-      git push --verbose origin "${AUTOREF}"
-      # Now that the branch is in place, file a PR in lsg-virt-mariner and associate a workitem with it.
-      "$(Agent.BuildDirectory)/s/linux-dom0/pipelines/scripts/kernel-spec-pr" \
-        --ado-org microsoft \
-        --ado-project LSG \
-        --ado-access-token "$(System.AccessToken)" \
-        --repo-id "${REPO_ID}" \
-        --source-branch "${AUTOREF}" \
-        --tag "$(Build.SourceBranch)" \
-        --revision "$(Build.SourceVersion)" \
-        --build-requestedfor-id "$(Build.RequestedForId)" \
-        -v
-      popd
-    displayName: 'lsg-virt-mariner spec'
-    env:
-        SOURCES_STORAGE_URL: $(SOURCES_STORAGE_URL)
-
-- job: CHECK_SCRIPTS
-  condition: not(or(eq(variables.BUILDING_MAIN, 'true'), eq(variables.BUILDING_TAG, 'true')))
-  timeoutInMinutes: 30
-  pool:
-    name: 'lsg-virt-amd64-1es-agent-pool-3'
-  steps:
-  - checkout: self
-    persistCredentials: true
-    fetchTags: false
-  - template: templates/ubuntu-20.04-build.yml
-  - bash: |
-      set -e
-      set -x
-      ./pipelines/scripts/shellcheck
-    displayName: 'shellcheck'
-  - bash: |
-      set -e
-      set -x
-      ./pipelines/scripts/flake8check
-    displayName: 'flake8'

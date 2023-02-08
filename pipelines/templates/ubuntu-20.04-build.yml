@@ -10,14 +10,7 @@ steps:
 
       sudo apt-get update
 
-      command -v docker || sudo apt install -y \
-          docker.io containerd runc
-      docker -v
-
-      command -v az || (sudo pip3 install azure-cli;
-          az extension add --name azure-devops)
-      az version
-
       sudo apt install -y \
-        make shellcheck flake8
+        docker.io containerd runc
+
     displayName: 'Prepare Ubuntu'

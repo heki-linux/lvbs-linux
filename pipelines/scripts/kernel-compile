@@ -3,49 +3,14 @@
 set -x
 set -e
 
-FLAVOR=$1
-
 SOURCE_ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 cd "${SOURCE_ROOT}"
 
-ARCH=$(uname -m)
-if [ "$ARCH" == "aarch64" ];
-then
-    ARCH="arm64"
-fi
-
 make mrproper
+make LC_ALL= ARCH=x86_64 mshv_defconfig
 
-CONFIG=mshv_defconfig
-case "${FLAVOR}" in
-	mariner)
-		curl -o .config https://raw.githubusercontent.com/microsoft/CBL-Mariner/main/SPECS/kernel-mshv/config
-		CONFIG=olddefconfig
-		;;
-	dom0-built-in)
-		# pass
-		;;
-esac
+make -j$(nproc) W=1 ARCH=x86_64
+make -j$(nproc) W=1 ARCH=x86_64 modules
 
-make LC_ALL= ARCH="${ARCH}" ${CONFIG}
-
-case "${FLAVOR}" in
-	dom0-vtl)
-		sed -i 's/^# CONFIG_TRANSPARENT_HUGEPAGE is not set/CONFIG_TRANSPARENT_HUGEPAGE=y/' .config
-		echo 'CONFIG_MSHV_VTL=y' >> .config
-        ;;
-	dom0-module)
-		sed -i 's/MSHV=y/MSHV=m/' .config
-		sed -i 's/MSHV_ROOT=y/MSHV_ROOT=m/' .config
-		;;
-	dom0-disabled)
-		sed -i 's/MSHV=.*//' .config
-		sed -i 's/MSHV_ROOT=.*//' .config
-		;;
-esac
-
-make -j"$(nproc)" ARCH="${ARCH}" W=1
-make -j"$(nproc)" ARCH="${ARCH}" W=1 modules
-
-make -j"$(nproc)" ARCH="${ARCH}" -C tools/perf PYTHON=python3 all
-make -j"$(nproc)" ARCH="${ARCH}" -C tools/bpf/bpftool
+make -j$(nproc) -C tools/perf PYTHON=python3 all
+make -j$(nproc) -C tools/bpf/bpftool
