@@ -32,9 +32,6 @@ while true; do
 			echo ""
 			echo "  Available builds:"
 			echo "    dev"
-			echo "    ship"
-			echo "    dev-mlx"
-			echo "    ship-mlx"
 			echo "    init"
 			echo ""
 			exit
@@ -46,27 +43,15 @@ while true; do
 done
 
 if [ $# == 0 ]; then
-	builds=(dev ship dev-mlx5 ship-mlx5)
+	builds=(dev)
 	build_init=1
-	desc=("dev" "ship" "Mellanox5 dev" "Mellanox5 ship")
+	desc=("dev")
 else
 	while [ $# != 0 ]; do
 		case "$1" in
 			dev)
 				builds+=(dev)
 				desc+=("dev")
-				;;
-			ship)
-				builds+=(ship)
-				desc+=("ship")
-				;;
-			dev-mlx)
-				builds+=(dev-mlx5)
-				desc+=("Mellanox5 dev")
-				;;
-			ship-mlx)
-				builds+=(ship-mlx5)
-				desc+=("Mellanox5 ship")
 				;;
 			init)
 				build_init=1
