@@ -163,3 +163,9 @@ x509.genkey
 sphinx_*/
 
 *.pyc
+
+# Old configuration files
+Microsoft/*.config.old
+
+# Nuget staging folder
+out/
