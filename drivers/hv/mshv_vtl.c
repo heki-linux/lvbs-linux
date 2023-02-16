@@ -45,7 +45,6 @@ MODULE_LICENSE("GPL");
 #define MSHV_REG_PAGE_OFFSET	1
 #define VTL2_VMBUS_SINT_INDEX	7
 
-bool vtl_exist;
 static struct device *mem_dev;
 
 static struct tasklet_struct msg_dpc;
@@ -1236,12 +1235,6 @@ static long __mshv_ioctl_create_vtl(void __user *user_arg)
 	struct file *file;
 	int fd;
 
-	if (vtl_exist) {
-		pr_err("%s: Multiple VTL creation not supported\n", __func__);
-		return -EPERM;
-	}
-	vtl_exist = true;
-
 	vtl = kzalloc(sizeof(*vtl), GFP_KERNEL);
 	if (!vtl)
 		return -ENOMEM;
@@ -1255,7 +1248,6 @@ static long __mshv_ioctl_create_vtl(void __user *user_arg)
 		return PTR_ERR(file);
 	refcount_set(&vtl->ref_count, 1);
 
-	mutex_init(&mshv_poll_file_lock);
 	fd_install(fd, file);
 
 	return fd;
@@ -1732,6 +1724,7 @@ static int __init mshv_vtl_init(void)
 		goto free_low;
 	}
 
+	mutex_init(&mshv_poll_file_lock);
 	device_initialize(mem_dev);
 	dev_set_name(mem_dev, "mshv vtl mem dev");
 	ret = device_add(mem_dev);
