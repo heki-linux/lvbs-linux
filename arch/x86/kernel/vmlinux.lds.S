@@ -66,8 +66,18 @@ jiffies = jiffies_64;
 		__end_rodata_hpage_align = .;			\
 		__end_rodata_aligned = .;
 
+/*
+ * PTI requires the begin and end of ENTRY_TEXT be aligned to PMD_SIZE.
+ * This costs between 2-4 MiB of RAM (depending on the size of the preceding
+ * section), so we only align when PTI is enabled.
+ */
+#if defined(CONFIG_PAGE_TABLE_ISOLATION)
 #define ALIGN_ENTRY_TEXT_BEGIN	. = ALIGN(PMD_SIZE);
 #define ALIGN_ENTRY_TEXT_END	. = ALIGN(PMD_SIZE);
+#else
+#define ALIGN_ENTRY_TEXT_BEGIN
+#define ALIGN_ENTRY_TEXT_END
+#endif
 
 /*
  * This section contains data which will be mapped as decrypted. Memory
