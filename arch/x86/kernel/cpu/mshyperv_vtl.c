@@ -22,14 +22,14 @@ static inline void mshv_store_idt(struct desc_ptr *dtr)
 static inline u64 mshv_system_desc_base(struct ldttss_desc *desc)
 {
 	return ((u64)desc->base3 << 32) |
-		   (((u64)desc->base2 & 0xFF00) << 16) |
-		   (((u64)desc->base1 & 0xFF) << 16) |
-		   (u64)desc->base0;
+		   ((u64)desc->base2 << 24) |
+		   (desc->base1 << 16) |
+		   desc->base0;
 }
 
 static inline u32 mshv_system_desc_limit(struct ldttss_desc *desc)
 {
-	return (((u32)desc->limit1 & 0xF) << 16) | (u32)desc->limit0;
+	return ((u32)desc->limit1 << 16) | (u32)desc->limit0;
 }
 
 typedef void (*secondary_startup_64_fn)(void*, void*);
