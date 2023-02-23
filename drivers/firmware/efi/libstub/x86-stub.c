@@ -18,6 +18,11 @@
 
 #include "efistub.h"
 
+#define HYPERV_PRIVATE_EFI_NAMESPACE_GUID \
+       EFI_GUID(0x610b9e98, 0xc6f6, 0x47f8, 0x8b, 0x47, 0x2d, 0x2d, 0xa0, 0xd5, 0x2a, 0x91)
+
+static const efi_char16_t efi_HvPrivOsloaderIndications_name[] = L"OsLoaderIndications";
+
 /* Maximum physical address for 64-bit kernel with 4-level paging */
 #define MAXMEM_X86_64_4LEVEL (1ull << 46)
 
@@ -771,6 +776,27 @@ static efi_status_t exit_boot_func(struct efi_boot_memmap *map,
 	return EFI_SUCCESS;
 }
 
+static void efi_set_hv_os_indications(void)
+{
+	efi_guid_t guid = HYPERV_PRIVATE_EFI_NAMESPACE_GUID;
+	efi_status_t status;
+	unsigned long size;
+	u32 attr, val;
+
+	size = sizeof(val);
+	status = get_efi_var(efi_HvPrivOsloaderIndications_name, &guid, &attr, &size, &val);
+        if (status != EFI_SUCCESS) {
+		efi_err("Could not read Hyper-V OsLoaderIndications\n");
+		return;
+	}
+	val |= 1;
+	set_efi_var(efi_HvPrivOsloaderIndications_name, &guid, attr, size, &val);
+        if (status != EFI_SUCCESS) {
+		efi_err("Could not set Hyper-V OsLoaderIndications to indicate VSM support \n");
+		return;
+	}
+}
+
 static efi_status_t exit_boot(struct boot_params *boot_params, void *handle)
 {
 	struct setup_data *e820ext = NULL;
@@ -784,6 +810,9 @@ static efi_status_t exit_boot(struct boot_params *boot_params, void *handle)
 	status = allocate_e820(boot_params, &e820ext, &e820ext_size);
 	if (status != EFI_SUCCESS)
 		return status;
+
+	/* Indicate to bootloader that we will be enabling VTL1 before exiting boot services */
+	efi_set_hv_os_indications();
 
 	/* Might as well exit boot services now */
 	status = efi_exit_boot_services(handle, &priv, exit_boot_func);
