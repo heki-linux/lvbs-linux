@@ -45,7 +45,7 @@ config FORCE_DYNAMIC_FTRACE
 	 in order to test the non static function tracing in the
 	 generic code, as other architectures still use it. But we
 	 only need to keep it around for x86_64. No need to keep it
-	 for x86_32. For x86_32, force DYNAMIC_FTRACE. 
+	 for x86_32. For x86_32, force DYNAMIC_FTRACE.
 #
 # Arch settings
 #
@@ -449,7 +449,7 @@ config X86_X2APIC
 	  If you don't know what to do here, say N.
 
 config X86_MPPARSE
-	bool "Enable MPS table" if ACPI
+	bool "Enable MPS table" if ACPI || OF
 	default y
 	depends on X86_LOCAL_APIC
 	help

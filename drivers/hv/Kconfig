@@ -59,10 +59,14 @@ config MSHV_ROOT
 config MSHV_VTL
 	tristate "Microsoft Hyper-V VTL driver"
 	depends on MSHV && X86 && TRANSPARENT_HUGEPAGE
-	select OF
+	depends on OF
 	select OF_EARLY_FLATTREE
 	select INTERVAL_TREE
 	select CPUMASK_OFFSTACK
+	# MTRRs are not per-VTL and are controlled by VTL0, so don't look at or mutate them.
+	depends on !MTRR
+	# X86_MPPARSE scans VTL0 memory for MP tables, don't allow this.
+	depends on !X86_MPPARSE
 	help
 	  Select this option to enable Hyper-V VTL driver.
 	  Virtual Secure Mode (VSM) is a set of hypervisor capabilities and
