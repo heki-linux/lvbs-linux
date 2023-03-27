@@ -635,6 +635,68 @@ union hv_msi_entry {
 	} __packed;
 };
 
+/* Types for the EnablePartitionVtl hypercall */
+union hv_enable_partition_vtl_flags {
+	u8 as_u8;
+
+	struct {
+		u8 enable_mbec : 1;
+		u8 reserved : 7;
+	};
+};
+
+struct hv_input_enable_partition_vtl {
+	u64 partition_id;
+	u8 target_vtl;
+	union hv_enable_partition_vtl_flags flags;
+	u16 reserved16_z;
+	u32 reserved32_z;
+} __packed;
+
+enum hv_register_name {
+	HvRegisterVsmCodePageOffsets = 0x000d0002,
+	HvRegisterVsmVpStatus = 0x000d0003,
+	HvRegisterVsmPartitionStatus = 0x000d0004,
+	HvRegisterVsmCapabilities = 0x000d0006,
+};
+
+union hv_register_value {
+	u64 as_u64;
+	u32 as_u32;
+	u16 as_u16;
+	u8 as_u8;
+};
+
+union hv_register_vsm_partition_status {
+	u64 as_u64;
+
+	struct {
+		u64 enabled_vtl_set : 16;
+		u64 max_vtl : 4;
+		u64 mbec_enabled_vtl_set: 16;
+		u64 reserved_z : 28;
+	};
+};
+
+union hv_input_vtl {
+	u8 as_u8;
+
+	struct {
+		u8 target_vtl : 4;
+		u8 use_target_vtl : 1;
+		u8 reserved_z : 3;
+	};
+};
+
+struct hv_input_get_vp_registers {
+	u64 partition_id;
+	u32 vp_index;
+	union hv_input_vtl input_vtl;
+	u8 reserved8_z;
+	u16 reserved16_z;
+	__aligned(8) enum hv_register_name names[1];
+};
+
 #include <asm-generic/hyperv-tlfs.h>
 
 #endif

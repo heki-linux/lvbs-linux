@@ -91,11 +91,8 @@ int __init hv_common_init(void)
 	hyperv_pcpu_input_arg = alloc_percpu(void  *);
 	BUG_ON(!hyperv_pcpu_input_arg);
 
-	/* Allocate the per-CPU state for output arg for root */
-	if (hv_root_partition) {
-		hyperv_pcpu_output_arg = alloc_percpu(void *);
-		BUG_ON(!hyperv_pcpu_output_arg);
-	}
+	hyperv_pcpu_output_arg = alloc_percpu(void *);
+	BUG_ON(!hyperv_pcpu_output_arg);
 
 	hv_vp_index = kmalloc_array(num_possible_cpus(), sizeof(*hv_vp_index),
 				    GFP_KERNEL);
@@ -121,20 +118,17 @@ int hv_common_cpu_init(unsigned int cpu)
 	void **inputarg, **outputarg;
 	u64 msr_vp_index;
 	gfp_t flags;
-	int pgcount = hv_root_partition ? 2 : 1;
 
 	/* hv_cpu_init() can be called with IRQs disabled from hv_resume() */
 	flags = irqs_disabled() ? GFP_ATOMIC : GFP_KERNEL;
 
 	inputarg = (void **)this_cpu_ptr(hyperv_pcpu_input_arg);
-	*inputarg = kmalloc(pgcount * HV_HYP_PAGE_SIZE, flags);
+	*inputarg = kmalloc(2 * HV_HYP_PAGE_SIZE, flags);
 	if (!(*inputarg))
 		return -ENOMEM;
 
-	if (hv_root_partition) {
-		outputarg = (void **)this_cpu_ptr(hyperv_pcpu_output_arg);
-		*outputarg = (char *)(*inputarg) + HV_HYP_PAGE_SIZE;
-	}
+	outputarg = (void **)this_cpu_ptr(hyperv_pcpu_output_arg);
+	*outputarg = (char *)(*inputarg) + HV_HYP_PAGE_SIZE;
 
 	msr_vp_index = hv_get_register(HV_REGISTER_VP_INDEX);
 
@@ -158,10 +152,8 @@ int hv_common_cpu_die(unsigned int cpu)
 	mem = *inputarg;
 	*inputarg = NULL;
 
-	if (hv_root_partition) {
-		outputarg = (void **)this_cpu_ptr(hyperv_pcpu_output_arg);
-		*outputarg = NULL;
-	}
+	outputarg = (void **)this_cpu_ptr(hyperv_pcpu_output_arg);
+	*outputarg = NULL;
 
 	local_irq_restore(flags);
 
