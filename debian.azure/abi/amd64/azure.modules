@@ -10,7 +10,6 @@
 8250_exar
 8250_lpss
 8250_men_mcb
-8250_mid
 8250_pericom
 842
 842_compress
@@ -68,7 +67,7 @@ adfs
 adiantum
 adin
 adin1100
-adm1021
+adin1110
 adm1025
 adm1026
 adm1029
@@ -97,6 +96,7 @@ adv7604
 adv7842
 adv_swbutton
 advansys
+advantech_ec_wdt
 advantechwdt
 aegis128
 aegis128-aesni
@@ -110,6 +110,7 @@ ah6
 aha152x_cs
 aha1740
 ahci
+ahci_dwc
 ahci_platform
 aht10
 aic79xx
@@ -131,12 +132,13 @@ altera_uart
 am53c974
 amc6821
 amd-pmc
+amd-pmf
+amd-pstate-ut
 amd-rng
 amd-uncore
 amd64_edac
 amd_freq_sensitivity
 amd_hsmp
-amd_pstate
 amd_sfh
 amdgpu
 amdtee
@@ -163,6 +165,8 @@ arcfb
 arcmsr
 arcnet
 arcxcnn_bl
+aria-aesni-avx-x86_64
+aria_generic
 arizona
 arizona-i2c
 arizona-spi
@@ -172,8 +176,6 @@ arptable_filter
 as370-hwmon
 asb100
 asc7621
-aspeed-pwm-tacho
-aspeed-video
 ast
 asus-ec-sensors
 asus-laptop
@@ -295,6 +297,7 @@ can-dev
 can-gw
 can-j1939
 can-raw
+can327
 capmode
 capsule-loader
 cast5-avx-x86_64
@@ -419,7 +422,6 @@ dccp_diag
 dccp_ipv4
 dccp_ipv6
 dcdbas
-decnet
 defxx
 dell-laptop
 dell-rbtn
@@ -473,21 +475,19 @@ dm-zero
 dm-zoned
 dme1737
 dmx3191d
-dn_rtmsg
 dnet
 dp83822
 dp83869
 dp83tc811
 dp83td510
-dpt_i2o
 dptf_pch_fivr
 dptf_power
 drbd
 drivetemp
 drm
 drm_buddy
-drm_cma_helper
 drm_display_helper
+drm_dma_helper
 drm_kms_helper
 drm_mipi_dbi
 drm_shmem_helper
@@ -561,6 +561,7 @@ em_text
 em_u32
 emc1403
 emc2103
+emc2305
 emc6w201
 ems_pci
 ems_pcmcia
@@ -572,8 +573,10 @@ enic
 epat
 epia
 eql
+erdma
 erofs
 esas2r
+esd_usb
 esp4
 esp4_offload
 esp6
@@ -585,6 +588,7 @@ etas_es58x
 ethoc
 eurotechwdt
 evbug
+exar_wdt
 exfat
 extcon-axp288
 extcon-fsa9480
@@ -598,7 +602,6 @@ extcon-ptn5150
 extcon-rt8973a
 extcon-sm5502
 extcon-usb-gpio
-extcon-usbc-tusb320
 f2fs
 f71805f
 f71808e_wdt
@@ -649,7 +652,6 @@ fcrypt
 fdomain
 fdomain_cs
 fdomain_pci
-fealnx
 ff-memless
 fieldbus_dev
 fintek-cir
@@ -657,7 +659,6 @@ firmware_attributes_class
 fit2
 fit3
 fixed
-floppy
 fm10k
 fmvj18x_cs
 fore_200e
@@ -693,7 +694,6 @@ gpd-pocket-fan
 gpio-104-dio-48e
 gpio-104-idi-48
 gpio-104-idio-16
-gpio-adp5588
 gpio-aggregator
 gpio-amd-fch
 gpio-amd8111
@@ -706,9 +706,12 @@ gpio-exar
 gpio-f7188x
 gpio-generic
 gpio-gpio-mm
+gpio-i8255
 gpio-ich
+gpio-idio-16
 gpio-it87
 gpio-janz-ttl
+gpio-latch
 gpio-lp3943
 gpio-lp873x
 gpio-madera
@@ -759,6 +762,7 @@ habanalabs
 hamachi
 hangcheck-timer
 hci
+hctr2
 hd44780
 hd44780_common
 hdaps
@@ -788,13 +792,16 @@ hid-macally
 hid-maltron
 hid-mf
 hid-nti
+hid-pxrc
 hid-redragon
 hid-semitek
 hid-sensor-custom
 hid-sensor-hub
 hid-steam
+hid-topre
 hid-udraw-ps3
 hid-viewsonic
+hid-vrc2
 hid-wiimote
 hih6130
 hinic
@@ -806,7 +813,6 @@ hpsa
 hptiop
 hpwdt
 hsr
-hsu_dma
 ht16k33
 htc-pasic3
 hv_netvsc
@@ -842,6 +848,7 @@ i2c-hid-acpi
 i2c-i801
 i2c-isch
 i2c-ismt
+i2c-mchp-pci1xxxx
 i2c-mlxcpld
 i2c-mux
 i2c-mux-ltc4306
@@ -868,7 +875,6 @@ i3200_edac
 i3c
 i3c-master-cdns
 i40e
-i5000_edac
 i5100_edac
 i5400_edac
 i5500_temp
@@ -960,6 +966,7 @@ intel-xhci-usb-role-switch
 intel_atomisp2_led
 intel_bxt_pmic_thermal
 intel_bxtwc_tmu
+intel_ifs
 intel_int0002_vgpio
 intel_ips
 intel_mrfld_pwrbtn
@@ -989,6 +996,7 @@ intelfb
 interrupt-cnt
 ioatdma
 iommu_v2
+iommufd
 ionic
 iosm
 ip5xxx_power
@@ -1097,6 +1105,7 @@ ir-sony-decoder
 ir-xmp-decoder
 irdma
 irq-madera
+irqbypass
 isci
 iscsi_boot_sysfs
 iscsi_ibft
@@ -1137,13 +1146,10 @@ kmem
 ks0108
 ks0127
 ksmbd
-ksz8795
-ksz8795_spi
 ksz8863_smi
-ksz9477
 ksz9477_i2c
-ksz9477_spi
-ksz_common
+ksz_spi
+ksz_switch
 ktti
 kvaser_pci
 kvaser_pciefd
@@ -1169,11 +1175,13 @@ lantiq_gswip
 lapb
 lapbether
 lattice-ecp3-config
+lattice-sysconfig
+lattice-sysconfig-spi
 lec
 led-class
 leds-apu
-leds-clevo-mail
 leds-gpio
+leds-is31fl319x
 leds-lm3532
 leds-lm36274
 leds-lt3593
@@ -1203,6 +1211,7 @@ libiscsi
 libiscsi_tcp
 libpoly1305
 libsas
+libwx
 line-display
 lineage-pem
 linear
@@ -1280,6 +1289,7 @@ macvtap
 madera
 madera-i2c
 madera-spi
+mana_ib
 marvell-88x2222
 marvell10g
 matrix-keymap
@@ -1292,11 +1302,11 @@ max197
 max3100
 max31722
 max31730
+max31760
 max31790
 max63xx_wdt
 max6621
 max6639
-max6642
 max6650
 max6697
 max77693
@@ -1314,6 +1324,8 @@ mcb
 mcb-lpc
 mcb-pci
 mce-inject
+mchp_pci1xxxx_gp
+mchp_pci1xxxx_gpio
 mcp3021
 mcr20a
 mctp-serial
@@ -1354,6 +1366,7 @@ mhi_wwan_ctrl
 mhi_wwan_mbim
 mi0283qt
 michael_mic
+microchip-spi
 microchip_t1
 microread
 microread_mei
@@ -1409,6 +1422,9 @@ msp3400
 msr
 mt6360-core
 mt6360_charger
+mt6370
+mt6370-backlight
+mt6370-regulator
 mt7530
 mtk_t7xx
 multipath
@@ -1526,7 +1542,6 @@ nft_masq
 nft_meta_bridge
 nft_nat
 nft_numgen
-nft_objref
 nft_osf
 nft_queue
 nft_quota
@@ -1542,6 +1557,7 @@ nft_synproxy
 nft_tproxy
 nft_tunnel
 nft_xfrm
+ngbe
 nhc_dest
 nhc_fragment
 nhc_hop
@@ -1628,6 +1644,9 @@ nvsw-sn2201
 nxp-c45-tja11xx
 nxp-tja11xx
 objagg
+occ-hwmon-common
+occ-p8-hwmon
+ocelot-soc
 ocfs2
 ocfs2_dlm
 ocfs2_dlmfs
@@ -1645,6 +1664,7 @@ opa_vnic
 openvswitch
 ov7670
 overlay
+oxp-sensors
 p4-clockmod
 p8022
 padlock-aes
@@ -1693,7 +1713,6 @@ pata_pcmcia
 pata_pdc2027x
 pata_pdc202xx_old
 pata_piccolo
-pata_platform
 pata_radisys
 pata_rdc
 pata_rz1000
@@ -1715,6 +1734,7 @@ pcf50633-adc
 pcf50633-gpio
 pcf8591
 pci-epf-ntb
+pci-epf-vntb
 pci-pf-stub
 pci-stub
 pci200syn
@@ -1755,6 +1775,7 @@ pinctrl-alderlake
 pinctrl-broxton
 pinctrl-cannonlake
 pinctrl-cedarfork
+pinctrl-cy8c95x0
 pinctrl-denverton
 pinctrl-elkhartlake
 pinctrl-emmitsburg
@@ -1768,11 +1789,12 @@ pinctrl-madera
 pinctrl-mcp23s08
 pinctrl-mcp23s08_i2c
 pinctrl-mcp23s08_spi
+pinctrl-meteorlake
 pinctrl-sunrisepoint
 pinctrl-tigerlake
+pinephone-keyboard
 pkcs7_test_key
 pkcs8_key_parser
-pktcdvd
 pktgen
 platform_profile
 plx_dma
@@ -1789,6 +1811,9 @@ pn_pep
 pnd2_edac
 poly1305-x86_64
 poly1305_generic
+polynomial
+polyval-clmulni
+polyval-generic
 powr1220
 ppa
 ppdev
@@ -1809,6 +1834,7 @@ processor_thermal_rfim
 ps2-gpio
 ps2mult
 psample
+pse_regulator
 psnap
 pstore_blk
 pstore_zone
@@ -1824,6 +1850,7 @@ pvpanic
 pvpanic-mmio
 pvpanic-pci
 pwm-beeper
+pwm-clk
 pwm-dwc
 pwm-iqs620a
 pwm-lp3943
@@ -2021,6 +2048,7 @@ regmap-slimbus
 reiserfs
 repaper
 reset-ti-syscon
+reset-tps380x
 retu-mfd
 retu_wdt
 rfc1051
@@ -2050,8 +2078,12 @@ rt4831
 rt4831-backlight
 rt4831-regulator
 rt5033
+rt5120
+rt5120-pwrkey
+rt5120-regulator
 rt5759-regulator
 rt6160-regulator
+rt6190-regulator
 rt6245-regulator
 rtc-ab-eoz9
 rtc-ftrtc010
@@ -2068,6 +2100,7 @@ rtrs-core
 rtrs-server
 rts5208
 rtsx_pci
+rxperf
 rxrpc
 s2io
 saa6588
@@ -2169,6 +2202,7 @@ shtc1
 sim710
 simatic-ipc
 simatic-ipc-leds
+simatic-ipc-leds-gpio
 simatic-ipc-wdt
 simple-mfd-i2c
 simpledrm
@@ -2209,6 +2243,10 @@ smartpqi
 smc
 smc_diag
 smm665
+smpro-core
+smpro-errmon
+smpro-hwmon
+smpro-misc
 smsc37b787_wdt
 smsc47b397
 smsc47m1
@@ -2239,10 +2277,13 @@ spi-intel-platform
 spi-lantiq-ssc
 spi-lm70llp
 spi-loopback-test
+spi-microchip-core
+spi-microchip-core-qspi
 spi-mux
 spi-mxic
 spi-nxp-fspi
 spi-oc-tiny
+spi-pci1xxxx
 spi-pxa2xx-pci
 spi-pxa2xx-platform
 spi-sc18is602
@@ -2288,11 +2329,13 @@ tag_gswip
 tag_ksz
 tag_lan9303
 tag_mtk
+tag_none
 tag_ocelot
 tag_ocelot_8021q
 tag_qca
 tag_rtl4_a
 tag_rtl8_4
+tag_rzn1_a5psw
 tag_sja1105
 tag_trailer
 tag_xrs700x
@@ -2303,6 +2346,7 @@ target_core_mod
 target_core_pscsi
 target_core_user
 tc358743
+tc358746
 tc654
 tc74
 tcm_loop
@@ -2326,6 +2370,7 @@ tcrypt
 tda7432
 tda9840
 tda9950
+tdx-guest
 tea6415c
 tea6420
 tee
@@ -2358,6 +2403,7 @@ toshiba_bluetooth
 toshiba_haps
 tpci200
 tpm_nsc
+tpm_tis_i2c
 tpm_tis_i2c_cr50
 tps23861
 tps6105x
@@ -2390,9 +2436,11 @@ twofish-x86_64
 twofish-x86_64-3way
 twofish_common
 twofish_generic
+txgbe
 uPD60620
 uacce
 uartlite
+ublk_drv
 ubuntu-host
 uda1342
 udf
@@ -2428,6 +2476,10 @@ vcan
 vdpa
 vduse
 veth
+vfio
+vfio-pci
+vfio-pci-core
+vfio_iommu_type1
 vga16fb
 vgastate
 vhost
@@ -2470,6 +2522,7 @@ virtio_scsi
 virtio_vdpa
 virtiofs
 virtual_ncidev
+visl
 vitesse
 vitesse-vsc73xx-core
 vitesse-vsc73xx-platform
@@ -2478,10 +2531,8 @@ vivid
 vkms
 vmac
 vmd
-vme_ca91cx42
 vme_fake
 vme_tsi148
-vme_vmivme7805
 vmgenid
 vmlfb
 vmw_balloon
@@ -2508,7 +2559,6 @@ vt6655_stage
 vt8231
 vx855
 vxcan
-vxge
 w83627ehf
 w83627hf
 w83627hf_wdt
@@ -2546,6 +2596,7 @@ x38_edac
 x86_pkg_temp_thermal
 x_tables
 xcbc
+xctr
 xfrm4_tunnel
 xfrm6_tunnel
 xfrm_algo
