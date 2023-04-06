@@ -3439,6 +3439,7 @@ CONFIG_SND_HDA_CODEC_VIA                        policy<{'amd64': '-', 'arm64': '
 CONFIG_SND_HDA_COMPONENT                        policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_SND_HDA_CORE                             policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_SND_HDA_CS_DSP_CONTROLS                  policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_SND_HDA_CTL_DEV_ID                       policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_SND_HDA_DSP_LOADER                       policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_SND_HDA_EXT_CORE                         policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_SND_HDA_GENERIC                          policy<{'amd64': '-', 'arm64': '-'}>
@@ -4951,6 +4952,8 @@ CONFIG_VIA_RHINE_MMIO                           policy<{'amd64': '-', 'arm64': '
 CONFIG_VIA_VELOCITY                             policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_VIDEOBUF2_DVB                            policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_VIDEOBUF_DMA_SG                          policy<{'amd64': '-', 'arm64': 'm'}>
+CONFIG_VIDEOBUF_GEN                             policy<{'amd64': '-', 'arm64': 'm'}>
+CONFIG_VIDEOBUF_VMALLOC                         policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_VIDEO_AD5820                             policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_VIDEO_ADP1653                            policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_VIDEO_ADV7511_CEC                        policy<{'amd64': 'y'}>
