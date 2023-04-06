@@ -276,12 +276,12 @@ static int __init next_smallest_apicid(int apicids[], int curr)
 	return found;
 }
 
-/*  
- * On a 4 core, single node, with HT, linux numbers cpus as: 
+/*
+ * On a 4 core, single node, with HT, linux numbers cpus as:
  *     [0]c0 ht0   [1]c1 ht0   [2]c2 ht0   [3]c3 ht0
  *     [4]c0 ht1   [5]c1 ht1   [6]c2 ht1   [7]c3 ht1
  *
- * On a 4 core, two nodes, with HT, linux numbers cpus as: 
+ * On a 4 core, two nodes, with HT, linux numbers cpus as:
  *     [0]n0 c0 h0    [1]n1 c0 ht0  [2]n0 c3 ht0 ......
  *
  * MSHV wants vcpus/vpidxs: [0]c0 ht0, [1]c0 ht1, [2]c1 ht0, [3]c1 ht1 ....
@@ -291,7 +291,7 @@ static int __init next_smallest_apicid(int apicids[], int curr)
  *
  * Other requirements are:
  *  - LPs must be added in only lpindex order, with any lapic ids for any lp
- *  - VPs can be created in any vp index order as long as the HT siblings 
+ *  - VPs can be created in any vp index order as long as the HT siblings
  *    match.
  *
  * To achieve above, we add LPs in order of apic ids.
@@ -352,7 +352,7 @@ static void __init hv_smp_prepare_cpus(unsigned int max_cpus)
 			continue;
 
 		/* params: node num, domid, vp index, lp index */
-		ret = hv_call_create_vp(numa_cpu_node(i), 
+		ret = hv_call_create_vp(numa_cpu_node(i),
 					hv_current_partition_id, lpidx, lpidx);
 		BUG_ON(ret);
 		lpidx++;
@@ -466,6 +466,8 @@ static int vtl2_pic_probe(void)
 static void __init hv_vtl2_init_platform(void)
 {
 	pr_info("Initializing Hyper-V MSHV\n");
+
+	x86_init.resources.probe_roms = x86_init_noop;
 
 	x86_init.irqs.intr_mode_select = hv_vtl2_apic_intr_mode_select;
 	x86_init.irqs.pre_vector_init = x86_init_noop;
