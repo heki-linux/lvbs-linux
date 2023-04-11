@@ -817,6 +817,37 @@ dump_kernel_offset(struct notifier_block *self, unsigned long v, void *p)
 	return 0;
 }
 
+
+// XXX: demo
+// TODO: we need to remove this after having lvbs hvci initialization here.
+EXPORT_SYMBOL(_stext);
+EXPORT_SYMBOL(_etext);
+EXPORT_SYMBOL(__start_rodata);
+EXPORT_SYMBOL(__end_rodata);
+EXPORT_SYMBOL(_sdata);
+EXPORT_SYMBOL(_edata);
+#ifdef CONFIG_GENERIC_BUG
+//EXPORT_SYMBOL(__start___bug_table);
+//EXPORT_SYMBOL(__stop___bug_table);
+#endif
+#ifdef CONFIG_UNWINDER_ORC
+EXPORT_SYMBOL(__start_orc_unwind_ip);
+EXPORT_SYMBOL(__stop_orc_unwind_ip);
+EXPORT_SYMBOL(__start_orc_unwind);
+EXPORT_SYMBOL(__stop_orc_unwind);
+EXPORT_SYMBOL(orc_lookup);
+EXPORT_SYMBOL(orc_lookup_end);
+#endif
+#ifdef CONFIG_X86_64
+EXPORT_SYMBOL(__nosave_begin);
+EXPORT_SYMBOL(__nosave_end);
+#endif
+EXPORT_SYMBOL(__bss_start);
+EXPORT_SYMBOL(__bss_stop);
+EXPORT_SYMBOL(__brk_base);
+EXPORT_SYMBOL(__brk_limit);
+//EXPORT_SYMBOL(__elf_begin);
+//EXPORT_SYMBOL(__elf_end);
 /*
  * Determine if we were loaded by an EFI loader.  If so, then we have also been
  * passed the efi memmap, systab, etc., so we should use these data structures

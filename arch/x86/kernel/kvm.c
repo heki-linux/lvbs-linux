@@ -779,6 +779,46 @@ static void __init kvm_guest_init(void)
 	hardlockup_detector_disable();
 }
 
+/* Heki enforcement */
+
+#include <asm/asm-offsets.h>
+#include <asm/vdso.h>
+#include <linux/minmax.h>
+#ifdef CONFIG_X86_64
+#define ASM_ENDBR	"endbr64\n\t"
+#else
+#define ASM_ENDBR	"endbr32\n\t"
+#endif
+
+
+/* Heki test data */
+
+/* Takes two pages to not change permission of other read-only pages. */
+const char const_buf[PAGE_SIZE * 2] = {};
+EXPORT_SYMBOL(const_buf);
+
+char ro_after_init_buf[PAGE_SIZE * 2] __ro_after_init = {};
+EXPORT_SYMBOL(ro_after_init_buf);
+
+extern long test_exec_data(long);
+EXPORT_SYMBOL(test_exec_data);
+
+extern void _test_exec_data_end(void);
+
+/* Used to test ROP execution. */
+asm(
+".pushsection .rodata;" // NOT .text section
+".global test_exec_data;"
+".type test_exec_data, @function;"
+"test_exec_data:"
+ASM_ENDBR
+"movq	%rdi, %rax;"
+"inc	%rax;"
+ASM_RET
+".size test_exec_data, .-test_exec_data;"
+"_test_exec_data_end:"
+".popsection");
+
 static noinline uint32_t __kvm_cpuid_base(void)
 {
 	if (boot_cpu_data.cpuid_level < 0)

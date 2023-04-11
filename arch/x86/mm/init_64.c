@@ -1368,6 +1368,9 @@ int __init deferred_page_init_max_threads(const struct cpumask *node_cpumask)
 
 int kernel_set_to_readonly;
 
+// XXX: demo
+EXPORT_SYMBOL(kernel_set_to_readonly);
+
 void mark_rodata_ro(void)
 {
 	unsigned long start = PFN_ALIGN(_text);
