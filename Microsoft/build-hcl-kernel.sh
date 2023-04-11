@@ -73,15 +73,15 @@ build_kernel() {
 	#make SHELL='sh -x' ARCH=x86_64 -j `nproc` 2> ${BUILD_DIR}/hcl-build-verbose.log
 	make ARCH=x86_64 -j `nproc` olddefconfig vmlinux modules
 	cp $LINUX_SRC/Microsoft/hcl.config $OUT_DIR
-	objcopy --only-keep-debug --compress-debug-sections $KBUILD_OUTPUT/vmlinux $BUILD_DIR/vmlinux.debug
-	objcopy --strip-all --add-gnu-debuglink=$BUILD_DIR/vmlinux.debug $KBUILD_OUTPUT/vmlinux $BUILD_DIR/vmlinux
+	objcopy --only-keep-debug --compress-debug-sections $KBUILD_OUTPUT/vmlinux $BUILD_DIR/vmlinux.dbg
+	objcopy --strip-all --add-gnu-debuglink=$BUILD_DIR/vmlinux.dbg $KBUILD_OUTPUT/vmlinux $BUILD_DIR/vmlinux
 	find $BUILD_DIR -name '*.ko' | while read -r mod; do
 		outmod="$OUT_DIR/$(basename $mod)"
-		objcopy --only-keep-debug --compress-debug-sections "$mod" "$outmod.debug"
-		objcopy --strip-unneeded --add-gnu-debuglink "$outmod.debug" "$mod" "$outmod"
+		objcopy --only-keep-debug --compress-debug-sections "$mod" "$outmod.dbg"
+		objcopy --strip-unneeded --add-gnu-debuglink "$outmod.dbg" "$mod" "$outmod"
 	done
 	cp $BUILD_DIR/vmlinux $OUT_DIR
-	cp $BUILD_DIR/vmlinux.debug $OUT_DIR
+	cp $BUILD_DIR/vmlinux.dbg $OUT_DIR
 	cp $LINUX_SRC/Microsoft/hcl.config $OUT_DIR
 }
 
