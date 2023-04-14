@@ -158,6 +158,9 @@ CONFIG_POWERCAP                                 note<'kernel reduction'>
 CONFIG_REGULATOR_TWL4030                        policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_REGULATOR_TWL4030                        note<'Unnecessary for Azure'>
 
+CONFIG_RUST                                     policy<{'amd64': 'n'}>
+CONFIG_RUST                                     note<'required to enable Rust support, LP: #1993183'>
+
 CONFIG_SAMPLE_TRACE_PRINTK                      policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_SAMPLE_TRACE_PRINTK                      note<'Unnecessary for Azure'>
 
@@ -733,6 +736,7 @@ CONFIG_BGMAC                                    policy<{'arm64': 'y'}>
 CONFIG_BGMAC_PLATFORM                           policy<{'arm64': 'y'}>
 CONFIG_BH1750                                   policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_BH1780                                   policy<{'amd64': '-', 'arm64': 'm'}>
+CONFIG_BINDGEN_VERSION_TEXT                     policy<{'amd64': '-'}>
 CONFIG_BLK_DEV_3W_XXXX_RAID                     policy<{'amd64': 'n', 'arm64': 'm'}>
 CONFIG_BLK_DEV_FD_RAWCMD                        policy<{'amd64': '-'}>
 CONFIG_BLK_DEV_NULL_BLK                         policy<{'amd64': 'n', 'arm64': 'm'}>
@@ -1097,6 +1101,7 @@ CONFIG_COMMON_CLK_IPROC                         policy<{'arm64': 'y'}>
 CONFIG_COMMON_CLK_PALMAS                        policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMMON_CLK_SI5351                        policy<{'amd64': 'n', 'arm64': 'm'}>
 CONFIG_COMMON_CLK_WM831X                        policy<{'amd64': 'n', 'arm64': 'm'}>
+CONFIG_CONSTRUCTORS                             policy<{'amd64': '-'}>
 CONFIG_CONTEXT_TRACKING_USER                    policy<{'amd64': 'y', 'arm64': 'y'}>
 CONFIG_CONTEXT_TRACKING_USER_FORCE              policy<{'amd64': 'n', 'arm64': 'n'}>
 CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL           policy<{'amd64': 'n', 'arm64': 'n'}>
@@ -3191,6 +3196,10 @@ CONFIG_RTW89_DEBUGFS                            policy<{'amd64': '-', 'arm64': '
 CONFIG_RTW89_DEBUGMSG                           policy<{'amd64': '-', 'arm64': 'y'}>
 CONFIG_RTW89_PCI                                policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_RUNTIME_TESTING_MENU                     policy<{'amd64': 'n', 'arm64': 'y'}>
+CONFIG_RUSTC_VERSION_TEXT                       policy<{'amd64': '-'}>
+CONFIG_RUST_BUILD_ASSERT_ALLOW                  policy<{'amd64': '-'}>
+CONFIG_RUST_DEBUG_ASSERTIONS                    policy<{'amd64': '-'}>
+CONFIG_RUST_OVERFLOW_CHECKS                     policy<{'amd64': '-'}>
 CONFIG_SAMPLES                                  policy<{'amd64': 'n', 'arm64': 'y'}>
 CONFIG_SAMPLES_RUST                             policy<{'amd64': '-'}>
 CONFIG_SAMPLE_AUXDISPLAY                        policy<{'amd64': '-', 'arm64': 'n'}>
