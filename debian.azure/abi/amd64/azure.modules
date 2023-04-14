@@ -349,7 +349,6 @@ cls_matchall
 cls_route
 cls_rsvp
 cls_rsvp6
-cls_tcindex
 cls_u32
 cm4000_cs
 cm4040_cs
@@ -652,6 +651,7 @@ fcrypt
 fdomain
 fdomain_cs
 fdomain_pci
+fealnx
 ff-memless
 fieldbus_dev
 fintek-cir
@@ -2471,6 +2471,7 @@ v4l2-dv-timings
 v4l2-fwnode
 v4l2-mem2mem
 v4l2-tpg
+v4l2loopback
 vboxvideo
 vcan
 vdpa
@@ -2497,8 +2498,6 @@ viafb
 vicodec
 video
 video-i2c
-videobuf-core
-videobuf-vmalloc
 videobuf2-common
 videobuf2-dma-contig
 videobuf2-dma-sg
