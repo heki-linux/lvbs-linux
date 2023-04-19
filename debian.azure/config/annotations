@@ -5,6 +5,9 @@
 
 include "../../debian.master/config/annotations"
 
+CONFIG_TDX_GUEST_DRIVER                         policy<{'amd64': 'y'}>
+CONFIG_TDX_GUEST_DRIVER                         note<'LP: #2016995'>
+
 CONFIG_ACCESSIBILITY                            policy<{'amd64': 'n', 'arm64': 'y'}>
 CONFIG_ACCESSIBILITY                            note<'LP: #1967702'>
 
