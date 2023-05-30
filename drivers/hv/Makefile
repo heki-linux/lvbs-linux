@@ -5,6 +5,7 @@ obj-$(CONFIG_HYPERV_BALLOON)	+= hv_balloon.o
 obj-$(CONFIG_DXGKRNL)		+= dxgkrnl/
 obj-$(CONFIG_MSHV)		+= mshv.o
 obj-$(CONFIG_MSHV_VTL)		+= mshv_vtl.o
+obj-$(CONFIG_MSHV_SECURE_VTL)	+= mshv_vsm_vtl1.o
 obj-$(CONFIG_MSHV_ROOT)		+= mshv_root.o
 
 CFLAGS_hv_trace.o = -I$(src)
