@@ -101,6 +101,7 @@
 #include <linux/init_syscalls.h>
 #include <linux/stackdepot.h>
 #include <linux/randomize_kstack.h>
+#include <linux/vsm.h>
 #include <net/net_namespace.h>
 
 #include <asm/io.h>
@@ -1506,6 +1507,8 @@ static int __ref kernel_init(void *unused)
 	 * Wait until kthreadd is all set-up.
 	 */
 	wait_for_completion(&kthreadd_done);
+
+	mshv_vtl1_init();
 
 	kernel_init_freeable();
 	/* need to finish all async __init code before freeing the memory */
