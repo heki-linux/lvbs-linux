@@ -509,6 +509,15 @@ struct hv_message_page {
 	struct hv_message sint_message[HV_SYNIC_SINT_COUNT];
 } __packed;
 
+union hv_register_vsm_vp_secure_vtl_config {
+	u64 as_u64;
+	struct {
+		u64 mbec_enabled : 1;
+		u64 tlb_locked : 1;
+		u64 reserved: 62;
+	};
+};
+
 struct hv_x64_segment_register {
 	__u64 base;
 	__u32 limit;
@@ -725,6 +734,7 @@ enum hv_register_name {
 	HV_REGISTER_VSM_CODE_PAGE_OFFSETS	= 0x000D0002,
 	HV_REGISTER_VSM_CAPABILITIES		= 0x000D0006,
 	HV_REGISTER_VSM_PARTITION_CONFIG	= 0x000D0007,
+	HV_REGISTER_VSM_VP_SECURE_CONFIG_VTL0	= 0x000D0010,
 
 #if defined(__x86_64__)
 	/* Suspend Registers */

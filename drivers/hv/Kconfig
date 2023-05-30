@@ -81,6 +81,18 @@ config MSHV_ROOT
 
 	  If unsure, say N.
 
+config MSHV_SECURE_VTL
+	tristate "Microsoft Hyper-V VTL1 driver"
+	depends on !MTRR
+	depends on !X86_MPARSE
+	help
+	  Select this option to enable Linux kernel as a
+	  seure kernel running in VTL1.
+
+	  To compile this as a module, choose M here.
+
+	  If unsure, say N.
+
 config MSHV_VTL
 	tristate "Microsoft Hyper-V VTL driver"
 	depends on MSHV

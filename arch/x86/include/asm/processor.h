@@ -703,7 +703,7 @@ bool xen_set_default_idle(void);
 #define xen_set_default_idle 0
 #endif
 
-#ifdef CONFIG_MSHV_VTL
+#if defined(CONFIG_MSHV_VTL) || defined(CONFIG_MSHV_SECURE_VTL)
 void mshv_vtl_set_idle(void (*idle)(void));
 #endif
 

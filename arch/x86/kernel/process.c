@@ -793,7 +793,7 @@ bool xen_set_default_idle(void)
 
 struct cpumask cpus_stop_mask;
 
-#ifdef CONFIG_MSHV_VTL
+#if defined(CONFIG_MSHV_VTL) || defined(CONFIG_MSHV_SECURE_VTL)
 void mshv_vtl_set_idle(void (*idle)(void))
 {
 	static_call_update(x86_idle, idle);
