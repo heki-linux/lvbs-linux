@@ -38,6 +38,15 @@
 	((HV_HYP_PAGE_SIZE - sizeof(union hv_gpa_page_access_state)) \
 		/ sizeof(union hv_gpa_page_access_state))
 
+union hv_register_vsm_page_offsets {
+	struct {
+		u64 vtl_call_offset : 12;
+		u64 vtl_return_offset : 12;
+		u64 reserved_mbz : 40;
+	};
+	u64 as_uint64;
+} __packed;
+
 /*
  * Hyper-V hypercalls
  */
