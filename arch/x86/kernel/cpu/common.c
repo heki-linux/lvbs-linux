@@ -1329,8 +1329,8 @@ static void __init cpu_parse_early_param(void)
 	if (cmdline_find_option_bool(boot_command_line, "nofxsr"))
 		setup_clear_cpu_cap(X86_FEATURE_FXSR);
 #endif
-
-	if (cmdline_find_option_bool(boot_command_line, "noxsave"))
+	//TODO:fix this via skloader boot cmd line
+	//if (cmdline_find_option_bool(boot_command_line, "noxsave"))
 		setup_clear_cpu_cap(X86_FEATURE_XSAVE);
 
 	if (cmdline_find_option_bool(boot_command_line, "noxsaveopt"))
