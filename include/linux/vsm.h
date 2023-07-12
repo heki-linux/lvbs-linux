@@ -11,6 +11,4 @@ enum vsm_service_ids {
 	VSM_LOCK_CRS,
 };
 
-void  mshv_vtl1_init(void);
-
 #endif /* _VSM_H */
