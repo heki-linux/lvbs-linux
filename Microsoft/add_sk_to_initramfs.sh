@@ -4,10 +4,9 @@
 # Copyright (c) 2023 Microsoft Corporation
 ################################################################################
 
-#usage: run sudo ./add_sk_to_initramfs.sh <path_to_optee> (i.e. ../optee-os)
-export OUT_DIR=$1
+#usage: run sudo ./add_sk_to_initramfs.sh <path_to_skloader> <path_to_sk>
 export SKERNEL_LOAD_FILE="$1/skloader.bin"
-export SKERNEL_FILE="$1/vmlinux.bin"
+export SKERNEL_FILE="$2/vmlinux.bin"
 export SKERNEL_LOAD_FILE_ABSPATH="$(readlink -f $SKERNEL_LOAD_FILE)"
 export SKERNEL_FILE_ABSPATH="$(readlink -f $SKERNEL_FILE)"
 export SKERNEL_HOOK_FILE="/usr/share/initramfs-tools/hooks/skernel"
