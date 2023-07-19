@@ -4,17 +4,27 @@
 # Copyright (c) 2023 Microsoft Corporation
 ################################################################################
 
-#usage: run sudo ./add_sk_to_initramfs.sh <path_to_optee>
-export OPTEE_DIR=$1
-export SKERNEL_FILE="$1/out/core/tee.bin"
+#usage: run sudo ./add_sk_to_initramfs.sh <path_to_optee> (i.e. ../optee-os)
+export OUT_DIR=$1
+export SKERNEL_LOAD_FILE="$1/skloader.bin"
+export SKERNEL_FILE="$1/vmlinux.bin"
+export SKERNEL_LOAD_FILE_ABSPATH="$(readlink -f $SKERNEL_LOAD_FILE)"
 export SKERNEL_FILE_ABSPATH="$(readlink -f $SKERNEL_FILE)"
 export SKERNEL_HOOK_FILE="/usr/share/initramfs-tools/hooks/skernel"
 
-# If tee.bin file does not exist, exit
+# If skloader.bin file does not exist, exit
+if [[ ! -f $SKERNEL_LOAD_FILE ]]
+then
+   echo "Error: $SKERNEL_LOAD_FILE_ABSPATH does not exist."
+   echo "Compile skloader.bin and then re-try."
+   exit 0
+fi
+
+# If skloader.bin file does not exist, exit
 if [[ ! -f $SKERNEL_FILE ]]
 then
-   echo "Error: $1 file does not exist."
-   echo "Compile optee-os first via build_vsm_optee and then re-try."
+   echo "Error: $SKERNEL_FILE_ABSPATH does not exist."
+   echo "Compile secure linux kernel(vmlinux.bin) and then re-try."
    exit 0
 fi
 
@@ -45,6 +55,7 @@ esac
 . /usr/share/initramfs-tools/hook-functions
 # Begin real processing below this line
 
+cp $SKERNEL_LOAD_FILE_ABSPATH "\${DESTDIR}/lib/firmware"
 cp $SKERNEL_FILE_ABSPATH "\${DESTDIR}/lib/firmware"
 
 exit 0
