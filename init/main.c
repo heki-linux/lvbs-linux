@@ -119,7 +119,6 @@ static int kernel_init(void *);
 
 extern void init_IRQ(void);
 extern void radix_tree_init(void);
-extern int vsm_enable_vtl1(void);
 
 /*
  * Debug helper: via this flag we know that we are in 'early bootup code'
@@ -1107,7 +1106,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	acpi_early_init();
 	if (late_time_init)
 		late_time_init();
-	vsm_enable_vtl1();
 	sched_clock_init();
 	calibrate_delay();
 	pid_idr_init();

@@ -697,6 +697,82 @@ struct hv_input_get_vp_registers {
 	__aligned(8) enum hv_register_name names[1];
 };
 
+union hv_register_vsm_vp_status {
+	u64 as_u64;
+
+	struct {
+		u64 active_vtl : 4;
+		u64 active_mbec_enabled : 1;
+		u64 reserved_z0 : 11;
+		u64 enabled_vtl_set : 16;
+		u64 reserved_z1 : 32;
+	};
+};
+
+/* Types for the EnableVpVtl hypercall */
+struct hv_x64_segment_register {
+	u64 base;
+	u32 limit;
+	u16 selector;
+
+	union {
+		struct {
+			u16 segment_type : 4;
+			u16 non_system_segment : 1;
+			u16 descriptor_privilege_level : 2;
+			u16 present : 1;
+			u16 reserved : 4;
+			u16 available : 1;
+			u16 _long : 1;
+			u16 _default : 1;
+			u16 granularity : 1;
+		};
+		u16 attributes;
+	};
+};
+
+struct hv_x64_table_register {
+	u16 pad[3];
+	u16 limit;
+	u64 base;
+};
+
+struct hv_initial_vp_context {
+	u64 rip;
+	u64 rsp;
+	u64 rflags;
+
+	/* Segment selector registers together with their hidden state */
+	struct hv_x64_segment_register cs;
+	struct hv_x64_segment_register ds;
+	struct hv_x64_segment_register es;
+	struct hv_x64_segment_register fs;
+	struct hv_x64_segment_register gs;
+	struct hv_x64_segment_register ss;
+	struct hv_x64_segment_register tr;
+	struct hv_x64_segment_register ldtr;
+
+	/* Global and Interrupt Descriptor tables */
+	struct hv_x64_table_register idtr;
+	struct hv_x64_table_register gdtr;
+
+	/* Control registers and MSRs */
+	u64 efer;
+	u64 cr0;
+	u64 cr3;
+	u64 cr4;
+	u64 msr_cr_pat;
+};
+
+struct hv_input_enable_vp_vtl {
+	u64 partition_id;
+	u32 vp_index;
+	u8 target_vtl;
+	u8 reserved_z0;
+	u16 reserved_z1;
+	struct hv_initial_vp_context vp_vtl_context;
+};
+
 #include <asm-generic/hyperv-tlfs.h>
 
 #endif

@@ -412,7 +412,7 @@ static void __init memblock_x86_reserve_range_setup_data(void)
  * --------- Secure Kernel reservation ------------------------------
  */
 
-#ifdef CONFIG_HYPERV_VTL
+#ifdef CONFIG_HYPERV_VSM
 
 /* 4K alignment for Secure Kernel regions */
 #define SECKERNEL_ALIGN		SZ_4K
