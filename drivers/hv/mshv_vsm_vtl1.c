@@ -13,6 +13,8 @@
 #include <asm/mshv_vtl.h>
 #include "vsm.h"
 #include "mshv.h"
+#include <linux/miscdevice.h>
+#include <linux/module.h>
 
 struct mshv_vtl_call_params vtl_params={0,0,0,0};
 enum vsm_service_ids {
@@ -27,7 +29,7 @@ static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
 	switch (_vtl_params->_a0) {
 	case VSM_VTL_CALL_FUNC_ID_PROTECT_MEMORY:
 		pr_info("%s : VSM_PROTECT_MEMORY\n", __func__);
-		pr_info("%s : a0:%x a1:%x, a2:%x,a3:%x\n", __func__,
+		pr_info("%s : a0:%llx a1:%llx, a2:%llx,a3:%llx\n", __func__,
 			_vtl_params->_a0, _vtl_params->_a1, _vtl_params->_a2,
 			_vtl_params->_a3);
 		_vtl_params->_a3 = 1;
@@ -59,7 +61,7 @@ static void mshv_vsm_vtl_return()
 	unsigned long irq_flags;
 	struct hv_vp_assist_page *hvp;
 
-	pr_info("%s : a0:%x a1:%x, a2:%x,a3:%x\n", __func__,
+	pr_info("%s : a0:%llx a1:%llx, a2:%llx,a3:%llx\n", __func__,
 			vtl_params._a0, vtl_params._a1, vtl_params._a2,vtl_params._a3);
 	/* Ordering is important. Suspedn tick before disabling interrupts */
 	tick_suspend_local();
@@ -120,10 +122,51 @@ static void mshv_vsm_vtl_return()
 
 }
 
-static int mshv_vtl1_init(void)
+static long mshv_vsm_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
-	mshv_vsm_vtl_return();
-	return 0;
+	long ret;
+
+	switch (ioctl) {
+	case MSHV_VTL_RETURN_TO_LOWER_VTL:
+		mshv_vsm_vtl_return();
+		break;
+	default:
+		pr_err("%s: invalid vtl ioctl: %#x\n", __func__, ioctl);
+		ret = -ENOTTY;
+	}
+
+	return ret;
+}
+
+static const struct file_operations mshv_vtl_fops = {
+    .owner = THIS_MODULE,
+	.unlocked_ioctl = mshv_vsm_vtl_ioctl,
+};
+
+static struct miscdevice mshv_vsm_dev = {
+	.name = "mshv_vsm_dev",
+	.nodename = "mshv_vsm_dev",
+	.fops = &mshv_vtl_fops,
+	.mode = 0400,
+	.minor = MISC_DYNAMIC_MINOR,
+};
+
+static int __init mshv_vtl1_init(void)
+{
+	int ret;
+
+	ret = misc_register(&mshv_vsm_dev);
+	if (ret) {
+		pr_err("VSM: Could not register mshv_vsm_vtl_ioctl\n");
+	}
+
+	return ret;
+}
+
+static void __exit mshv_vtl1_exit(void) {
+    misc_deregister(&mshv_vsm_dev);
+    pr_info("mshv_vsm_dev device unregistered\n");
 }
 
 module_init(mshv_vtl1_init);
+module_exit(mshv_vtl1_exit);
