@@ -11,6 +11,8 @@
 #include <linux/dma-map-ops.h>
 #include <linux/dmi.h>
 #include <linux/efi.h>
+#include <linux/heki.h>
+#include <linux/ima.h>
 #include <linux/init_ohci1394_dma.h>
 #include <linux/initrd.h>
 #include <linux/iscsi_ibft.h>
@@ -848,6 +850,55 @@ EXPORT_SYMBOL(__brk_base);
 EXPORT_SYMBOL(__brk_limit);
 //EXPORT_SYMBOL(__elf_begin);
 //EXPORT_SYMBOL(__elf_end);
+
+#ifdef CONFIG_HEKI
+
+/*
+ * Gather all of the statically defined sections so heki_late_init() can
+ * protect these sections in the host page table.
+ *
+ * The sections are defined under "SECTIONS" in vmlinux.lds.S
+ * Keep this array in sync with SECTIONS.
+ */
+struct heki_va_range __initdata heki_va_ranges[] = {
+	{
+		.va_start = _stext,
+		.va_end = _etext,
+		.attributes = HEKI_ATTR_MEM_NOWRITE | HEKI_ATTR_MEM_EXEC,
+	},
+	{
+		.va_start = __start_rodata,
+		.va_end = __end_rodata,
+		.attributes = HEKI_ATTR_MEM_NOWRITE,
+	},
+#ifdef CONFIG_UNWINDER_ORC
+	{
+		.va_start = __start_orc_unwind_ip,
+		.va_end = __stop_orc_unwind_ip,
+		.attributes = HEKI_ATTR_MEM_NOWRITE,
+	},
+	{
+		.va_start = __start_orc_unwind,
+		.va_end = __stop_orc_unwind,
+		.attributes = HEKI_ATTR_MEM_NOWRITE,
+	},
+	{
+		.va_start = orc_lookup,
+		.va_end = orc_lookup_end,
+		.attributes = HEKI_ATTR_MEM_NOWRITE,
+	},
+#endif /* CONFIG_UNWINDER_ORC */
+};
+
+void __init heki_arch_init(void)
+{
+	heki.num_static_ranges = ARRAY_SIZE(heki_va_ranges);
+	heki.static_ranges =
+		heki_alloc_pa_ranges(heki_va_ranges, heki.num_static_ranges);
+}
+
+#endif /* CONFIG_HEKI */
+
 /*
  * Determine if we were loaded by an EFI loader.  If so, then we have also been
  * passed the efi memmap, systab, etc., so we should use these data structures

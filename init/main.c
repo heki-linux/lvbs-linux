@@ -102,6 +102,7 @@
 #include <linux/stackdepot.h>
 #include <linux/randomize_kstack.h>
 #include <net/net_namespace.h>
+#include <linux/heki.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -992,7 +993,7 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	sort_main_extable();
 	trap_init();
 	mm_init();
-
+	heki_early_init();
 	ftrace_init();
 
 	/* trace_printk can be enabled here */
@@ -1517,6 +1518,7 @@ static int __ref kernel_init(void *unused)
 	exit_boot_config();
 	free_initmem();
 	mark_readonly();
+	heki_late_init();
 
 	/*
 	 * Kernel mappings are now finalized - update the userspace page-table

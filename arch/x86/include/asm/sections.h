@@ -18,6 +18,10 @@ extern char __end_of_kernel_reserve[];
 
 extern unsigned long _brk_start, _brk_end;
 
+extern int __start_orc_unwind_ip[], __stop_orc_unwind_ip[];
+extern struct orc_entry __start_orc_unwind[], __stop_orc_unwind[];
+extern unsigned int orc_lookup[], orc_lookup_end[];
+
 static inline bool arch_is_kernel_initmem_freed(unsigned long addr)
 {
 	/*

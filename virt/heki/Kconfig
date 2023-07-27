@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Hypervisor Enforced Kernel Integrity (HEKI)
+#
+
+config HEKI
+	bool "Hypervisor Enforced Kernel Integrity (Heki)"
+	default y
+	depends on !JUMP_LABEL && ARCH_SUPPORTS_HEKI
+	select KVM_EXTERNAL_WRITE_TRACKING if KVM
+	help
+	  This feature enhances guest virtual machine security by taking
+	  advantage of security features provided by the hypervisor for guests.
+	  This feature is helpful in maintaining guest virtual machine security
+	  even after the guest kernel has been compromised.
+
+config ARCH_SUPPORTS_HEKI
+	bool "Architecture support for HEKI"
+	help
+	  An architecture should select this when it can successfully build
+	  and run with CONFIG_HEKI. That is, it should provide all of the
+	  architecture support required for the HEKI feature.
