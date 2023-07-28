@@ -113,6 +113,7 @@ struct x86_init_ops x86_init __initdata = {
 		.msi_ext_dest_id	= bool_x86_init_noop,
 		.init_mem_mapping	= x86_init_noop,
 		.init_after_bootmem	= x86_init_noop,
+		.init_heki		= x86_init_noop,
 	},
 
 	.acpi = {
