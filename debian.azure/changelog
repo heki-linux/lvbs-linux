@@ -1,3 +1,9 @@
+linux-azure (6.5.0-1000.0) mantic; urgency=medium
+
+  * Empty entry
+
+ -- Andrea Righi <andrea.righi@canonical.com>  Wed, 02 Aug 2023 17:28:39 +0200
+
 linux-azure (6.2.0-1004.4) lunar; urgency=medium
 
   * lunar/linux-azure: 6.2.0-1004.4 -proposed tracker (LP: #2016265)
