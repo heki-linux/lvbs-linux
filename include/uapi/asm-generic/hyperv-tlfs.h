@@ -144,6 +144,9 @@ struct hv_message {
 #define HV_MAP_GPA_USER_EXECUTABLE      0x8
 #define HV_MAP_GPA_EXECUTABLE           0xC
 #define HV_MAP_GPA_PERMISSIONS_MASK     0xF
+#define HV_MAP_GPA_ACCESS_ALL \
+	(HV_MAP_GPA_READABLE | HV_MAP_GPA_WRITABLE | \
+	 HV_MAP_GPA_KERNEL_EXECUTABLE | HV_MAP_GPA_USER_EXECUTABLE)
 
 struct hv_register_assoc {
 	__u32 name;			/* enum hv_register_name */
