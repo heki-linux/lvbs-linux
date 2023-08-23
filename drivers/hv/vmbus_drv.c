@@ -1987,11 +1987,26 @@ static acpi_status vmbus_walk_resources(struct acpi_resource *res, void *ctx)
 	case ACPI_RESOURCE_TYPE_ADDRESS32:
 		start = res->data.address32.address.minimum;
 		end = res->data.address32.address.maximum;
+#ifdef CONFIG_INTEL_TDX_GUEST
+		if (start == 0 && end == 0xFFFFFFFF) {
+			start = 0xF8000000;
+			end = 0xFFFFFFFF;
+			pr_warn("vmbus_walk_resources: using a default 32-bit MMIO range\n");
+		}
+#endif
 		break;
 
 	case ACPI_RESOURCE_TYPE_ADDRESS64:
 		start = res->data.address64.address.minimum;
 		end = res->data.address64.address.maximum;
+
+#ifdef CONFIG_INTEL_TDX_GUEST
+		if (start == 0 && end == 0xFFFFFFFFFFFFFFFF) {
+			start = 0xFE0000000;
+			end = 0xFFFFFFFFF;
+			pr_warn("vmbus_walk_resources: using a default 64-bit MMIO range\n");
+		}
+#endif
 		break;
 
 	/*
