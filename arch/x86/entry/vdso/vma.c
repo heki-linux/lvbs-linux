@@ -17,6 +17,7 @@
 #include <linux/time_namespace.h>
 
 #include <asm/pvclock.h>
+#include <asm/mshyperv.h>
 #include <asm/vgtod.h>
 #include <asm/proto.h>
 #include <asm/vdso.h>
@@ -189,9 +190,13 @@ static vm_fault_t vvar_fault(const struct vm_special_mapping *sm,
 		}
 	} else if (sym_offset == image->sym_hvclock_page) {
 		pfn = hv_get_tsc_pfn();
-
-		if (pfn && vclock_was_used(VDSO_CLOCKMODE_HVCLOCK))
-			return vmf_insert_pfn(vma, vmf->address, pfn);
+		if (pfn && vclock_was_used(VDSO_CLOCKMODE_HVCLOCK)) {
+			if (ms_hyperv.paravisor_present)
+				return vmf_insert_pfn(vma, vmf->address, pfn);
+			else
+				return vmf_insert_pfn_prot(vma, vmf->address,
+					pfn, pgprot_decrypted(vma->vm_page_prot));
+		}
 	} else if (sym_offset == image->sym_timens_page) {
 		struct page *timens_page = find_timens_vvar_page(vma);
 
