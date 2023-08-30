@@ -561,7 +561,6 @@ CONFIG_ASUS_NB_WMI                              policy<{'amd64': '-'}>
 CONFIG_ASUS_TF103C_DOCK                         policy<{'amd64': 'n'}>
 CONFIG_ASUS_WMI                                 policy<{'amd64': '-'}>
 CONFIG_ASYNC_RAID6_TEST                         policy<{'amd64': '-', 'arm64': 'n'}>
-CONFIG_AS_VERSION                               policy<{'amd64': '24100', 'arm64': '24100'}>
 CONFIG_AT76C50X_USB                             policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_AT803X_PHY                               policy<{'amd64': 'n', 'arm64': 'm'}>
 CONFIG_ATA_OVER_ETH                             policy<{'amd64': 'n', 'arm64': 'm'}>
@@ -889,7 +888,6 @@ CONFIG_CB710_DEBUG                              policy<{'amd64': '-', 'arm64': '
 CONFIG_CB710_DEBUG_ASSUMPTIONS                  policy<{'amd64': '-', 'arm64': 'y'}>
 CONFIG_CC10001_ADC                              policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_CCS811                                   policy<{'amd64': '-', 'arm64': 'm'}>
-CONFIG_CC_VERSION_TEXT                          policy<{'amd64': '"x86_64-linux-gnu-gcc-13 (Ubuntu 13.2.0-1ubuntu1) 13.2.0"', 'arm64': '"aarch64-linux-gnu-gcc-13 (Ubuntu 13.1.0-8ubuntu1) 13.1.0"'}>
 CONFIG_CEC_CH7322                               policy<{'amd64': 'n', 'arm64': 'm'}>
 CONFIG_CEC_CROS_EC                              policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_CEC_GPIO                                 policy<{'amd64': '-', 'arm64': '-'}>
@@ -1553,7 +1551,6 @@ CONFIG_GAMEPORT_FM801                           policy<{'amd64': '-', 'arm64': '
 CONFIG_GAMEPORT_L4                              policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_GAMEPORT_NS558                           policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_GCC_SUPPORTS_DYNAMIC_FTRACE_WITH_REGS    policy<{'arm64': '-'}>
-CONFIG_GCC_VERSION                              policy<{'amd64': '130200', 'arm64': '130100'}>
 CONFIG_GENERIC_ADC_BATTERY                      policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_GENERIC_ADC_THERMAL                      policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_GENERIC_MSI_IRQ_DOMAIN                   policy<{'amd64': '-', 'arm64': '-'}>
@@ -2119,7 +2116,6 @@ CONFIG_LCD_OTM3225A                             policy<{'amd64': '-', 'arm64': '
 CONFIG_LCD_PLATFORM                             policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_LCD_TDO24M                               policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_LCD_VGG2432A4                            policy<{'amd64': '-', 'arm64': 'm'}>
-CONFIG_LD_VERSION                               policy<{'amd64': '24100', 'arm64': '24100'}>
 CONFIG_LEDS_88PM860X                            policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_LEDS_AAEON                               policy<{'amd64': '-'}>
 CONFIG_LEDS_ADP5520                             policy<{'amd64': '-', 'arm64': 'm'}>
