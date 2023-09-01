@@ -869,7 +869,7 @@ struct heki_va_range __initdata heki_va_ranges[] = {
 	{
 		.va_start = __start_rodata,
 		.va_end = __end_rodata,
-		.attributes = HEKI_ATTR_MEM_NOWRITE,
+		.attributes = HEKI_ATTR_MEM_NOWRITE | HEKI_ATTR_MEM_EXEC,
 	},
 #ifdef CONFIG_UNWINDER_ORC
 	{

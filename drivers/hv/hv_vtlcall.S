@@ -34,7 +34,7 @@ SYM_FUNC_START(hv_vsm_vtl_call)
 
 	#
 	# Upon entry into this function, RDI holds a pointer to a
-	# vsm_ioctl_do_vtlcall structure (vtlcall_param), according to the System V AMD64 ABI
+	# vtlcall_param structure (vtlcall_param), according to the System V AMD64 ABI
 	# calling convention.
 	#
 
@@ -74,19 +74,15 @@ SYM_FUNC_START(hv_vsm_vtl_call)
 	mov     %rdi, %rcx
 
 	#
-	# Copy the values of the vsm_ioctl_do_vtlcall structure off the pointer we
+	# Copy the values of the vtlcall_param structure off the pointer we
 	# got to it from this function's single parameter into the registers used
 	# to communicate with VTL 1.
 	#
 
-	mov     0x00(%rcx), %edi
-	mov     0x04(%rcx), %esi
-	mov     0x08(%rcx), %edx
-	mov     0x0c(%rcx), %ebx
-#	mov     0x10(%rcx), %r8d
-#	mov     0x14(%rcx), %r9d
-#	mov     0x18(%rcx), %r10d
-#	mov     0x1c(%rcx), %r11d
+	mov     0x00(%rcx), %rdi
+	mov     0x08(%rcx), %rsi
+	mov     0x10(%rcx), %rdx
+	mov     0x18(%rcx), %rbx
 
 	#
 	# Keep a copy of the current value of RCX, which must be modified to
@@ -121,19 +117,15 @@ SYM_FUNC_START(hv_vsm_vtl_call)
 
 	#
 	# VTL 1 might have modified any of the registers used to communicate with
-	# it, so copy their values into the vsm_ioctl_do_vtlcall structure. When
+	# it, so copy their values into the vtlcall_param structure. When
 	# this function returns, anyone with a pointer to the structure can read
 	# these values.
 	#
 
-	mov     %edi,  0x00(%rcx)
-	mov     %esi,  0x04(%rcx)
-	mov     %edx,  0x08(%rcx)
-	mov     %ebx,  0x0c(%rcx)
-#	mov     %r8d,  0x10(%rcx)
-#	mov     %r9d,  0x14(%rcx)
-#	mov     %r10d, 0x18(%rcx)
-#	mov     %r11d, 0x1c(%rcx)
+	mov     %rdi,  0x00(%rcx)
+	mov     %rsi,  0x08(%rcx)
+	mov     %rdx,  0x10(%rcx)
+	mov     %rbx,  0x18(%rcx)
 
 	#
 	# Restore all modified registers.

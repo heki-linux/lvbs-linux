@@ -33,6 +33,8 @@
 #include <asm/nmi.h>
 #include <clocksource/hyperv_timer.h>
 #include <asm/numa.h>
+#include <linux/heki.h>
+#include <linux/hv_vsm.h>
 
 /* Is Linux running as the root partition? */
 bool hv_root_partition;
@@ -496,4 +498,5 @@ const __initconst struct hypervisor_x86 x86_hyper_ms_hyperv = {
 	.init.x2apic_available	= ms_hyperv_x2apic_available,
 	.init.msi_ext_dest_id	= ms_hyperv_msi_ext_dest_id,
 	.init.init_platform	= ms_hyperv_init_platform,
+	.init.init_heki			= hv_vsm_init_heki,
 };

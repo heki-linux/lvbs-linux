@@ -18,6 +18,7 @@
 #include "hv_vsm_boot.h"
 #include "hv_vsm.h"
 
+bool hv_vsm_boot_success = false;
 struct vsm_ctx vsm;
 struct file *sk_loader, *sk;
 
@@ -736,8 +737,10 @@ int __init hv_vsm_enable_vtl1(void)
 	ret = hv_vsm_load_secure_kernel();
 
 	/* Kick-start VTL1 boot */
-	if (!ret)
+	if (!ret) {
 		hv_vsm_boot_vtl1();
+		hv_vsm_boot_success = true;
+	}
 
 out:
 	set_cpus_allowed_ptr(current, &mask);
