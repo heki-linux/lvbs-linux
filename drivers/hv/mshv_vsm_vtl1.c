@@ -161,29 +161,35 @@ static int vsm_restrict_memory(u64 start, size_t size, u32 permissions)
 
 static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
 {
-	int ret=0;
+	int ret = 0;
+	u32 permissions = 0x00;
+
 	switch (_vtl_params->_a0) {
-	case VSM_VTL_CALL_FUNC_ID_PROTECT_MEMORY:
-		pr_info("%s : VSM_PROTECT_MEMORY\n", __func__);
-		pr_info("%s : a0:%X a1:%X, a2:%X,a3:%X, a4%X\n", __func__,
-			_vtl_params->_a0, _vtl_params->_a1, _vtl_params->_a2,
-			_vtl_params->_a3,_vtl_params->_a4);
-		u64 start_hi= _vtl_params->_a1;
-		u64 start_lo= _vtl_params->_a2;
-		u64 start= (start_hi << 32) + start_lo;
-		ret= vsm_restrict_memory(start, _vtl_params->_a3, _vtl_params->_a4);
-		if (ret)
-			pr_info("%s: failes\n",__func__);
-		else 
-			pr_info("%s: is ok\n",__func__);
-		_vtl_params->_a3=ret;	
-		break;
-	case VSM_VTL_CALL_FUNC_ID_LOCK_CR:
-		pr_info("%s : VSM_LOCK_CRS\n", __func__);
-		break;
-	default:
-		pr_err("%s : Wrong service id\n", __func__);
-		break;
+		case VSM_VTL_CALL_FUNC_ID_PROTECT_MEMORY:
+			pr_info("%s : VSM_PROTECT_MEMORY\n", __func__);
+			pr_info("%s : a0:%lX a1:%lX, a2:%lX,a3:%lX\n", __func__,
+				_vtl_params->_a0, _vtl_params->_a1, _vtl_params->_a2,
+				_vtl_params->_a3);
+
+			if (_vtl_params->_a3 & HEKI_ATTR_MEM_NOWRITE)
+				permissions |= HV_MAP_GPA_READABLE;
+			if (_vtl_params->_a3 & HEKI_ATTR_MEM_EXEC)
+				permissions |= (HV_MAP_GPA_READABLE | HV_MAP_GPA_EXECUTABLE);
+
+			ret = vsm_restrict_memory(_vtl_params->_a1, _vtl_params->_a2, permissions);
+			if (ret)
+				pr_info("%s: failed\n",__func__);
+			else 
+				pr_info("%s: is ok\n",__func__);
+
+			_vtl_params->_a3=ret;	
+			break;
+		case VSM_VTL_CALL_FUNC_ID_LOCK_CR:
+			pr_info("%s : VSM_LOCK_CRS\n", __func__);
+			break;
+		default:
+			pr_err("%s : Wrong service id\n", __func__);
+			break;
 	}
 	mshv_vsm_vtl_return();
 }
@@ -215,13 +221,12 @@ static void mshv_vsm_vtl_return()
 			 "movq %1, %%rsi\n"
 			 "movq %2, %%rdx\n"
 			 "movq %3, %%rbx\n"
-			 "movq %4, %%r8\n"
 			 "mov $0x00, %%rax\n"
 			 "mov $0x12, %%rcx\n"
 			 "vmcall\n"
 			 :
 			 : "m"(vtl_params._a0), "m"(vtl_params._a1),
-			   "m"(vtl_params._a2), "m"(vtl_params._a3), "m"(vtl_params._a4)
+			   "m"(vtl_params._a2), "m"(vtl_params._a3)
 			 : "rdi", "rsi", "rdx", "rbx", "memory");
 	/*
 	 *  VTL0 can pass four arguments to VTL1 in registers rdi, rsi, rdx and rbx respectively.
@@ -231,10 +236,9 @@ static void mshv_vsm_vtl_return()
 			 "movq %%rsi, %1\n"
 			 "movq %%rdx, %2\n"
 			 "movq %%rbx, %3\n"
-			 "movq %%r8, %4\n"
 			 :
 			 : "m"(vtl_params._a0), "m"(vtl_params._a1),
-			   "m"(vtl_params._a2), "m"(vtl_params._a3), "m"(vtl_params._a4)
+			   "m"(vtl_params._a2), "m"(vtl_params._a3)
 			 : "rdi", "rsi", "rdx", "rbx", "memory");
 	kernel_fpu_end();
 	tick_resume_local();

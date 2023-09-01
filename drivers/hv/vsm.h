@@ -4,17 +4,21 @@
  */
 #ifndef _VSM_H
 #define _VSM_H
+
+/* Heki attributes for memory pages. */
+#define HEKI_ATTR_MEM_NOWRITE		(1ULL << 0)
+#define HEKI_ATTR_MEM_EXEC		(1ULL << 1)
+
 /*
  * mshv_vtl_call_params : Strcture to parse in parameters from VTL0
  * _a0 : Service Id
- * _a1-_a4: Optional and depends on the requested service
+ * _a1-_a3: Optional and depends on the requested service
  */
 struct mshv_vtl_call_params {
 	u64 _a0;
 	u64 _a1;
 	u64 _a2;
 	u64 _a3;
-	u64 _a4;
 };
 
 /* Defines the page size */
