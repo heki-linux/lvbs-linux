@@ -2329,6 +2329,7 @@ spi-tle62x0
 spi-xcomm
 spi-zynqmp-gqspi
 spidev
+spl
 sprd_serial
 ssb
 ssd1307fb
@@ -2506,6 +2507,7 @@ v4l2-dv-timings
 v4l2-fwnode
 v4l2-mem2mem
 v4l2-tpg
+v4l2loopback
 vboxvideo
 vcan
 vdpa
@@ -2543,7 +2545,6 @@ vim2m
 vimc
 virtio-gpu
 virtio-rng
-virtio_blk
 virtio_crypto
 virtio_dma_buf
 virtio_input
@@ -2736,6 +2737,7 @@ xz_dec_test
 yellowfin
 yenta_socket
 z3fold
+zfs
 ziirave_wdt
 zonefs
 zram
