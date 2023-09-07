@@ -30,6 +30,7 @@ static void hv_vsm_hv_do_vtlcall(struct vtlcall_param *args)
 	set_cpus_allowed_ptr(current, &orig_mask);
 }
 
+#ifdef CONFIG_HEKI
 static int hv_vsm_protect_ranges(struct heki_pa_range *ranges, int num_ranges)
 {
 	if (hv_vsm_boot_success) {
@@ -83,3 +84,4 @@ void __init hv_vsm_init_heki(void)
 {
 	heki.hypervisor = &hyperv_heki_hypervisor;
 }
+#endif

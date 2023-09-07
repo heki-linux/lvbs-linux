@@ -7378,3 +7378,6 @@ CONFIG_MEMTEST=y
 # CONFIG_HYPERV_TESTING is not set
 # end of Kernel Testing and Coverage
 # end of Kernel hacking
+
+CONFIG_HEKI=y
+CONFIG_ARCH_SUPPORTS_HEKI=y
