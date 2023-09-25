@@ -45,6 +45,7 @@ struct hv_vsm_per_cpu {
 //	void *synic_event_page;
 
 	struct tasklet_struct handle_intercept;
+	struct mshv_cpu_context cpu_context;
 };
 
 static DEFINE_PER_CPU(struct hv_vsm_per_cpu, vsm_per_cpu);
@@ -285,7 +286,6 @@ static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
 			pr_err("%s : Wrong service id\n", __func__);
 			break;
 	}
-	mshv_vsm_vtl_return();
 }
 
 static void mshv_vsm_interrupt_handle_entry(void)
@@ -294,76 +294,165 @@ static void mshv_vsm_interrupt_handle_entry(void)
 
 	while (per_cpu->event_pending)
 		schedule();
-
-	mshv_vsm_vtl_return();
 }
 
-static void mshv_vsm_intercept_handle_entry(void)
+/* DO NOT MODIFY THIS FUNCTION WITHOUT DISASSEMBLING AND SEEING WHAT IS GOING ON */
+static void __mshv_vsm_vtl_return(void)
 {
-	pr_info("%s\n", __func__);
-	mshv_vsm_vtl_return();
+	register struct mshv_cpu_context *cpu_context asm ("rax");
+	register u64 r8 asm("r8");
+	register u64 r9 asm("r9");
+	register u64 r10 asm("r10");
+	register u64 r11 asm("r11");
+	register u64 r12 asm("r12");
+	register u64 r13 asm("r13");
+	register u64 r14 asm("r14");
+	register u64 r15 asm("r15");
+
+	/*
+	 * All VTL0 registers are saved and restored. The only exception for now is VTL0
+	 * rax and rcx. This is a non-issue if the entry reason is HvVtlEntryVtlCall since VTL0
+	 * will take care of saving an restoring rax and rcx. However if the entry reason is
+	 * HvVtlEntryInterrupt, VTL0 rax and rcx are lost. Only way to fix this is to implement
+	 * the jump into hypercall page for return to VTL0. The first part before vmcall restores
+	 * all VTL0 registers and the part after vmcall saves. For registers r8-r15 the compiler
+	 * translates the following c code into write of value in cpu_context->r# to actual cpu
+	 * register r# prior to vmcall and save the content of cpu register r# into cpu_context->r#
+	 * post vmcall.
+	 *		 register u64 r# asm("r#");
+	 *		 r# = cpu_context->r#;
+	 *		 asm __volatile(some instruction
+	 *				some instruction
+	 *				vmcall
+	 *				some instruction
+	 *				some instruction
+	 *				: +r(r#)
+	 *				:
+	 *				:);
+	 *		cpu_context->r# = r#;
+	 * For registers rdx, rbx, rdi and rsi the complier again translates the following c code
+	 * into restoring and saving of these registers from/tp corresponding cpu_context-># across
+	 * the vmcall.
+	 *		 asm __volatile(some instruction
+	 *				some instruction
+	 *				vmcall
+	 *				some instruction
+	 *				some instruction
+	 *				: "+d"(cpu_context->rdx), "+b"(cpu_context->rbx),
+	 *				  "+S"(cpu_context->rsi), "+D"(cpu_context->rdi)
+	 *				:
+	 *				:);
+	 * rbp alone requires explicit restore and save which is performed in the inline
+	 * assembly code below.
+	 *
+	 * Regarding VTL1 registers only VTL1 rbp and rax are saved and restored. rax is
+	 * saved and restored so as to preserve pointer to cpu_context across vmcall. rbp
+	 * is weird since sometimes it gets used before the exit of __mshv_vsm_vtl_return
+	 * and not saving and restoring can lead to crashes
+	 * There is very little happening in this function post vmcall, just minimal saving
+	 * of VTL0 context into cpu_context which is stored in rax. Technically no other
+	 * VTL1 register gets used in this function post vmcall. As per x64 function calling
+	 * conventions registers rbx, rbp and r12-r15 are callee saved and hence the compiler
+	 * automatically saves and restores them across the boundary of a function call i.e.
+	 * when __mshv_vsm_vtl_return exits these registers are restored. Rest of the registers
+	 * are caller saved and the caller of __mshv_vsm_vtl_return takes care of saving and
+	 * restoring. Thus no other VTL1 register needs explicit saving and restoring.
+	 */
+	cpu_context = &this_cpu_ptr(&vsm_per_cpu)->cpu_context;
+
+	asm __volatile__("pushq %%rbp\n"	// Save VTL1 rbp
+			 "pushq %%rax\n"	// Push VTL1 rax i.e. save *cpu_context
+			 :
+			 : "a"(cpu_context)
+			 : );
+	r8 = cpu_context->r8;
+	r9 = cpu_context->r9;
+	r10 = cpu_context->r10;
+	r11 = cpu_context->r11;
+	r12 = cpu_context->r12;
+	r13 = cpu_context->r13;
+	r14 = cpu_context->r14;
+	r15 = cpu_context->r15;
+	asm __volatile__("movq %0, %%rbp\n"	// Load rbp with saved VTL0 rbp
+			 "movq $0x00, %%rax\n"
+			 "movq $0x12, %%rcx\n"
+			 "vmcall\n"
+			 "pushq %%rax\n"	// Push VTL0 rax into stack
+			 "pushq %%rcx\n"	// Push VTL0 rcx into stack to align at 16 bytes
+			 "movq 16(%%rsp), %%rax\n" // Restore rax to *cpu_context
+			 "movq %%rbp, %0\n"	// Save VTL0 rbp
+			 "popq %1\n"	// Save VTL0 rcx
+			 "popq %2\n"	// Save VTL0 rax
+			 "movq 8(%%rsp), %%rbp\n"	// Restore VTL1 rbp
+			 "addq $16, %%rsp\n"	// Restore VTL1 stack to prior condition
+			 : "+m"(cpu_context->rbp), "=m"(cpu_context->rcx), "=m"(cpu_context->rax),
+			   "+r"(r8), "+r"(r9), "+r"(r10), "+r"(r11), "+r"(r12), "+r"(r13),
+			   "+r"(r14), "+r"(r15), "+d"(cpu_context->rdx), "+b"(cpu_context->rbx),
+			   "+S"(cpu_context->rsi), "+D"(cpu_context->rdi)
+			 : "a"(cpu_context)
+			 : );
+	cpu_context->r8 = r8;
+	cpu_context->r9 = r9;
+	cpu_context->r10 = r10;
+	cpu_context->r11 = r11;
+	cpu_context->r12 = r12;
+	cpu_context->r13 = r13;
+	cpu_context->r14 = r14;
+	cpu_context->r15 = r15;
 }
+
 static void mshv_vsm_vtl_return()
 {
 	unsigned long irq_flags;
 	struct hv_vp_assist_page *hvp;
+	struct hv_vsm_per_cpu *per_cpu;
+	struct mshv_cpu_context *cpu_context;
 
-	/* Ordering is important. Suspend tick before disabling interrupts */
-	tick_suspend_local();
-	local_irq_save(irq_flags);
-	kernel_fpu_begin_mask(0);
+	while (true) {
+		/* Ordering is important. Suspend tick before disabling interrupts */
+		tick_suspend_local();
+		local_irq_save(irq_flags);
+		kernel_fpu_begin_mask(0);
 
-	asm __volatile__("movq %0, %%rdi\n"
-			 "movq %1, %%rsi\n"
-			 "movq %2, %%rdx\n"
-			 "movq %3, %%rbx\n"
-			 "mov $0x00, %%rax\n"
-			 "mov $0x12, %%rcx\n"
-			 "vmcall\n"
-			 :
-			 : "m"(vtl_params._a0), "m"(vtl_params._a1),
-			   "m"(vtl_params._a2), "m"(vtl_params._a3)
-			 : "rdi", "rsi", "rdx", "rbx", "memory");
-	/*
-	 *  VTL0 can pass four arguments to VTL1 in registers rdi, rsi, rdx and rbx respectively.
-	 *  rbx is also used to pass success or failure back to VTL0.
-	 */
-	asm __volatile__("movq %%rdi, %0\n"
-			 "movq %%rsi, %1\n"
-			 "movq %%rdx, %2\n"
-			 "movq %%rbx, %3\n"
-			 :
-			 : "m"(vtl_params._a0), "m"(vtl_params._a1),
-			   "m"(vtl_params._a2), "m"(vtl_params._a3)
-			 : "rdi", "rsi", "rdx", "rbx", "memory");
-	kernel_fpu_end();
-	tick_resume_local();
-	local_irq_restore(irq_flags);
+		__mshv_vsm_vtl_return();
 
-	/* Without this interrupt handler is not kick started */
-	schedule();
-	hvp = hv_vp_assist_page[smp_processor_id()];
-	switch (hvp->vtl_entry_reason) {
+		kernel_fpu_end();
+		tick_resume_local();
+		local_irq_restore(irq_flags);
+
+		/* Without this interrupt handler is not kick started */
+		schedule();
+		hvp = hv_vp_assist_page[smp_processor_id()];
+		switch (hvp->vtl_entry_reason) {
 		case HvVtlEntryVtlCall:
+			/*
+			 *  VTL0 can pass four arguments to VTL1 in registers rdi,
+			 *  rsi, rdx and rbx respectively. rbx is also used to pass
+			 *  success or failure back to VTL0.
+			 */
+			per_cpu = this_cpu_ptr(&vsm_per_cpu);
+			cpu_context = &per_cpu->cpu_context;
+
+			vtl_params._a0 = cpu_context->rdi;
+			vtl_params._a1 = cpu_context->rsi;
+			vtl_params._a2 = cpu_context->rdx;
+			vtl_params._a3 = cpu_context->rbx;
 			pr_info("MSHV_ENTRY_REASON_LOWER_VTL_CALL\n");
 			mshv_vsm_handle_entry(&vtl_params);
+			cpu_context->rdi = vtl_params._a0;
+			cpu_context->rsi = vtl_params._a1;
+			cpu_context->rdx = vtl_params._a2;
+			cpu_context->rbx = vtl_params._a3;
 			break;
-
 		case HvVtlEntryInterrupt:
 			pr_info("MSHV_ENTRY_REASON_INTERRUPT\n");
 			mshv_vsm_interrupt_handle_entry();
 			break;
-
-		case HvVtlEntryIntercept:
-			pr_info("MSHV_ENTRY_REASON_INTERCEPT\n");
-			mshv_vsm_intercept_handle_entry();
-			break;
-
 		default:
 			pr_info("unknown entry reason: %d", hvp->vtl_entry_reason);
 			break;
+		}
 	}
-	mshv_vsm_handle_entry(&vtl_params);
 }
 
 static int mshv_vsm_configure_partition(void)
@@ -476,6 +565,7 @@ static int __init mshv_vtl1_init(void)
 	if (ret < 0)
 		/* ToDo: free the synic message page and kill the tasklet */
 		hv_remove_vsm_handler();
+
 	/*
 	 * Conscious choice not to call misc_deregister during error exit so that system
 	 * can go back to VTL0 even in case of errors
