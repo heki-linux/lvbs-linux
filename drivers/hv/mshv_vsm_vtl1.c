@@ -13,16 +13,41 @@
 #include <asm/hyperv-tlfs.h>
 #include <asm/fpu/internal.h>
 #include <asm/mshv_vtl.h>
+#include <uapi/asm-generic/hyperv-tlfs.h>
 #include "vsm.h"
 #include "mshv.h"
+#include "hyperv_vmbus.h"
 
 static void mshv_vsm_vtl_return(void);
 
 struct mshv_vtl_call_params vtl_params={0};
+
 enum vsm_service_ids {
 	VSM_VTL_CALL_FUNC_ID_PROTECT_MEMORY = 0x1FFF,
 	VSM_VTL_CALL_FUNC_ID_LOCK_CR = 0x1FFFF
 };
+
+struct hv_intercept_message_header {
+	u32 vp_index;
+	u8 instruction_length;
+	u8 intercept_access_type;
+	/* ToDo: Define union for this */
+	u16 execution_state;
+	struct hv_x64_segment_register cs_segment;
+	u64 rip;
+	u64 rflags;
+} __packed;
+
+struct hv_vsm_per_cpu {
+	bool event_pending;
+
+	void *synic_message_page;
+//	void *synic_event_page;
+
+	struct tasklet_struct handle_intercept;
+};
+
+static DEFINE_PER_CPU(struct hv_vsm_per_cpu, vsm_per_cpu);
 
 static int hv_modify_vtl_protection_mask(u64 gpa_page_list[],
 	size_t *number_of_pages, u32 page_access)
@@ -131,6 +156,102 @@ void __weak hv_remove_vsm_handler(void)
 {
 }
 
+static void mshv_vsm_isr(void)
+{
+	struct hv_vsm_per_cpu *per_cpu = this_cpu_ptr(&vsm_per_cpu);
+	void *synic_message_page;
+	struct hv_message *msg;
+	u32 message_type;
+
+	synic_message_page = per_cpu->synic_message_page;
+	if (unlikely(!synic_message_page)) {
+		pr_err("%s Error!!\n\n", __func__);
+		return;
+	}
+
+	msg = (struct hv_message *)synic_message_page + HV_SYNIC_INTERCEPTION_SINT_INDEX;
+	message_type = READ_ONCE(msg->header.message_type);
+
+	if (message_type == HVMSG_NONE)
+		return;
+
+	per_cpu->event_pending = true;
+	tasklet_schedule(&per_cpu->handle_intercept);
+}
+
+static void mshv_vsm_handle_intercept(unsigned long data)
+{
+	struct hv_vsm_per_cpu *per_cpu = (void *)data;
+	void *page_addr = per_cpu->synic_message_page;
+	struct hv_message *msg = (struct hv_message *)page_addr + HV_SYNIC_INTERCEPTION_SINT_INDEX;
+	struct hv_intercept_message_header *hdr;
+	struct hv_register_assoc *reg_assoc;
+	union hv_input_vtl input_vtl;
+	u32 message_type = READ_ONCE(msg->header.message_type);
+	int ret;
+
+	if (message_type == HVMSG_NONE)
+		/* We should not be here. Message corruption?? */
+		goto clear_event;
+
+	hdr = (struct hv_intercept_message_header *)msg->u.payload;
+
+	if (cmpxchg(&msg->header.message_type, message_type, HVMSG_NONE) != message_type)
+		goto clear_event;
+
+	reg_assoc = kmalloc(sizeof(*reg_assoc), GFP_ATOMIC);
+
+	reg_assoc->name = HV_X64_REGISTER_RIP;
+	reg_assoc->value.reg64 = hdr->rip + hdr->instruction_length;
+	input_vtl.target_vtl = 0;
+	input_vtl.use_target_vtl = 1;
+
+	ret = hv_call_set_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
+				       1, input_vtl, reg_assoc);
+	if (ret)
+		pr_err("%s: Error advancing instruction pointer of VTL0\n", __func__);
+	kfree(reg_assoc);
+
+	/* ToDo: Error handling of reg_assoc */
+
+	if (msg->header.message_flags.msg_pending)
+		hv_set_register(REG_EOM, 0);
+clear_event:
+	/* Should interrupts be disabled ?? */
+	per_cpu->event_pending = false;
+}
+
+static void mshv_vsm_lock_crs(void)
+{
+	struct hv_register_assoc *reg_assoc;
+	union hv_cr_intercept_control ctrl, ctrl1;
+	union hv_input_vtl input_vtl;
+	int ret;
+
+	ctrl.as_u64 = 0;
+	ctrl.cr4_write = 1;
+
+	/* ToDo: Error Handling for kmalloc */
+	reg_assoc = kmalloc(2 * sizeof(*reg_assoc), GFP_KERNEL);
+	reg_assoc[0].name = HV_REGISTER_CR_INTERCEPT_CONTROL;
+	reg_assoc[0].value.reg64 = ctrl.as_u64;
+	reg_assoc[1].name = HV_REGISTER_CR_INTERCEPT_CR4_MASK;
+	reg_assoc[1].value.reg64 = 0xffffffff;
+	input_vtl.as_uint8 = 0;
+	ret = hv_call_set_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
+				       2, input_vtl, reg_assoc);
+	/* ToDo: Error Handling */
+
+	/* To Do: Remove */
+	reg_assoc[0].value.reg64 = 0xff;
+	reg_assoc[1].value.reg64 = 0x0;
+	ctrl1.as_u64 = 0xff;
+	ret = hv_call_get_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
+				       2, input_vtl, reg_assoc);
+	ctrl1.as_u64 = reg_assoc[0].value.reg64;
+	kfree(reg_assoc);
+}
+
 static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
 {
 	int ret = 0;
@@ -157,6 +278,7 @@ static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
 			_vtl_params->_a3=ret;	
 			break;
 		case VSM_VTL_CALL_FUNC_ID_LOCK_CR:
+			mshv_vsm_lock_crs();
 			pr_info("%s : VSM_LOCK_CRS\n", __func__);
 			break;
 		default:
@@ -168,7 +290,11 @@ static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
 
 static void mshv_vsm_interrupt_handle_entry(void)
 {
-	pr_info("%s\n", __func__);
+	struct hv_vsm_per_cpu *per_cpu = this_cpu_ptr(&vsm_per_cpu);
+
+	while (per_cpu->event_pending)
+		schedule();
+
 	mshv_vsm_vtl_return();
 }
 
@@ -266,6 +392,35 @@ static int mshv_vsm_configure_partition(void)
 					1, input_vtl, &reg_assoc);
 }
 
+static int mshv_vsm_per_cpu_init(unsigned int cpu)
+{
+	struct hv_vsm_per_cpu *per_cpu = this_cpu_ptr(&vsm_per_cpu);
+
+	memset(per_cpu, 0, sizeof(*per_cpu));
+
+	per_cpu->synic_message_page = (void *)get_zeroed_page(GFP_ATOMIC);
+	if (!per_cpu->synic_message_page) {
+		pr_err("%s: Unable to allocate SYNIC message page\n", __func__);
+		return -ENOMEM;
+	}
+	// ToDo: Handle nested ?
+	/* Set the message page */
+	hv_synic_enable_page(HV_REGISTER_SIMP, &per_cpu->synic_message_page);
+//	hv_synic_enable_page(HV_REGISTER_SIEFP, &hv_cpu->synic_event_page);
+
+	/* Enable tasklet to handle the intercepts */
+	tasklet_init(&per_cpu->handle_intercept, mshv_vsm_handle_intercept,
+		     (unsigned long)per_cpu);
+
+	/* ToDo: per-cpu interrupt enabling for supported architectures like arm64 */
+	/* Unmask SINT0 so that the cpu can receive intercepts from Hyper-V */
+	hv_synic_unmask_sint(HV_REGISTER_SINT0 + HV_SYNIC_INTERCEPTION_SINT_INDEX,
+			     HYPERVISOR_CALLBACK_VECTOR);
+	/* Enable the global synic bit */
+	hv_synic_enable_sctrl(HV_REGISTER_SCONTROL);
+	return 0;
+}
+
 static long mshv_vsm_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
 	long ret;
@@ -297,11 +452,12 @@ static struct miscdevice mshv_vsm_dev = {
 
 static int __init mshv_vtl1_init(void)
 {
-	int ret;
+	int ret = 0;
 
 	ret = misc_register(&mshv_vsm_dev);
 	if (ret) {
 		pr_err("VSM: Could not register mshv_vsm_vtl_ioctl\n");
+		return ret;
 	}
 
 	if (mshv_vsm_configure_partition()) {
@@ -309,6 +465,21 @@ static int __init mshv_vtl1_init(void)
 		return -EPERM;
 	}
 
+	/* ToDo : per-cpu interrupt enabling for supported architectures like arm64 */
+	hv_setup_vsm_handler(mshv_vsm_isr);
+
+	/* Initialize hyper-v per cpu context */
+	// ToDo: Introduce clean up function
+	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "hyperv/vsm:init",
+				mshv_vsm_per_cpu_init, NULL);
+
+	if (ret < 0)
+		/* ToDo: free the synic message page and kill the tasklet */
+		hv_remove_vsm_handler();
+	/*
+	 * Conscious choice not to call misc_deregister during error exit so that system
+	 * can go back to VTL0 even in case of errors
+	 */
 	return ret;
 }
 

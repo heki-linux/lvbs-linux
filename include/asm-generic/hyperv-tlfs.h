@@ -1603,4 +1603,14 @@ struct hv_async_completion_message_payload {
 	u64 sub_status;
 } __packed;
 
+/*  CR Intercept Control */
+union hv_cr_intercept_control {
+	u64 as_u64;
+	struct {
+		u64 cr0_write	: 1;
+		u64 cr4_write	: 1;
+		u64 reserved	: 62;
+	};
+} __packed;
+
 #endif
