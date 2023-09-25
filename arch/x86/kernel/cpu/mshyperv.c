@@ -45,6 +45,7 @@ struct ms_hyperv_info ms_hyperv;
 #if IS_ENABLED(CONFIG_HYPERV)
 static void (*mshv_handler)(void);
 static void (*vmbus_handler)(void);
+static void (*vsm_handler)(void);
 static void (*hv_stimer0_handler)(void);
 static void (*hv_kexec_handler)(void);
 static void (*hv_crash_handler)(struct pt_regs *regs);
@@ -54,12 +55,18 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_hyperv_callback)
 	struct pt_regs *old_regs = set_irq_regs(regs);
 
 	inc_irq_stat(irq_hv_callback_count);
+
+	if (vsm_handler) {
+		vsm_handler();
+		goto out;
+	}
 	if (mshv_handler)
 		mshv_handler();
 
 	if (vmbus_handler)
 		vmbus_handler();
 
+out:
 	if (ms_hyperv.hints & HV_DEPRECATING_AEOI_RECOMMENDED)
 		ack_APIC_irq();
 
@@ -100,6 +107,16 @@ void hv_remove_vmbus_handler(void)
 {
 	/* We have no way to deallocate the interrupt gate */
 	vmbus_handler = NULL;
+}
+
+void hv_setup_vsm_handler(void(*handler)(void))
+{
+	vsm_handler = handler;
+}
+
+void hv_remove_vsm_handler(void)
+{
+	vsm_handler = NULL;
 }
 
 /*

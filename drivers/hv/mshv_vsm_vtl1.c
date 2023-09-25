@@ -7,14 +7,14 @@
 #include <linux/kernel.h>
 #include <linux/tick.h>
 #include <linux/module.h>
+#include <linux/miscdevice.h>
+#include <linux/module.h>
 #include <asm/mshyperv.h>
 #include <asm/hyperv-tlfs.h>
 #include <asm/fpu/internal.h>
 #include <asm/mshv_vtl.h>
 #include "vsm.h"
 #include "mshv.h"
-#include <linux/miscdevice.h>
-#include <linux/module.h>
 
 static void mshv_vsm_vtl_return(void);
 
@@ -116,6 +116,19 @@ static int vsm_restrict_memory(u64 start, size_t size, u32 permissions)
 	kfree(pfns);
 
 	return res;
+}
+
+/*
+ * These placeholders are overridden by arch specific code on
+ * architectures that need special setup of the stimer0 IRQ because
+ * they don't support per-cpu IRQs (such as x86/x64).
+ */
+void __weak hv_setup_vsm_handler(void (*handler)(void))
+{
+}
+
+void __weak hv_remove_vsm_handler(void)
+{
 }
 
 static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
