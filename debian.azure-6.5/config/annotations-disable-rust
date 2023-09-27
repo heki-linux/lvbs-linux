@@ -1,0 +1,10 @@
+# Menu: HEADER
+# FORMAT: 4
+# ARCH: amd64 arm64
+# FLAVOUR: amd64-azure arm64-azure
+
+CONFIG_RUST policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_RUST_BUILD_ASSERT_ALLOW policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_RUST_DEBUG_ASSERTIONS policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_RUST_IS_AVAILABLE policy<{'amd64': 'y', 'arm64': '-'}>
+CONFIG_RUST_OVERFLOW_CHECKS policy<{'amd64': '-', 'arm64': '-'}>
