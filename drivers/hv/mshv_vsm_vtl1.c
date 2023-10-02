@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/miscdevice.h>
 #include <linux/module.h>
+#include <linux/kthread.h>
 #include <asm/mshyperv.h>
 #include <asm/hyperv-tlfs.h>
 #include <asm/fpu/internal.h>
@@ -17,8 +18,6 @@
 #include "vsm.h"
 #include "mshv.h"
 #include "hyperv_vmbus.h"
-
-static void mshv_vsm_vtl_return(void);
 
 struct mshv_vtl_call_params vtl_params={0};
 
@@ -46,6 +45,7 @@ struct hv_vsm_per_cpu {
 
 	struct tasklet_struct handle_intercept;
 	struct mshv_cpu_context cpu_context;
+	struct task_struct *vsm_task;
 };
 
 static DEFINE_PER_CPU(struct hv_vsm_per_cpu, vsm_per_cpu);
@@ -401,7 +401,7 @@ static void __mshv_vsm_vtl_return(void)
 	cpu_context->r15 = r15;
 }
 
-static void mshv_vsm_vtl_return()
+static int mshv_vsm_vtl_return(void *unused)
 {
 	unsigned long irq_flags;
 	struct hv_vp_assist_page *hvp;
@@ -453,6 +453,7 @@ static void mshv_vsm_vtl_return()
 			break;
 		}
 	}
+	return 0;
 }
 
 static int mshv_vsm_configure_partition(void)
@@ -507,16 +508,27 @@ static int mshv_vsm_per_cpu_init(unsigned int cpu)
 			     HYPERVISOR_CALLBACK_VECTOR);
 	/* Enable the global synic bit */
 	hv_synic_enable_sctrl(HV_REGISTER_SCONTROL);
+	per_cpu->vsm_task = kthread_create(mshv_vsm_vtl_return, NULL, "vsm_task");
+	kthread_bind(per_cpu->vsm_task, cpu);
+
 	return 0;
 }
 
 static long mshv_vsm_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
 	long ret;
+	struct hv_vsm_per_cpu *per_cpu;
 
 	switch (ioctl) {
 	case MSHV_VTL_RETURN_TO_LOWER_VTL:
-		mshv_vsm_vtl_return();
+		/*
+		 * Schedule the main kthread that will deal with entry/exit from VTL1 and
+		 * put the init process to sleep.
+		 */
+		per_cpu = this_cpu_ptr(&vsm_per_cpu);
+		wake_up_process(per_cpu->vsm_task);
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule();
 		break;
 	default:
 		pr_err("%s: invalid vtl ioctl: %#x\n", __func__, ioctl);
