@@ -1111,6 +1111,7 @@ void get_cpu_address_sizes(struct cpuinfo_x86 *c)
 		c->x86_phys_bits = 36;
 #endif
 	c->x86_cache_bits = c->x86_phys_bits;
+	c->x86_cache_alignment = c->x86_clflush_size;
 }
 
 static void identify_cpu_without_cpuid(struct cpuinfo_x86 *c)
@@ -1578,7 +1579,6 @@ static void __init early_identify_cpu(struct cpuinfo_x86 *c)
 	c->x86_phys_bits = 32;
 	c->x86_virt_bits = 32;
 #endif
-	c->x86_cache_alignment = c->x86_clflush_size;
 
 	memset(&c->x86_capability, 0, sizeof(c->x86_capability));
 	c->extended_cpuid_level = 0;
