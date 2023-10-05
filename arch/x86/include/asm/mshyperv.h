@@ -381,10 +381,12 @@ int hv_vtl_set_reg(struct hv_register_assoc *regs, bool shared);
 int hv_vtl_get_reg(struct hv_register_assoc *regs, bool shared);
 
 int hv_secure_vtl_enable_secondary_cpu(u32 target_vp_index);
+int hv_secure_vtl_init_boot_signal_page(void *shared_data);
 #else
 static inline void __init hv_vtl_init_platform(void) {}
 static inline int __init hv_vtl_early_init(u8 vtl) { return 0; }
 static inline int hv_secure_vtl_enable_secondary_cpu(u32 target_vp_index) { return 0; }
+static inline int hv_secure_vtl_init_boot_signal_page(void *shared_data) { return 0; }
 #endif
 
 #include <asm-generic/mshyperv.h>
