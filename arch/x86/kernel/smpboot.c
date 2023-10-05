@@ -218,7 +218,7 @@ static int enable_start_cpu0;
 /*
  * Activate a secondary processor.
  */
-static void notrace start_secondary(void *unused)
+void notrace start_secondary(void *unused)
 {
 	/*
 	 * Don't put *anything* except direct CPU state initialization

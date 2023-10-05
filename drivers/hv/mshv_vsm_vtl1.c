@@ -15,15 +15,21 @@
 #include <asm/fpu/internal.h>
 #include <asm/mshv_vtl.h>
 #include <uapi/asm-generic/hyperv-tlfs.h>
+#include <asm/desc.h>
+#include <asm/realmode.h>
+#include <asm/mpspec.h>
+#include <asm/cpu.h>
 #include "vsm.h"
 #include "mshv.h"
 #include "hyperv_vmbus.h"
 
 struct mshv_vtl_call_params vtl_params={0};
+extern unsigned int setup_max_cpus;
 
 enum vsm_service_ids {
 	VSM_VTL_CALL_FUNC_ID_PROTECT_MEMORY = 0x1FFF,
-	VSM_VTL_CALL_FUNC_ID_LOCK_CR = 0x1FFFF
+	VSM_VTL_CALL_FUNC_ID_LOCK_CR = 0x1FFFF,
+	VSM_VTL_CALL_FUNC_ID_ENABLE_APS_VTL = 0x1FFFD
 };
 
 struct hv_intercept_message_header {
@@ -46,9 +52,17 @@ struct hv_vsm_per_cpu {
 	struct tasklet_struct handle_intercept;
 	struct mshv_cpu_context cpu_context;
 	struct task_struct *vsm_task;
+	bool vtl1_enabled;
 };
 
 static DEFINE_PER_CPU(struct hv_vsm_per_cpu, vsm_per_cpu);
+
+/* Remove when we enable AssertVirtualInterrupt  */
+extern struct boot_params boot_params;
+extern unsigned long initial_code;
+extern unsigned long initial_stack;
+void start_secondary(void *unused);
+struct task_struct *idle_thread_get(unsigned int cpu);
 
 static int hv_modify_vtl_protection_mask(u64 gpa_page_list[],
 	size_t *number_of_pages, u32 page_access)
@@ -253,9 +267,221 @@ static void mshv_vsm_lock_crs(void)
 	kfree(reg_assoc);
 }
 
+typedef void (*secondary_startup_64_fn)(void*, void*);
+unsigned int vsm_cpu_up = 1; // VBS: Remove when we enable AssertVirtualInterrupt
+static void mshv_vsm_ap_entry(void)
+{
+	/* VBS: Remove when we enable AssertVirtualInterrupt */
+	struct task_struct *idle = idle_thread_get(vsm_cpu_up);
+	idle->thread.sp = (unsigned long)task_pt_regs(idle);
+	early_gdt_descr.address = (unsigned long)get_cpu_gdt_rw(vsm_cpu_up);
+	initial_code = (unsigned long)start_secondary;
+	initial_stack  = idle->thread.sp;
+	initial_gs = per_cpu_offset(vsm_cpu_up);
+	vsm_cpu_up++;
+
+	((secondary_startup_64_fn)secondary_startup_64)(&boot_params, &boot_params);
+}
+
+static inline void mshv_store_gdt(struct desc_ptr *dtr)
+{
+	asm volatile("sgdt %0" : "=m" (*dtr));
+}
+
+static inline void mshv_store_idt(struct desc_ptr *dtr)
+{
+	asm volatile("sidt %0" : "=m" (*dtr));
+}
+
+static inline u64 mshv_system_desc_base(struct ldttss_desc *desc)
+{
+	return ((u64)desc->base3 << 32) |
+		   ((u64)desc->base2 << 24) |
+		   (desc->base1 << 16) |
+		   desc->base0;
+}
+
+static inline u32 mshv_system_desc_limit(struct ldttss_desc *desc)
+{
+	return ((u32)desc->limit1 << 16) | (u32)desc->limit0;
+}
+
+static u64 mshv_vsm_enable_ap_vtl(u32 target_vp_index)
+{
+	u64 status;
+	struct hv_enable_vp_vtl initial_vp_context;
+
+	struct desc_ptr gdt_ptr;
+	struct desc_ptr idt_ptr;
+
+	struct ldttss_desc *tss;
+	struct ldttss_desc *ldt;
+	struct desc_struct *gdt;
+
+	u64 rsp = current->thread.sp;
+	u64 rip = (u64)&mshv_vsm_ap_entry;
+
+	mshv_store_gdt(&gdt_ptr);
+	mshv_store_idt(&idt_ptr);
+
+	gdt = (struct desc_struct *)((void *)(gdt_ptr.address));
+	tss = (struct ldttss_desc *)(gdt + GDT_ENTRY_TSS);
+	ldt = (struct ldttss_desc *)(gdt + GDT_ENTRY_LDT);
+
+	memset(&initial_vp_context, 0, sizeof(initial_vp_context));
+
+	initial_vp_context.partition_id = HV_PARTITION_ID_SELF;
+	initial_vp_context.vp_index = target_vp_index;
+	initial_vp_context.target_vtl.target_vtl = HV_VTL_SECURE;
+
+	initial_vp_context.vp_context.rip = rip;
+	initial_vp_context.vp_context.rsp = rsp;
+	initial_vp_context.vp_context.rflags = 0x0000000000000002;
+	initial_vp_context.vp_context.efer = __rdmsr(MSR_EFER);
+	initial_vp_context.vp_context.cr0 = native_read_cr0();
+	initial_vp_context.vp_context.cr3 = __native_read_cr3();
+	initial_vp_context.vp_context.cr4 = native_read_cr4();
+	initial_vp_context.vp_context.msr_cr_pat = __rdmsr(MSR_IA32_CR_PAT);
+
+	initial_vp_context.vp_context.idtr.limit = idt_ptr.size;
+	initial_vp_context.vp_context.idtr.base = idt_ptr.address;
+	initial_vp_context.vp_context.gdtr.limit = gdt_ptr.size;
+	initial_vp_context.vp_context.gdtr.base = gdt_ptr.address;
+
+	/* Non-system desc (64bit), long, code, present */
+	initial_vp_context.vp_context.cs.selector = __KERNEL_CS;
+	initial_vp_context.vp_context.cs.base = 0;
+	initial_vp_context.vp_context.cs.limit = 0xffffffff;
+	initial_vp_context.vp_context.cs.attributes = 0xa09b;
+	/* Non-system desc (64bit), data, present, granularity, default */
+	initial_vp_context.vp_context.ss.selector = __KERNEL_DS;
+	initial_vp_context.vp_context.ss.base = 0;
+	initial_vp_context.vp_context.ss.limit = 0xffffffff;
+	initial_vp_context.vp_context.ss.attributes = 0xc093;
+
+	/* System desc (128bit), present, LDT */
+	initial_vp_context.vp_context.ldtr.selector = GDT_ENTRY_LDT * 8;
+	initial_vp_context.vp_context.ldtr.base = mshv_system_desc_base(ldt);
+	initial_vp_context.vp_context.ldtr.limit = mshv_system_desc_limit(ldt);
+	initial_vp_context.vp_context.ldtr.attributes = 0x82;
+
+	/* System desc (128bit), present, TSS, 0x8b - busy, 0x89 -- default */
+	initial_vp_context.vp_context.tr.selector = GDT_ENTRY_TSS * 8;
+	initial_vp_context.vp_context.tr.base = mshv_system_desc_base(tss);
+	initial_vp_context.vp_context.tr.limit = mshv_system_desc_limit(tss);
+	initial_vp_context.vp_context.tr.attributes = 0x8b;
+
+	status = hv_do_hypercall(HVCALL_ENABLE_VP_VTL, &initial_vp_context, NULL);
+
+	if (status != HV_STATUS_SUCCESS && status != HV_STATUS_VTL_ALREADY_ENABLED)
+		pr_err("HVCALL_ENABLE_VP_VTL failed: error %#llx\n", status);
+
+	return status;
+}
+
+static u64 mshv_vsm_hotadd_n_enable_aps(unsigned int vsm_cpus)
+{
+	u64 status = 0;
+	unsigned int cpu, present, possible = num_possible_cpus(), online = num_online_cpus(),
+		total_cpus_enabled = 0, new_total_cpus = 0;
+	struct hv_vsm_per_cpu *per_cpu;
+	int ret, i;
+
+	if (!vsm_cpus) {
+		pr_err("%s: Invalid parameter. vsm_cpus cannot be 0.\n", __func__);
+		return 1;
+	}
+
+	if (vsm_cpus > possible-online)
+	{
+		pr_info("%s: Requested to enable %u CPUs, but there are only %u possible CPUs that are not already online. Will enable %u CPUs instead.",
+			__func__, vsm_cpus, possible - online, possible - online);
+		vsm_cpus = possible - online;
+	}
+	
+	new_total_cpus = vsm_cpus + online;
+
+	if (new_total_cpus > setup_max_cpus) {
+		pr_err("%s: Adding %u CPUs exceeds the maximum number of CPUs (%u)", __func__, vsm_cpus, setup_max_cpus);
+		return -1;
+	}
+
+	/* Add, initialize and register new Present CPUs */
+	for (i = 0; i < new_total_cpus; i++) {
+		if (!(cpu_present(i))) {
+			ret = generic_processor_info(i, boot_cpu_apic_version);
+
+			if (ret != i)
+			{
+				pr_err("%s: Failed adding CPU%d. Error code: %d", __func__, i, ret);
+				return -1;
+			}
+
+			ret = arch_register_cpu(i);
+
+			if (ret)
+			{
+				pr_err("%s: Failed registering CPU%d. Error code: %d", __func__, i, ret);
+				return -1;
+			}
+		}
+	}
+
+	present = num_present_cpus();
+
+	if (!(present-online)) {
+		pr_info("%s: Nothing to do. VTL1 kernel has no present CPUs that are not already online.\n",
+			__func__);
+		return status;
+	}
+
+	if (vsm_cpus > present-online)
+	{
+		pr_info("%s: Requested to enable %u CPUs, but there are only %u present CPUs that are not already online. Will enable %u CPUs instead.",
+			__func__, vsm_cpus, present - online, present - online);
+		vsm_cpus = present - online;
+	}
+
+	/* Loop through present Processors, skip online processors */
+	for_each_present_cpu(cpu) {
+		if (!cpu_online(cpu)) {
+			per_cpu = per_cpu_ptr(&vsm_per_cpu, cpu);
+			if (per_cpu->vtl1_enabled)
+			{
+				pr_info("%s: CPU%u is already enabled for VTL1. Will skip to next CPU",
+				__func__, cpu);
+				continue;
+			}
+
+			status = mshv_vsm_enable_ap_vtl((u32) cpu);
+
+			if (status) {
+				pr_err("%s: Failed to enable VTL1 for CPU%u", __func__, cpu);
+				return status;
+			}
+
+			per_cpu->vtl1_enabled = true;
+
+			/* if we reached the number CPUs that VTL0 requested to enable in VTL1, stop */
+			total_cpus_enabled++;
+			if (total_cpus_enabled == vsm_cpus)
+				break;
+		}
+	}
+
+	if (total_cpus_enabled < vsm_cpus)
+	{
+		pr_err("%s: Enabled %u CPUs instead of %u", __func__, total_cpus_enabled, vsm_cpus);
+		return -1;
+	}
+
+	return status;
+}
+
 static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
 {
 	int ret = 0;
+	u64 status;
 	u32 permissions = 0x00;
 
 	switch (_vtl_params->_a0) {
@@ -281,6 +507,16 @@ static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
 		case VSM_VTL_CALL_FUNC_ID_LOCK_CR:
 			mshv_vsm_lock_crs();
 			pr_info("%s : VSM_LOCK_CRS\n", __func__);
+			break;
+		case VSM_VTL_CALL_FUNC_ID_ENABLE_APS_VTL:
+			pr_info("%s : VSM_VTL_CALL_FUNC_ID_ENABLE_APS_VTL\n", __func__);
+			status = mshv_vsm_hotadd_n_enable_aps(_vtl_params->_a1);
+			if (status)
+				pr_info("%s: failed\n",__func__);
+			else
+				pr_info("%s: is ok\n",__func__);
+
+			_vtl_params->_a3=status;
 			break;
 		default:
 			pr_err("%s : Wrong service id\n", __func__);
@@ -437,7 +673,7 @@ static int mshv_vsm_vtl_return(void *unused)
 			vtl_params._a1 = cpu_context->rsi;
 			vtl_params._a2 = cpu_context->rdx;
 			vtl_params._a3 = cpu_context->rbx;
-			pr_info("MSHV_ENTRY_REASON_LOWER_VTL_CALL\n");
+			pr_info("CPU%u: MSHV_ENTRY_REASON_LOWER_VTL_CALL\n", smp_processor_id());
 			mshv_vsm_handle_entry(&vtl_params);
 			cpu_context->rdi = vtl_params._a0;
 			cpu_context->rsi = vtl_params._a1;
@@ -445,11 +681,11 @@ static int mshv_vsm_vtl_return(void *unused)
 			cpu_context->rbx = vtl_params._a3;
 			break;
 		case HvVtlEntryInterrupt:
-			pr_info("MSHV_ENTRY_REASON_INTERRUPT\n");
+			pr_info("CPU%u: MSHV_ENTRY_REASON_INTERRUPT\n", smp_processor_id());
 			mshv_vsm_interrupt_handle_entry();
 			break;
 		default:
-			pr_info("unknown entry reason: %d", hvp->vtl_entry_reason);
+			pr_info("CPU%u: Unknown entry reason: %d", smp_processor_id(), hvp->vtl_entry_reason);
 			break;
 		}
 	}
@@ -514,21 +750,26 @@ static int mshv_vsm_per_cpu_init(unsigned int cpu)
 	return 0;
 }
 
+static bool enable_ioctl = true;
 static long mshv_vsm_vtl_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
-	long ret;
+	long ret = 0;
 	struct hv_vsm_per_cpu *per_cpu;
 
 	switch (ioctl) {
 	case MSHV_VTL_RETURN_TO_LOWER_VTL:
-		/*
-		 * Schedule the main kthread that will deal with entry/exit from VTL1 and
-		 * put the init process to sleep.
-		 */
-		per_cpu = this_cpu_ptr(&vsm_per_cpu);
-		wake_up_process(per_cpu->vsm_task);
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule();
+		if (enable_ioctl) {
+			enable_ioctl = false; // IOCTL is used only once
+
+			/*
+			* Schedule the main kthread that will deal with entry/exit from VTL1 and
+			* put the init process to sleep.
+			*/
+			per_cpu = this_cpu_ptr(&vsm_per_cpu);
+			wake_up_process(per_cpu->vsm_task);
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			schedule();
+		}
 		break;
 	default:
 		pr_err("%s: invalid vtl ioctl: %#x\n", __func__, ioctl);
