@@ -15191,8 +15191,6 @@ EXPORT_SYMBOL_GPL	 drivers/net/macvlan 0xd37f5447	macvlan_common_setup
 EXPORT_SYMBOL_GPL	 drivers/net/macvlan 0xf4d3cee8	macvlan_link_register
 EXPORT_SYMBOL_GPL	 drivers/net/mdio/mdio-i2c 0x8e223c68	mdio_i2c_alloc
 EXPORT_SYMBOL_GPL	 drivers/net/mdio/mdio-regmap 0xe308f263	devm_mdio_regmap_register
-EXPORT_SYMBOL_GPL	 drivers/net/net_failover 0x87ca056e	net_failover_destroy
-EXPORT_SYMBOL_GPL	 drivers/net/net_failover 0xbee7aa02	net_failover_create
 EXPORT_SYMBOL_GPL	 drivers/net/pcs/pcs_xpcs 0x12c0d613	xpcs_config_eee
 EXPORT_SYMBOL_GPL	 drivers/net/pcs/pcs_xpcs 0x3fcfe76b	xpcs_destroy
 EXPORT_SYMBOL_GPL	 drivers/net/pcs/pcs_xpcs 0x565b777f	xpcs_do_config
@@ -17899,9 +17897,6 @@ EXPORT_SYMBOL_GPL	 net/bridge/bridge 0xeb2794ea	br_dev_queue_push_xmit
 EXPORT_SYMBOL_GPL	 net/bridge/bridge 0xf1d766cc	br_vlan_enabled
 EXPORT_SYMBOL_GPL	 net/bridge/bridge 0xf3d963fb	br_port_flag_is_set
 EXPORT_SYMBOL_GPL	 net/bridge/bridge 0xf7bb7c61	br_fdb_find_port
-EXPORT_SYMBOL_GPL	 net/core/failover 0x16acb1b0	failover_unregister
-EXPORT_SYMBOL_GPL	 net/core/failover 0x45ad5f94	failover_register
-EXPORT_SYMBOL_GPL	 net/core/failover 0x66275db4	failover_slave_unregister
 EXPORT_SYMBOL_GPL	 net/dccp/dccp 0x0aa40980	dccp_set_state
 EXPORT_SYMBOL_GPL	 net/dccp/dccp 0x0f8268f7	dccp_ioctl
 EXPORT_SYMBOL_GPL	 net/dccp/dccp 0x182ec2bf	dccp_ackvec_parsed_add
@@ -19602,6 +19597,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x168e0355	__netpoll_free
 EXPORT_SYMBOL_GPL	 vmlinux 0x1690b503	usb_role_switch_get_drvdata
 EXPORT_SYMBOL_GPL	 vmlinux 0x16978ebe	bus_create_file
 EXPORT_SYMBOL_GPL	 vmlinux 0x169d767b	of_genpd_add_device
+EXPORT_SYMBOL_GPL	 vmlinux 0x16acb1b0	failover_unregister
 EXPORT_SYMBOL_GPL	 vmlinux 0x16bb4bb7	devl_resources_unregister
 EXPORT_SYMBOL_GPL	 vmlinux 0x16bbbaf7	fsl_mc_device_add
 EXPORT_SYMBOL_GPL	 vmlinux 0x16bd077a	iomap_zero_range
@@ -21001,6 +20997,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x459ae230	spi_take_timestamp_pre
 EXPORT_SYMBOL_GPL	 vmlinux 0x459e6151	mm_unaccount_pinned_pages
 EXPORT_SYMBOL_GPL	 vmlinux 0x45a25ee5	locks_owner_has_blockers
 EXPORT_SYMBOL_GPL	 vmlinux 0x45a332ab	trace_event_buffer_commit
+EXPORT_SYMBOL_GPL	 vmlinux 0x45ad5f94	failover_register
 EXPORT_SYMBOL_GPL	 vmlinux 0x45ae133b	device_reprobe
 EXPORT_SYMBOL_GPL	 vmlinux 0x45b34c8b	synth_event_gen_cmd_array_start
 EXPORT_SYMBOL_GPL	 vmlinux 0x45bc791f	root_device_unregister
@@ -21951,6 +21948,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x66013718	fib_nl_delrule
 EXPORT_SYMBOL_GPL	 vmlinux 0x66141251	pci_user_read_config_byte
 EXPORT_SYMBOL_GPL	 vmlinux 0x661601de	sprint_symbol
 EXPORT_SYMBOL_GPL	 vmlinux 0x6626c94f	regmap_get_val_bytes
+EXPORT_SYMBOL_GPL	 vmlinux 0x66275db4	failover_slave_unregister
 EXPORT_SYMBOL_GPL	 vmlinux 0x6636c3c9	irq_set_vcpu_affinity
 EXPORT_SYMBOL_GPL	 vmlinux 0x663ac27d	pin_get_name
 EXPORT_SYMBOL_GPL	 vmlinux 0x663bb448	devlink_fmsg_obj_nest_end
@@ -22970,6 +22968,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x87b93602	sata_link_scr_lpm
 EXPORT_SYMBOL_GPL	 vmlinux 0x87c36e68	tty_port_tty_hangup
 EXPORT_SYMBOL_GPL	 vmlinux 0x87c4a135	fuse_dev_release
 EXPORT_SYMBOL_GPL	 vmlinux 0x87c782c8	regmap_test_bits
+EXPORT_SYMBOL_GPL	 vmlinux 0x87ca056e	net_failover_destroy
 EXPORT_SYMBOL_GPL	 vmlinux 0x87d835e1	gov_attr_set_init
 EXPORT_SYMBOL_GPL	 vmlinux 0x87dfe8a9	virtqueue_kick_prepare
 EXPORT_SYMBOL_GPL	 vmlinux 0x87e3f76e	uart_console_device
@@ -24587,6 +24586,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0xbec13264	bio_trim
 EXPORT_SYMBOL_GPL	 vmlinux 0xbec66c3a	__apei_exec_run
 EXPORT_SYMBOL_GPL	 vmlinux 0xbec8cced	clean_record_shared_mapping_range
 EXPORT_SYMBOL_GPL	 vmlinux 0xbecf77e3	irq_of_parse_and_map
+EXPORT_SYMBOL_GPL	 vmlinux 0xbee7aa02	net_failover_create
 EXPORT_SYMBOL_GPL	 vmlinux 0xbef28ee9	imx_pinctrl_sc_ipc_init
 EXPORT_SYMBOL_GPL	 vmlinux 0xbefcb6d5	srcu_notifier_chain_unregister
 EXPORT_SYMBOL_GPL	 vmlinux 0xbf041102	register_vt_notifier

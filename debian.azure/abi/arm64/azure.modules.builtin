@@ -213,6 +213,7 @@ evdev
 exportfs
 ext4
 extcon-core
+failover
 fan
 fat
 fb
@@ -350,6 +351,7 @@ mxc-clk
 n_null
 nd_btt
 nd_pmem
+net_failover
 nfit
 nls_base
 nls_cp437
@@ -536,6 +538,7 @@ virtio_balloon
 virtio_blk
 virtio_console
 virtio_mmio
+virtio_net
 virtio_pci
 virtio_pci_legacy_dev
 virtio_pci_modern_dev

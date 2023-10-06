@@ -602,7 +602,6 @@ f71882fg
 f75375s
 f81601
 f81604
-failover
 fam15h_power
 fan
 farsync
@@ -1482,7 +1481,6 @@ nct6775-i2c
 nct7802
 nct7904
 nd_virtio
-net_failover
 netconsole
 netdevsim
 netfs
@@ -2548,7 +2546,6 @@ virtio_crypto
 virtio_dma_buf
 virtio_input
 virtio_mem
-virtio_net
 virtio_pmem
 virtio_rpmsg_bus
 virtio_vdpa
