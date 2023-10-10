@@ -672,13 +672,13 @@ static int mshv_vsm_vtl_return(void *unused)
 			vtl_params._a0 = cpu_context->rdi;
 			vtl_params._a1 = cpu_context->rsi;
 			vtl_params._a2 = cpu_context->rdx;
-			vtl_params._a3 = cpu_context->rbx;
+			vtl_params._a3 = cpu_context->r8;
 			pr_info("CPU%u: MSHV_ENTRY_REASON_LOWER_VTL_CALL\n", smp_processor_id());
 			mshv_vsm_handle_entry(&vtl_params);
 			cpu_context->rdi = vtl_params._a0;
 			cpu_context->rsi = vtl_params._a1;
 			cpu_context->rdx = vtl_params._a2;
-			cpu_context->rbx = vtl_params._a3;
+			cpu_context->r8 =  vtl_params._a3;
 			break;
 		case HvVtlEntryInterrupt:
 			pr_info("CPU%u: MSHV_ENTRY_REASON_INTERRUPT\n", smp_processor_id());
