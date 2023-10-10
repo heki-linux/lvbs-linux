@@ -137,6 +137,10 @@ static __init void hv_vsm_boot_vtl1(void)
 	unsigned long flags;
 	struct vtlcall_param args = {0};
 
+	args.a0 = num_possible_cpus();
+	args.a1 = securek_res.start;
+	args.a2 = securek_res.end + 1;
+
 	local_irq_save(flags);
 	hv_vsm_vtl_call(&args); // TODO: Change to Secure Kernel arch-agnostic
 	local_irq_restore(flags);

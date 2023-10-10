@@ -76,13 +76,14 @@ SYM_FUNC_START(hv_vsm_vtl_call)
 	#
 	# Copy the values of the vtlcall_param structure off the pointer we
 	# got to it from this function's single parameter into the registers used
-	# to communicate with VTL 1.
-	#
+	# to communicate with VTL 1. If strictly following x64 calling convention, 4th argument
+	# must be passed in rcx. But rcx is used in vmcall below. So skip it and use the next
+	# recommended register r8.
 
 	mov     0x00(%rcx), %rdi
 	mov     0x08(%rcx), %rsi
 	mov     0x10(%rcx), %rdx
-	mov     0x18(%rcx), %rbx
+	mov     0x18(%rcx), %r8
 
 	#
 	# Keep a copy of the current value of RCX, which must be modified to
@@ -125,7 +126,7 @@ SYM_FUNC_START(hv_vsm_vtl_call)
 	mov     %rdi,  0x00(%rcx)
 	mov     %rsi,  0x08(%rcx)
 	mov     %rdx,  0x10(%rcx)
-	mov     %rbx,  0x18(%rcx)
+	mov     %r8,  0x18(%rcx)
 
 	#
 	# Restore all modified registers.
