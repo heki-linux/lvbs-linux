@@ -23,7 +23,6 @@
 #include "mshv.h"
 #include "hyperv_vmbus.h"
 
-struct mshv_vtl_call_params vtl_params={0};
 extern unsigned int setup_max_cpus;
 
 enum vsm_service_ids {
@@ -44,6 +43,7 @@ struct hv_intercept_message_header {
 } __packed;
 
 struct hv_vsm_per_cpu {
+	struct mshv_vtl_call_params vtl_params;
 	bool event_pending;
 
 	void *synic_message_page;
@@ -643,6 +643,7 @@ static int mshv_vsm_vtl_return(void *unused)
 	struct hv_vp_assist_page *hvp;
 	struct hv_vsm_per_cpu *per_cpu;
 	struct mshv_cpu_context *cpu_context;
+	struct mshv_vtl_call_params *vtl_params;
 
 	while (true) {
 		/* Ordering is important. Suspend tick before disabling interrupts */
@@ -668,17 +669,18 @@ static int mshv_vsm_vtl_return(void *unused)
 			 */
 			per_cpu = this_cpu_ptr(&vsm_per_cpu);
 			cpu_context = &per_cpu->cpu_context;
+			vtl_params = &per_cpu->vtl_params;
 
-			vtl_params._a0 = cpu_context->rdi;
-			vtl_params._a1 = cpu_context->rsi;
-			vtl_params._a2 = cpu_context->rdx;
-			vtl_params._a3 = cpu_context->r8;
+			vtl_params->_a0 = cpu_context->rdi;
+			vtl_params->_a1 = cpu_context->rsi;
+			vtl_params->_a2 = cpu_context->rdx;
+			vtl_params->_a3 = cpu_context->r8;
 			pr_info("CPU%u: MSHV_ENTRY_REASON_LOWER_VTL_CALL\n", smp_processor_id());
-			mshv_vsm_handle_entry(&vtl_params);
-			cpu_context->rdi = vtl_params._a0;
-			cpu_context->rsi = vtl_params._a1;
-			cpu_context->rdx = vtl_params._a2;
-			cpu_context->r8 =  vtl_params._a3;
+			mshv_vsm_handle_entry(vtl_params);
+			cpu_context->rdi = vtl_params->_a0;
+			cpu_context->rsi = vtl_params->_a1;
+			cpu_context->rdx = vtl_params->_a2;
+			cpu_context->r8 =  vtl_params->_a3;
 			break;
 		case HvVtlEntryInterrupt:
 			pr_info("CPU%u: MSHV_ENTRY_REASON_INTERRUPT\n", smp_processor_id());
