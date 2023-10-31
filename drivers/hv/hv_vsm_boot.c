@@ -9,6 +9,7 @@
 
 #include <asm/hyperv-tlfs.h>
 #include <asm/mshyperv.h>
+#include <asm/e820/api.h>
 #include <linux/hyperv.h>
 #include <linux/module.h>
 #include <linux/file.h>
@@ -140,6 +141,8 @@ static __init void hv_vsm_boot_vtl1(void)
 	args.a0 = num_possible_cpus();
 	args.a1 = securek_res.start;
 	args.a2 = securek_res.end + 1;
+	/* ToDo: Make this architecture independent */
+	args.a3 = e820__end_of_ram_pfn() << PAGE_SHIFT;
 
 	local_irq_save(flags);
 	hv_vsm_vtl_call(&args); // TODO: Change to Secure Kernel arch-agnostic
