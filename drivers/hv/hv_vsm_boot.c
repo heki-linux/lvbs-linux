@@ -12,16 +12,22 @@
 #include <asm/e820/api.h>
 #include <linux/hyperv.h>
 #include <linux/module.h>
+#include <linux/kthread.h>
 #include <linux/file.h>
 #include <linux/fs.h>
+#include <linux/slab.h>
+#include <linux/cpumask.h>
 #include <linux/securekernel_core.h>
 
 #include "hv_vsm_boot.h"
 #include "hv_vsm.h"
 
+#define VSM_BOOT_SIGNAL	0xDC
 bool hv_vsm_boot_success = false;
 struct vsm_ctx vsm;
 struct file *sk_loader, *sk;
+struct page *boot_signal_page, *cpu_online_page, *cpu_present_page;
+u8 *boot_signal;
 
 #ifdef CONFIG_HYPERV_VSM
 static int vsm_arch_has_vsm_access(void)
@@ -89,8 +95,10 @@ static int hv_vsm_get_vp_status(u16 *enabled_vtl_set)
 	status = hv_do_rep_hypercall(HVCALL_GET_VP_REGISTERS, 1, 0, hvin, hvout);
 	local_irq_restore(flags);
 
-	if (!hv_result_success(status))
+	if (!hv_result_success(status)) {
+		pr_err("%s failed with code %llu\n", __func__, status);
 		return -EFAULT;
+	}
 
 	vsm_vp_status = (union hv_register_vsm_vp_status)hvout->as_u64;
 	*enabled_vtl_set = vsm_vp_status.enabled_vtl_set;
@@ -147,6 +155,154 @@ static __init void hv_vsm_boot_vtl1(void)
 	local_irq_save(flags);
 	hv_vsm_vtl_call(&args); // TODO: Change to Secure Kernel arch-agnostic
 	local_irq_restore(flags);
+}
+
+static u64 hv_vsm_establish_shared_page(struct page **page)
+{
+	void *va;
+
+	*page = alloc_page(GFP_KERNEL);
+
+	if (!(*page)) {
+		pr_err("%s: Unable to establish VTL0-VTL1 shared page\n", __func__);
+		return -ENOMEM;
+	}
+
+	va = page_address(*page);
+	memset(va, 0, PAGE_SIZE);
+
+	return page_to_pfn(*page);
+}
+
+static __init int hv_vsm_enable_ap_vtl(void)
+{
+	unsigned long flags;
+	struct vtlcall_param args = {0};
+	u64 cpu_present_mask_pfn;
+	void *va;
+	int ret = 0;
+
+	/* Allocate Present Cpumask Page & Copy cpu_present_mask */
+	cpu_present_mask_pfn = hv_vsm_establish_shared_page(&cpu_present_page);
+
+	if (cpu_present_mask_pfn < 0)
+		return -ENOMEM;
+
+	va = page_address(cpu_present_page);
+	cpumask_copy((struct cpumask *)va, cpu_present_mask);
+
+	args.a0 = VSM_VTL_CALL_FUNC_ID_ENABLE_APS_VTL;
+	args.a1 = cpu_present_mask_pfn;
+
+	local_irq_save(flags);
+	hv_vsm_vtl_call(&args); // TODO: Change to Secure Kernel arch-agnostic
+	local_irq_restore(flags);
+
+	if (args.a3) {
+		pr_err("%s: Failed to enable VTL1 for APs. Error %llu", __func__, args.a3);
+		ret = -1;
+	}
+
+	__free_page(cpu_present_page);
+	return ret;
+}
+
+static int hv_vsm_boot_sec_vp_thread_fn(void *unused)
+{
+	struct vtlcall_param args = {0};
+	unsigned long flags = 0;
+	int cpu = smp_processor_id();
+
+	/* TODO: Remove once we allow >64 CPUs in Secure Kernel */
+	if (cpu > 63) {
+		pr_err("CPU%d: Secure Kernel currently supports CPUID <= 63.", smp_processor_id());
+		return -1;
+	}
+
+	local_irq_save(flags);
+	while (READ_ONCE(boot_signal[cpu]) != VSM_BOOT_SIGNAL) {
+		if (kthread_should_stop())
+			goto out;
+	}
+	hv_vsm_vtl_call(&args); // TODO: Change to Secure Kernel arch-agnostic
+out:
+	local_irq_restore(flags);
+	return 0;
+}
+
+static __init void hv_vsm_boot_ap_vtl(void)
+{
+	struct vtlcall_param args = {0};
+	unsigned long flags = 0;
+	void *va;
+	struct task_struct **ap_thread = NULL;
+	u64 boot_signal_pfn, cpu_online_mask_pfn;
+	unsigned int cpu, cur_cpu = smp_processor_id(), vsm_cpus = num_online_cpus(), cpu_count = 0;
+
+	/* Allocate & Initialize Boot Signal Page */
+	boot_signal_pfn = hv_vsm_establish_shared_page(&boot_signal_page);
+
+	if (boot_signal_pfn < 0)
+		return;
+
+	va = page_address(boot_signal_page);
+	boot_signal = (u8 *)va;
+	boot_signal[0] = VSM_BOOT_SIGNAL;
+
+	/* Allocate Online Cpumask Page & Copy cpu_online_mask */
+	cpu_online_mask_pfn = hv_vsm_establish_shared_page(&cpu_online_page);
+
+	if (cpu_online_mask_pfn < 0)
+		goto free_bootsignal;
+
+	va = page_address(cpu_online_page);
+	cpumask_copy((struct cpumask *)va, cpu_online_mask);
+
+	/* Create per-CPU threads to do vtlcall and complete per-CPU hotplug boot in VTL1 */
+	ap_thread = kmalloc(sizeof(*ap_thread) * (vsm_cpus - 1), GFP_KERNEL);
+
+	if (!ap_thread)
+		goto free_sharedpages;
+
+	memset(ap_thread, 0, sizeof(*ap_thread) * (vsm_cpus - 1));
+
+	cpu = cpumask_first(cpu_online_mask);
+	do {
+		if (cpu != cur_cpu) {
+			ap_thread[cpu_count] =
+				kthread_create(hv_vsm_boot_sec_vp_thread_fn, NULL, "ap_thread");
+
+			if (IS_ERR(ap_thread[cpu_count]))
+				goto out;
+
+			kthread_bind(ap_thread[cpu_count], cpu);
+			sched_set_fifo(ap_thread[cpu_count]);
+			wake_up_process(ap_thread[cpu_count]);
+			cpu_count++;
+		}
+		cpu = cpumask_next(cpu, cpu_online_mask);
+	} while (cpu_count < vsm_cpus && cpu < nr_cpu_ids);
+
+	args.a0 = VSM_VTL_CALL_FUNC_ID_BOOT_APS;
+	args.a1 = cpu_online_mask_pfn;
+	args.a2 = boot_signal_pfn;
+
+	local_irq_save(flags);
+	hv_vsm_vtl_call(&args);
+	local_irq_restore(flags);
+
+	if (args.a3)
+		pr_err("%s: Failed to boot APs for VTL1. Error %llu", __func__, args.a3);
+
+out:
+		for (cpu = 0; cpu < cpu_count; cpu++)
+			if (!ap_thread[cpu_count])
+				kthread_stop(ap_thread[cpu]);
+		kfree(ap_thread);
+free_sharedpages:
+		__free_page(cpu_online_page);
+free_bootsignal:
+		__free_page(boot_signal_page);
 }
 
 static int __init hv_vsm_enable_partition_vtl(void)
@@ -653,7 +809,7 @@ static int __init hv_vsm_load_secure_kernel(void)
 
 int __init hv_vsm_enable_vtl1(void)
 {
-	struct cpumask mask;
+	cpumask_var_t mask;
 	unsigned int boot_cpu;
 	u16 partition_enabled_vtl_set = 0, vp_enabled_vtl_set = 0;
 	u8 partition_max_vtl;
@@ -688,8 +844,15 @@ int __init hv_vsm_enable_vtl1(void)
 	 * ToDo: Verify the assumption that cpumask_first(cpu_online_mask) is
 	 * the boot cpu
 	 */
+	if (!alloc_cpumask_var(&mask, GFP_KERNEL)) {
+		pr_err("%s: Could not allocate mask");
+		ret = -ENOMEM;
+		goto close_files;
+	}
+
+	cpumask_copy(mask, &current->cpus_mask);
+
 	boot_cpu = cpumask_first(cpu_online_mask);
-	cpumask_copy(&mask, &current->cpus_mask);
 	set_cpus_allowed_ptr(current, cpumask_of(boot_cpu));
 
 	/* Check and enable VTL1 at the partition level */
@@ -745,12 +908,22 @@ int __init hv_vsm_enable_vtl1(void)
 
 	/* Kick-start VTL1 boot */
 	if (!ret) {
+		/* Boot VTL1 on Boot Processor */
 		hv_vsm_boot_vtl1();
 		hv_vsm_boot_success = true;
+
+		/* Enable VTL1 for Application Processors */
+		ret = hv_vsm_enable_ap_vtl();
+
+		/* Boot Application Processors in VTL1 */
+		if (!ret)
+			hv_vsm_boot_ap_vtl();
 	}
 
 out:
-	set_cpus_allowed_ptr(current, &mask);
+	set_cpus_allowed_ptr(current, mask);
+	free_cpumask_var(mask);
+close_files:
 	filp_close(sk, NULL);
 close_file:
 	filp_close(sk_loader, NULL);
@@ -767,9 +940,7 @@ int __init hv_vsm_enable_vtl1(void)
 
 static int __init hv_vsm_boot_init(void)
 {
-	hv_vsm_enable_vtl1();
-
-    return 0;
+	return hv_vsm_enable_vtl1();
 }
 
 module_init(hv_vsm_boot_init);

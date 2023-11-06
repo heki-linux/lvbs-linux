@@ -9,8 +9,8 @@
 #ifndef _HV_VSM_H
 #define _HV_VSM_H
 
-#define VSM_VTL_CALL_FUNC_ID_PROTECT_MEMORY	0x1FFF
-#define VSM_VTL_CALL_FUNC_ID_LOCK_CR		0x1FFFF
+#define VSM_VTL_CALL_FUNC_ID_PROTECT_MEMORY		0x1FFF
+#define VSM_VTL_CALL_FUNC_ID_LOCK_CR			0x1FFFF
 
 extern bool hv_vsm_boot_success;
 

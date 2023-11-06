@@ -161,9 +161,6 @@ enum {
 
 /* Driver-wide context */
 struct vsm_ctx {
-	/* Secure memory */
-	struct page *skm;
-
 	/* Secure memory physical address region */
 	struct resource *skm_region;
 
@@ -202,6 +199,9 @@ extern struct vsm_ctx vsm;
 /* Intel SDM Vol 3A, Table 3-1 */
 #define VSM_CODE_SEGMENT_TYPE_EXECUTE_READ_ACCESSED		0xB
 #define VSM_DATA_SEGMENT_TYPE_READ_WRITE_ACCESSED		0x3
+
+#define VSM_VTL_CALL_FUNC_ID_ENABLE_APS_VTL 0x1FFFD
+#define VSM_VTL_CALL_FUNC_ID_BOOT_APS 0x1FFFC
 
 /* Format of a Code Segment (long mode) */
 union vsm_code_seg_desc {
