@@ -1451,7 +1451,11 @@ out:
  */
 int cpu_device_up(struct device *dev)
 {
-	return cpu_up(dev->id, CPUHP_ONLINE);
+	int ret = 0;
+
+	ret = cpu_up(dev->id, CPUHP_ONLINE);
+	pr_err("Ret from %s\n", __func__);
+	return ret;
 }
 
 int add_cpu(unsigned int cpu)

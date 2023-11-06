@@ -14,6 +14,7 @@
 #include <asm/hyperv-tlfs.h>
 #include <asm/fpu/internal.h>
 #include <asm/mshv_vtl.h>
+#include <asm/mshv_vsm_vtl.h>
 #include <uapi/asm-generic/hyperv-tlfs.h>
 #include <asm/desc.h>
 #include <asm/realmode.h>
@@ -22,13 +23,17 @@
 #include "vsm.h"
 #include "mshv.h"
 #include "hyperv_vmbus.h"
+#include <asm/mpspec.h>
+#include <asm/cpu.h>
+#include <linux/delay.h>
 
 extern unsigned int setup_max_cpus;
 
 enum vsm_service_ids {
 	VSM_VTL_CALL_FUNC_ID_PROTECT_MEMORY = 0x1FFF,
 	VSM_VTL_CALL_FUNC_ID_LOCK_CR = 0x1FFFF,
-	VSM_VTL_CALL_FUNC_ID_ENABLE_APS_VTL = 0x1FFFD
+	VSM_VTL_CALL_FUNC_ID_ENABLE_APS_VTL = 0x1FFFD,
+	VSM_VTL_CALL_FUNC_ID_BOOT_APS = 0x1FFFC
 };
 
 struct hv_intercept_message_header {
@@ -53,16 +58,15 @@ struct hv_vsm_per_cpu {
 	struct mshv_cpu_context cpu_context;
 	struct task_struct *vsm_task;
 	bool vtl1_enabled;
+	bool vtl1_booted;
 };
 
 static DEFINE_PER_CPU(struct hv_vsm_per_cpu, vsm_per_cpu);
 
 /* Remove when we enable AssertVirtualInterrupt  */
 extern struct boot_params boot_params;
-extern unsigned long initial_code;
-extern unsigned long initial_stack;
-void start_secondary(void *unused);
-struct task_struct *idle_thread_get(unsigned int cpu);
+struct page *boot_signal_page, *cpu_online_page, *cpu_present_page;
+void *boot_signal_data = NULL, *cpu_online_data = NULL, *cpu_present_data = NULL;
 
 static int hv_modify_vtl_protection_mask(u64 gpa_page_list[],
 	size_t *number_of_pages, u32 page_access)
@@ -267,19 +271,11 @@ static void mshv_vsm_lock_crs(void)
 	kfree(reg_assoc);
 }
 
+static void __mshv_vsm_vtl_return(void);
 typedef void (*secondary_startup_64_fn)(void*, void*);
-unsigned int vsm_cpu_up = 1; // VBS: Remove when we enable AssertVirtualInterrupt
+
 static void mshv_vsm_ap_entry(void)
 {
-	/* VBS: Remove when we enable AssertVirtualInterrupt */
-	struct task_struct *idle = idle_thread_get(vsm_cpu_up);
-	idle->thread.sp = (unsigned long)task_pt_regs(idle);
-	early_gdt_descr.address = (unsigned long)get_cpu_gdt_rw(vsm_cpu_up);
-	initial_code = (unsigned long)start_secondary;
-	initial_stack  = idle->thread.sp;
-	initial_gs = per_cpu_offset(vsm_cpu_up);
-	vsm_cpu_up++;
-
 	((secondary_startup_64_fn)secondary_startup_64)(&boot_params, &boot_params);
 }
 
@@ -379,70 +375,53 @@ static u64 mshv_vsm_enable_ap_vtl(u32 target_vp_index)
 	return status;
 }
 
-static u64 mshv_vsm_hotadd_n_enable_aps(unsigned int vsm_cpus)
+static u64 mshv_vsm_enable_aps(unsigned int cpu_present_mask_pfn)
 {
 	u64 status = 0;
-	unsigned int cpu, present, possible = num_possible_cpus(), online = num_online_cpus(),
-		total_cpus_enabled = 0, new_total_cpus = 0;
+	unsigned int cpu, total_cpus_enabled = 0;
 	struct hv_vsm_per_cpu *per_cpu;
-	int ret, i;
+	const struct cpumask *cpu_present_vtl0;
+	int ret;
 
-	if (!vsm_cpus) {
-		pr_err("%s: Invalid parameter. vsm_cpus cannot be 0.\n", __func__);
-		return 1;
+	/* Validate cpu_present_mask_pfn parameter */
+	cpu_present_page = pfn_to_page(cpu_present_mask_pfn);
+	cpu_present_data = vmap(&cpu_present_page, 1, VM_MAP, PAGE_KERNEL);
+	if (!cpu_present_data) {
+		pr_err("%s: Could not map shared page", __func__);
+		return -EINVAL;
 	}
+	cpu_present_vtl0 = (struct cpumask *)cpu_present_data;
 
-	if (vsm_cpus > possible-online)
-	{
-		pr_info("%s: Requested to enable %u CPUs, but there are only %u possible CPUs that are not already online. Will enable %u CPUs instead.",
-			__func__, vsm_cpus, possible - online, possible - online);
-		vsm_cpus = possible - online;
-	}
-	
-	new_total_cpus = vsm_cpus + online;
+	/* Loop through VTL0's present CPUs and make them present in VTL1 as well */
+	for_each_cpu(cpu, cpu_present_vtl0) {
+		if (!cpu_possible(cpu)) {
+			pr_err("%s: CPU%u cannot be enabled because CPU%u is not possible",
+			       __func__, cpu, cpu);
+			return -EINVAL;
+		}
 
-	if (new_total_cpus > setup_max_cpus) {
-		pr_err("%s: Adding %u CPUs exceeds the maximum number of CPUs (%u)", __func__, vsm_cpus, setup_max_cpus);
-		return -1;
-	}
+		if (!(cpu_present(cpu))) {
+			ret = generic_processor_info(cpu, boot_cpu_apic_version);
 
-	/* Add, initialize and register new Present CPUs */
-	for (i = 0; i < new_total_cpus; i++) {
-		if (!(cpu_present(i))) {
-			ret = generic_processor_info(i, boot_cpu_apic_version);
-
-			if (ret != i)
+			if (ret != cpu)
 			{
-				pr_err("%s: Failed adding CPU%d. Error code: %d", __func__, i, ret);
-				return -1;
+				pr_err("%s: Failed adding CPU%u. Error code: %d",
+				       __func__, cpu, ret);
+				return -EINVAL;
 			}
 
-			ret = arch_register_cpu(i);
+			ret = arch_register_cpu(cpu);
 
 			if (ret)
 			{
-				pr_err("%s: Failed registering CPU%d. Error code: %d", __func__, i, ret);
-				return -1;
+				pr_err("%s: Failed registering CPU%u. Error code: %d",
+				       __func__, cpu, ret);
+				return -EINVAL;
 			}
 		}
 	}
 
-	present = num_present_cpus();
-
-	if (!(present-online)) {
-		pr_info("%s: Nothing to do. VTL1 kernel has no present CPUs that are not already online.\n",
-			__func__);
-		return status;
-	}
-
-	if (vsm_cpus > present-online)
-	{
-		pr_info("%s: Requested to enable %u CPUs, but there are only %u present CPUs that are not already online. Will enable %u CPUs instead.",
-			__func__, vsm_cpus, present - online, present - online);
-		vsm_cpus = present - online;
-	}
-
-	/* Loop through present Processors, skip online processors */
+	/* Loop through present Processors and enable VTL1 in each one */
 	for_each_present_cpu(cpu) {
 		if (!cpu_online(cpu)) {
 			per_cpu = per_cpu_ptr(&vsm_per_cpu, cpu);
@@ -461,20 +440,112 @@ static u64 mshv_vsm_hotadd_n_enable_aps(unsigned int vsm_cpus)
 			}
 
 			per_cpu->vtl1_enabled = true;
-
-			/* if we reached the number CPUs that VTL0 requested to enable in VTL1, stop */
 			total_cpus_enabled++;
-			if (total_cpus_enabled == vsm_cpus)
-				break;
 		}
 	}
 
-	if (total_cpus_enabled < vsm_cpus)
-	{
-		pr_err("%s: Enabled %u CPUs instead of %u", __func__, total_cpus_enabled, vsm_cpus);
-		return -1;
+	pr_debug("%s: Enabled %u CPUs", __func__, total_cpus_enabled);
+	return status;
+}
+
+/********************** Boot APs **********************/
+cpumask_var_t cpu_online_diff; // If declared as local variable, it causes a page fault.
+static long mshv_vsm_boot_aps(unsigned int cpu_online_mask_pfn,
+			      unsigned int boot_signal_pfn)
+{
+	unsigned int cpu, present = num_present_cpus(), online = num_online_cpus(),
+		total_cpus_booted = 0;
+	struct hv_vsm_per_cpu *per_cpu;
+	const struct cpumask *cpu_online_vtl0;
+	int status = 0;
+
+	if (!(present - online)) {
+		pr_info("%s: Nothing to do. VTL1 kernel has no present CPUs that are not already online.\n",
+			__func__);
+		return -EINVAL;
 	}
 
+	/* Validate boot_signal_pfn parameter */
+	boot_signal_page = pfn_to_page(boot_signal_pfn);
+	boot_signal_data = vmap(&boot_signal_page, 1, VM_MAP, PAGE_KERNEL);
+	if (!boot_signal_data) {
+		pr_err("%s: Could not map shared page", __func__);
+		return -EINVAL;
+	}
+
+	status = mshv_vtl1_init_boot_signal_page(boot_signal_data);
+	if (status) {
+		pr_err("%s: Could not initialize boot_signal", __func__);
+		return status;
+	}
+
+	/* Validate cpu_online_mask_pfn parameter */
+	cpu_online_page = pfn_to_page(cpu_online_mask_pfn);
+	cpu_online_data = vmap(&cpu_online_page, 1, VM_MAP, PAGE_KERNEL);
+	if (!cpu_online_data) {
+		pr_err("%s: Could not map shared page", __func__);
+		return -EINVAL;
+	}
+	cpu_online_vtl0 = (struct cpumask *)cpu_online_data;
+
+	/* Find VTL0's Online CPUs that are not already online in VTL1 */
+	if (!alloc_cpumask_var(&cpu_online_diff, GFP_KERNEL)) {
+		pr_err("%s: Error allocating cpu_online_diff", __func__);
+		return -ENOMEM;
+	}
+	status = cpumask_andnot(cpu_online_diff, cpu_online_vtl0, cpu_online_mask);
+	if (!status) {
+		pr_err("%s: Error computing cpumask_andnot()", __func__);
+		goto out;
+	}
+
+	/* Loop through VTL0's online CPUs that are not already online in VTL1
+	 * and bring them online
+	 */
+	for_each_cpu(cpu, cpu_online_diff) {
+		if (!cpu_present(cpu)) {
+			pr_err("%s: Cannot bring up CPU%u because CPU%u is not present",
+			       __func__, cpu, cpu);
+			status = -1;
+			goto out;
+		}
+
+		per_cpu = per_cpu_ptr(&vsm_per_cpu, cpu);
+
+		if (!(per_cpu->vtl1_enabled)) {
+			pr_err("%s: Cannot bring up CPU%u because CPU%u is not enabled for VTL1",
+			       __func__, cpu, cpu);
+			status = -1;
+			goto out;
+		}
+
+		per_cpu->vtl1_booted = 0;
+		pr_debug("%s: Bringing up CPU%u", __func__, cpu);
+
+		/* Bring up AP */
+		status = cpu_device_up(get_cpu_device(cpu));
+		if (status) {
+			pr_err("%s: Failed to Boot CPU%u", __func__, cpu);
+			goto out;
+		}
+
+		total_cpus_booted++;
+	}
+
+	/* Loop through newly booted CPUs and wake up vsm_task thread */
+	for_each_cpu(cpu, cpu_online_diff) {
+		per_cpu = per_cpu_ptr(&vsm_per_cpu, cpu);
+
+		while (!(per_cpu->vtl1_booted))
+			;
+
+		wake_up_process(per_cpu->vsm_task);
+	}
+
+	pr_debug("%s: Booted %u CPUs", __func__, total_cpus_booted);
+
+out:
+	free_cpumask_var(cpu_online_diff);
 	return status;
 }
 
@@ -498,9 +569,9 @@ static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
 
 			ret = vsm_restrict_memory(_vtl_params->_a1, _vtl_params->_a2, permissions);
 			if (ret)
-				pr_info("%s: failed\n",__func__);
+				pr_info("%s: failed\n", __func__);
 			else 
-				pr_info("%s: is ok\n",__func__);
+				pr_info("%s: is ok\n", __func__);
 
 			_vtl_params->_a3=ret;	
 			break;
@@ -510,13 +581,22 @@ static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
 			break;
 		case VSM_VTL_CALL_FUNC_ID_ENABLE_APS_VTL:
 			pr_info("%s : VSM_VTL_CALL_FUNC_ID_ENABLE_APS_VTL\n", __func__);
-			status = mshv_vsm_hotadd_n_enable_aps(_vtl_params->_a1);
+			status = mshv_vsm_enable_aps(_vtl_params->_a1);
 			if (status)
-				pr_info("%s: failed\n",__func__);
+				pr_info("%s: failed\n", __func__);
 			else
-				pr_info("%s: is ok\n",__func__);
+				pr_info("%s: is ok\n", __func__);
 
 			_vtl_params->_a3=status;
+			break;
+		case VSM_VTL_CALL_FUNC_ID_BOOT_APS:
+			pr_info("%s : VSM_VTL_CALL_FUNC_ID_BOOT_APS\n", __func__);
+			ret = mshv_vsm_boot_aps(_vtl_params->_a1, _vtl_params->_a2);
+			if (ret)
+				pr_info("%s: failed\n", __func__);
+			else
+				pr_info("%s: is ok\n", __func__);
+			_vtl_params->_a3 = ret;
 			break;
 		default:
 			pr_err("%s : Wrong service id\n", __func__);
@@ -740,15 +820,19 @@ static int mshv_vsm_per_cpu_init(unsigned int cpu)
 	tasklet_init(&per_cpu->handle_intercept, mshv_vsm_handle_intercept,
 		     (unsigned long)per_cpu);
 
-	/* ToDo: per-cpu interrupt enabling for supported architectures like arm64 */
-	/* Unmask SINT0 so that the cpu can receive intercepts from Hyper-V */
-	hv_synic_unmask_sint(HV_REGISTER_SINT0 + HV_SYNIC_INTERCEPTION_SINT_INDEX,
-			     HYPERVISOR_CALLBACK_VECTOR);
-	/* Enable the global synic bit */
-	hv_synic_enable_sctrl(HV_REGISTER_SCONTROL);
+	/* TODO: Remove when enabling CR Lock for APs */
+	if (!cpu) {
+		/* ToDo: per-cpu interrupt enabling for supported architectures like arm64 */
+		/* Unmask SINT0 so that the cpu can receive intercepts from Hyper-V */
+		hv_synic_unmask_sint(HV_REGISTER_SINT0 + HV_SYNIC_INTERCEPTION_SINT_INDEX,
+				     HYPERVISOR_CALLBACK_VECTOR);
+		/* Enable the global synic bit */
+		hv_synic_enable_sctrl(HV_REGISTER_SCONTROL);
+	}
 	per_cpu->vsm_task = kthread_create(mshv_vsm_vtl_return, NULL, "vsm_task");
 	kthread_bind(per_cpu->vsm_task, cpu);
 
+	per_cpu->vtl1_booted = true;
 	return 0;
 }
 
@@ -812,8 +896,8 @@ static int __init mshv_vtl1_init(void)
 	/* ToDo : per-cpu interrupt enabling for supported architectures like arm64 */
 	hv_setup_vsm_handler(mshv_vsm_isr);
 
-	/* Initialize hyper-v per cpu context */
 	// ToDo: Introduce clean up function
+
 	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "hyperv/vsm:init",
 				mshv_vsm_per_cpu_init, NULL);
 

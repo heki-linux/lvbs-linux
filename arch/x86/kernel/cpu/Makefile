@@ -54,6 +54,7 @@ obj-$(CONFIG_X86_LOCAL_APIC)		+= perfctr-watchdog.o
 
 obj-$(CONFIG_HYPERVISOR_GUEST)		+= vmware.o hypervisor.o mshyperv.o
 obj-$(CONFIG_HYPERV_VTL)		+= mshyperv_vtl.o
+obj-$(CONFIG_MSHV_SECURE_VTL)		+= mshyperv_vsm_vtl.o
 obj-$(CONFIG_ACRN_GUEST)		+= acrn.o
 
 ifdef CONFIG_X86_FEATURE_NAMES
