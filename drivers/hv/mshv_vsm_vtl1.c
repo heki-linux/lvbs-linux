@@ -63,10 +63,7 @@ struct hv_vsm_per_cpu {
 
 static DEFINE_PER_CPU(struct hv_vsm_per_cpu, vsm_per_cpu);
 
-/* Remove when we enable AssertVirtualInterrupt  */
 extern struct boot_params boot_params;
-struct page *boot_signal_page, *cpu_online_page, *cpu_present_page;
-void *boot_signal_data = NULL, *cpu_online_data = NULL, *cpu_present_data = NULL;
 
 static int hv_modify_vtl_protection_mask(u64 gpa_page_list[],
 	size_t *number_of_pages, u32 page_access)
@@ -314,7 +311,7 @@ static u64 mshv_vsm_enable_ap_vtl(u32 target_vp_index)
 	struct ldttss_desc *ldt;
 	struct desc_struct *gdt;
 
-	u64 rsp = current->thread.sp;
+	u64 rsp = initial_stack;
 	u64 rip = (u64)&mshv_vsm_ap_entry;
 
 	mshv_store_gdt(&gdt_ptr);
@@ -381,6 +378,8 @@ static u64 mshv_vsm_enable_aps(unsigned int cpu_present_mask_pfn)
 	unsigned int cpu, total_cpus_enabled = 0;
 	struct hv_vsm_per_cpu *per_cpu;
 	const struct cpumask *cpu_present_vtl0;
+	struct page *cpu_present_page;
+	void *cpu_present_data = NULL;
 	int ret;
 
 	/* Validate cpu_present_mask_pfn parameter */
@@ -397,7 +396,8 @@ static u64 mshv_vsm_enable_aps(unsigned int cpu_present_mask_pfn)
 		if (!cpu_possible(cpu)) {
 			pr_err("%s: CPU%u cannot be enabled because CPU%u is not possible",
 			       __func__, cpu, cpu);
-			return -EINVAL;
+			status = -EINVAL;
+			goto out;
 		}
 
 		if (!(cpu_present(cpu))) {
@@ -407,7 +407,8 @@ static u64 mshv_vsm_enable_aps(unsigned int cpu_present_mask_pfn)
 			{
 				pr_err("%s: Failed adding CPU%u. Error code: %d",
 				       __func__, cpu, ret);
-				return -EINVAL;
+				status = -EINVAL;
+				goto out;
 			}
 
 			ret = arch_register_cpu(cpu);
@@ -416,7 +417,8 @@ static u64 mshv_vsm_enable_aps(unsigned int cpu_present_mask_pfn)
 			{
 				pr_err("%s: Failed registering CPU%u. Error code: %d",
 				       __func__, cpu, ret);
-				return -EINVAL;
+				status = -EINVAL;
+				goto out;
 			}
 		}
 	}
@@ -436,7 +438,7 @@ static u64 mshv_vsm_enable_aps(unsigned int cpu_present_mask_pfn)
 
 			if (status) {
 				pr_err("%s: Failed to enable VTL1 for CPU%u", __func__, cpu);
-				return status;
+				goto out;
 			}
 
 			per_cpu->vtl1_enabled = true;
@@ -445,11 +447,12 @@ static u64 mshv_vsm_enable_aps(unsigned int cpu_present_mask_pfn)
 	}
 
 	pr_debug("%s: Enabled %u CPUs", __func__, total_cpus_enabled);
+out:
+	vunmap(cpu_present_data);
 	return status;
 }
 
 /********************** Boot APs **********************/
-cpumask_var_t cpu_online_diff; // If declared as local variable, it causes a page fault.
 static long mshv_vsm_boot_aps(unsigned int cpu_online_mask_pfn,
 			      unsigned int boot_signal_pfn)
 {
@@ -457,6 +460,9 @@ static long mshv_vsm_boot_aps(unsigned int cpu_online_mask_pfn,
 		total_cpus_booted = 0;
 	struct hv_vsm_per_cpu *per_cpu;
 	const struct cpumask *cpu_online_vtl0;
+	struct page *boot_signal_page, *cpu_online_page;
+	void *boot_signal_data = NULL, *cpu_online_data = NULL;
+	cpumask_var_t cpu_online_diff;
 	int status = 0;
 
 	if (!(present - online)) {
@@ -476,7 +482,7 @@ static long mshv_vsm_boot_aps(unsigned int cpu_online_mask_pfn,
 	status = mshv_vtl1_init_boot_signal_page(boot_signal_data);
 	if (status) {
 		pr_err("%s: Could not initialize boot_signal", __func__);
-		return status;
+		goto unmap_signal;
 	}
 
 	/* Validate cpu_online_mask_pfn parameter */
@@ -484,14 +490,16 @@ static long mshv_vsm_boot_aps(unsigned int cpu_online_mask_pfn,
 	cpu_online_data = vmap(&cpu_online_page, 1, VM_MAP, PAGE_KERNEL);
 	if (!cpu_online_data) {
 		pr_err("%s: Could not map shared page", __func__);
-		return -EINVAL;
+		status = -EINVAL;
+		goto unmap_signal;
 	}
 	cpu_online_vtl0 = (struct cpumask *)cpu_online_data;
 
 	/* Find VTL0's Online CPUs that are not already online in VTL1 */
 	if (!alloc_cpumask_var(&cpu_online_diff, GFP_KERNEL)) {
 		pr_err("%s: Error allocating cpu_online_diff", __func__);
-		return -ENOMEM;
+		status = -ENOMEM;
+		goto unmap_online;
 	}
 	status = cpumask_andnot(cpu_online_diff, cpu_online_vtl0, cpu_online_mask);
 	if (!status) {
@@ -506,7 +514,7 @@ static long mshv_vsm_boot_aps(unsigned int cpu_online_mask_pfn,
 		if (!cpu_present(cpu)) {
 			pr_err("%s: Cannot bring up CPU%u because CPU%u is not present",
 			       __func__, cpu, cpu);
-			status = -1;
+			status = -EINVAL;
 			goto out;
 		}
 
@@ -515,7 +523,7 @@ static long mshv_vsm_boot_aps(unsigned int cpu_online_mask_pfn,
 		if (!(per_cpu->vtl1_enabled)) {
 			pr_err("%s: Cannot bring up CPU%u because CPU%u is not enabled for VTL1",
 			       __func__, cpu, cpu);
-			status = -1;
+			status = -EINVAL;
 			goto out;
 		}
 
@@ -546,6 +554,10 @@ static long mshv_vsm_boot_aps(unsigned int cpu_online_mask_pfn,
 
 out:
 	free_cpumask_var(cpu_online_diff);
+unmap_online:
+	vunmap(cpu_online_data);
+unmap_signal:
+	vunmap(boot_signal_data);
 	return status;
 }
 
