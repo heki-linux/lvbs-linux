@@ -12,6 +12,7 @@
 #include <asm/e820/api.h>
 #include <linux/hyperv.h>
 #include <linux/module.h>
+#include <linux/memblock.h>
 #include <linux/kthread.h>
 #include <linux/file.h>
 #include <linux/fs.h>
@@ -958,7 +959,7 @@ static int __init hv_vsm_load_secure_kernel(void)
 	return 0;
 }
 
-int __init hv_vsm_enable_vtl1(void)
+void __init vsm_init(void)
 {
 	cpumask_var_t mask;
 	unsigned int boot_cpu;
@@ -968,23 +969,21 @@ int __init hv_vsm_enable_vtl1(void)
 
 	if (!vsm_arch_has_vsm_access()) {
 		pr_err("%s: Arch does not support VSM\n", __func__);
-		return -ENOTSUPP;
+		return;
 	}
 	if (hv_vsm_reserve_sk_mem()) {
 		pr_err("%s: Could not initialize memory for secure kernel\n", __func__);
-		return -ENOMEM;
+		return;
 	}
 
 	sk_loader = filp_open("/usr/lib/firmware/skloader.bin", O_RDONLY, 0);
 	if (IS_ERR(sk_loader)) {
 		pr_err("%s: File usr/lib/firmware/skloader.bin not found\n", __func__);
-		ret = -ENOENT;
 		goto free_mem;
 	}
 	sk = filp_open("/usr/lib/firmware/vmlinux.bin", O_RDONLY, 0);
 	if (IS_ERR(sk)) {
 		pr_err("%s: File usr/lib/firmware/vmlinux.bin not found\n", __func__);
-		ret = -ENOENT;
 		goto close_file;
 	}
 
@@ -1003,7 +1002,6 @@ int __init hv_vsm_enable_vtl1(void)
 	 */
 	if (!alloc_cpumask_var(&mask, GFP_KERNEL)) {
 		pr_err("%s: Could not allocate cpumask", __func__);
-		ret = -ENOMEM;
 		goto close_files;
 	}
 
@@ -1018,7 +1016,6 @@ int __init hv_vsm_enable_vtl1(void)
 
 	if (partition_max_vtl < HV_VTL1) {
 		pr_err("%s: VTL1 is not supported", __func__);
-		ret = -EINVAL;
 		goto out;
 	}
 	if (partition_enabled_vtl_set & HV_VTL1_ENABLE_BIT) {
@@ -1027,18 +1024,15 @@ int __init hv_vsm_enable_vtl1(void)
 		ret = hv_vsm_enable_partition_vtl();
 		if (ret) {
 			pr_err("%s: Enabling Partition VTL1 failed with status 0x%x\n", __func__, ret);
-			ret = -EINVAL;
 			goto out;
 		}
 		hv_vsm_get_partition_status(&partition_enabled_vtl_set, &partition_max_vtl, &partition_mbec_enabled_vtl_set);
 		if (!(partition_enabled_vtl_set & HV_VTL1_ENABLE_BIT)) {
 			pr_err("%s: Tried Enabling Partition VTL 1 and still failed", __func__);
-			ret = -EINVAL;
 			goto out;
 		}
 		if (!partition_mbec_enabled_vtl_set) {
 			pr_err("%s: Tried Enabling Partition MBEC and failed", __func__);
-			ret = -EINVAL;
 			goto out;
 		}
 	}
@@ -1055,13 +1049,11 @@ int __init hv_vsm_enable_vtl1(void)
 		if (ret) {
 			pr_err("%s: Enabling VP VTL1 failed with status 0x%x\n", __func__, ret);
 			/* ToDo: Should we disable VTL1 at partition level in this case */
-			ret = -EINVAL;
 			goto out;
 		}
 		hv_vsm_get_vp_status(&vp_enabled_vtl_set, &active_mbec_enabled);
 		if (!(vp_enabled_vtl_set & HV_VTL1_ENABLE_BIT)) {
 			pr_err("%s: Tried Enabling VP VTL 1 and still failed", __func__);
-			ret = -EINVAL;
 			goto out;
 		}
 	}
@@ -1098,20 +1090,5 @@ close_file:
 free_mem:
 	vunmap(vsm_skm_va);
 	vsm_skm_pa = 0;
-	return ret;
-}
-#else
-int __init hv_vsm_enable_vtl1(void)
-{
-	return 0;
 }
 #endif
-
-static int __init hv_vsm_boot_init(void)
-{
-	return hv_vsm_enable_vtl1();
-}
-
-module_init(hv_vsm_boot_init);
-MODULE_DESCRIPTION("Hyper-V VSM Boot VTL0 Driver");
-MODULE_LICENSE("GPL");
