@@ -79,4 +79,15 @@ config HYPERV_VSM_DEBUG
 	depends on HYPERV_VSM
 	default n
 
+config HYPERV_VSM_DISABLE_IMG_VERIFY
+	bool "Disable Image Verification for VSM binaries"
+	depends on HYPERV_VSM
+	help
+	  Select this option to disable VSM Secure Boot.
+	  Enabling this option will disable verifying the integrity and
+	  authenticity of the VSM secure kernel and loader. Enable this
+	  option only when debugging VSM. If this option is set, the
+	  system can be vulnerable to an attacker changing/replacing the
+	  secure kernel and/or loader.
+
 endmenu
