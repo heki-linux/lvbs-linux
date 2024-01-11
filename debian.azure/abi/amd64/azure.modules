@@ -2619,6 +2619,7 @@ wmi
 wmi-bmof
 wp512
 wpcm450-soc
+wwan
 wwan_hwsim
 x25
 x38_edac
