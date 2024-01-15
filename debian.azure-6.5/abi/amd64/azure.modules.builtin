@@ -251,7 +251,6 @@ virtio_scsi
 vivaldi-fmap
 vxlan
 watchdog
-wwan
 wwnr
 x509_key_parser
 xhci-hcd
