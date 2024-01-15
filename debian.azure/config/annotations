@@ -970,34 +970,34 @@ CONFIG_COMEDI_ADDI_WATCHDOG                     policy<{'amd64': '-', 'arm64': '
 CONFIG_COMEDI_ADL_PCI6208                       policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_ADL_PCI7X3X                       policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_ADL_PCI8164                       policy<{'amd64': '-', 'arm64': 'm'}>
-CONFIG_COMEDI_ADL_PCI9111                       policy<{'amd64': '-', 'arm64': '-'}>
-CONFIG_COMEDI_ADL_PCI9118                       policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_COMEDI_ADL_PCI9111                       policy<{'amd64': '-', 'arm64': 'n'}>
+CONFIG_COMEDI_ADL_PCI9118                       policy<{'amd64': '-', 'arm64': 'n'}>
 CONFIG_COMEDI_ADQ12B                            policy<{'amd64': '-', 'arm64': '-'}>
-CONFIG_COMEDI_ADV_PCI1710                       policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_COMEDI_ADV_PCI1710                       policy<{'amd64': '-', 'arm64': 'n'}>
 CONFIG_COMEDI_ADV_PCI1720                       policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_ADV_PCI1723                       policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_ADV_PCI1724                       policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_ADV_PCI1760                       policy<{'amd64': '-', 'arm64': 'm'}>
-CONFIG_COMEDI_ADV_PCI_DIO                       policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_COMEDI_ADV_PCI_DIO                       policy<{'amd64': '-', 'arm64': 'n'}>
 CONFIG_COMEDI_AIO_AIO12_8                       policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_AIO_IIRO_16                       policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_AMPLC_DIO200                      policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_AMPLC_DIO200_ISA                  policy<{'amd64': '-', 'arm64': '-'}>
-CONFIG_COMEDI_AMPLC_DIO200_PCI                  policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_COMEDI_AMPLC_DIO200_PCI                  policy<{'amd64': '-', 'arm64': 'n'}>
 CONFIG_COMEDI_AMPLC_PC236                       policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_AMPLC_PC236_ISA                   policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_AMPLC_PC236_PCI                   policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_AMPLC_PC263_ISA                   policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_AMPLC_PC263_PCI                   policy<{'amd64': '-', 'arm64': 'm'}>
-CONFIG_COMEDI_AMPLC_PCI224                      policy<{'amd64': '-', 'arm64': '-'}>
-CONFIG_COMEDI_AMPLC_PCI230                      policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_COMEDI_AMPLC_PCI224                      policy<{'amd64': '-', 'arm64': 'n'}>
+CONFIG_COMEDI_AMPLC_PCI230                      policy<{'amd64': '-', 'arm64': 'n'}>
 CONFIG_COMEDI_BOND                              policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_C6XDIGIO                          policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_CB_DAS16_CS                       policy<{'amd64': '-'}>
-CONFIG_COMEDI_CB_PCIDAS                         policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_COMEDI_CB_PCIDAS                         policy<{'amd64': '-', 'arm64': 'n'}>
 CONFIG_COMEDI_CB_PCIDAS64                       policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_CB_PCIDDA                         policy<{'amd64': '-', 'arm64': 'm'}>
-CONFIG_COMEDI_CB_PCIMDAS                        policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_COMEDI_CB_PCIMDAS                        policy<{'amd64': '-', 'arm64': 'n'}>
 CONFIG_COMEDI_CB_PCIMDDA                        policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_CONTEC_PCI_DIO                    policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_DAC02                             policy<{'amd64': '-', 'arm64': '-'}>
@@ -1005,7 +1005,7 @@ CONFIG_COMEDI_DAQBOARD2000                      policy<{'amd64': '-', 'arm64': '
 CONFIG_COMEDI_DAS08                             policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_DAS08_CS                          policy<{'amd64': '-'}>
 CONFIG_COMEDI_DAS08_ISA                         policy<{'amd64': '-', 'arm64': '-'}>
-CONFIG_COMEDI_DAS08_PCI                         policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_COMEDI_DAS08_PCI                         policy<{'amd64': '-', 'arm64': 'n'}>
 CONFIG_COMEDI_DAS16                             policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_DAS16M1                           policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_DAS1800                           policy<{'amd64': '-', 'arm64': '-'}>
@@ -1029,11 +1029,11 @@ CONFIG_COMEDI_GSC_HPDI                          policy<{'amd64': '-', 'arm64': '
 CONFIG_COMEDI_ICP_MULTI                         policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_II_PCI20KC                        policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_ISADMA                            policy<{'amd64': '-'}>
-CONFIG_COMEDI_ISA_DRIVERS                       policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_COMEDI_ISA_DRIVERS                       policy<{'amd64': '-', 'arm64': 'n'}>
 CONFIG_COMEDI_JR3_PCI                           policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_KCOMEDILIB                        policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_KE_COUNTER                        policy<{'amd64': '-', 'arm64': 'm'}>
-CONFIG_COMEDI_ME4000                            policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_COMEDI_ME4000                            policy<{'amd64': '-', 'arm64': 'n'}>
 CONFIG_COMEDI_ME_DAQ                            policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_MF6X4                             policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_MISC_DRIVERS                      policy<{'amd64': '-', 'arm64': 'y'}>
@@ -1054,7 +1054,7 @@ CONFIG_COMEDI_NI_LABPC                          policy<{'amd64': '-', 'arm64': '
 CONFIG_COMEDI_NI_LABPC_CS                       policy<{'amd64': '-'}>
 CONFIG_COMEDI_NI_LABPC_ISA                      policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_NI_LABPC_ISADMA                   policy<{'amd64': '-'}>
-CONFIG_COMEDI_NI_LABPC_PCI                      policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_COMEDI_NI_LABPC_PCI                      policy<{'amd64': '-', 'arm64': 'n'}>
 CONFIG_COMEDI_NI_MIO_CS                         policy<{'amd64': '-'}>
 CONFIG_COMEDI_NI_PCIDIO                         policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_COMEDI_NI_PCIMIO                         policy<{'amd64': '-', 'arm64': 'm'}>
@@ -1078,7 +1078,7 @@ CONFIG_COMEDI_PCMDA12                           policy<{'amd64': '-', 'arm64': '
 CONFIG_COMEDI_PCMMIO                            policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_PCMUIO                            policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_QUATECH_DAQP_CS                   policy<{'amd64': '-'}>
-CONFIG_COMEDI_RTD520                            policy<{'amd64': '-', 'arm64': '-'}>
+CONFIG_COMEDI_RTD520                            policy<{'amd64': '-', 'arm64': 'n'}>
 CONFIG_COMEDI_RTI800                            policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_RTI802                            policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_COMEDI_S526                              policy<{'amd64': '-', 'arm64': '-'}>
@@ -5132,6 +5132,7 @@ CONFIG_VIDEO_OV5695                             policy<{'amd64': '-', 'arm64': '
 CONFIG_VIDEO_OV6650                             policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_VIDEO_OV7251                             policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_VIDEO_OV7640                             policy<{'amd64': '-', 'arm64': 'm'}>
+CONFIG_VIDEO_OV7670                             policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_VIDEO_OV772X                             policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_VIDEO_OV7740                             policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_VIDEO_OV8856                             policy<{'amd64': '-', 'arm64': 'm'}>
