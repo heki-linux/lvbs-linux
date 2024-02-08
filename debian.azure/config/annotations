@@ -305,6 +305,9 @@ CONFIG_TDX_GUEST_DRIVER                         note<'LP: #2016995'>
 CONFIG_TEST_BLACKHOLE_DEV                       policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_TEST_BLACKHOLE_DEV                       note<'Used by net selftests'>
 
+CONFIG_TEST_LOCKUP                              policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_TEST_LOCKUP                              note<'LP: #2052723'>
+
 CONFIG_TOUCHSCREEN_ELAN                         policy<{'amd64': '-', 'arm64': 'n'}>
 CONFIG_TOUCHSCREEN_ELAN                         note<'kernel reduction'>
 
