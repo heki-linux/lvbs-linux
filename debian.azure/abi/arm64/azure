@@ -19029,6 +19029,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x0308cc73	of_devfreq_cooling_register_power
 EXPORT_SYMBOL_GPL	 vmlinux 0x0308f10d	phy_set_media
 EXPORT_SYMBOL_GPL	 vmlinux 0x030cbca2	ata_id_xfermask
 EXPORT_SYMBOL_GPL	 vmlinux 0x0312b3b0	reset_controller_add_lookup
+EXPORT_SYMBOL_GPL	 vmlinux 0x0321990f	ms_hyperv
 EXPORT_SYMBOL_GPL	 vmlinux 0x0321cdbf	of_alias_get_highest_id
 EXPORT_SYMBOL_GPL	 vmlinux 0x032a5b4f	kobject_uevent
 EXPORT_SYMBOL_GPL	 vmlinux 0x033832c7	usb_amd_hang_symptom_quirk
@@ -20223,6 +20224,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x2c66ac85	devlink_info_serial_number_put
 EXPORT_SYMBOL_GPL	 vmlinux 0x2c7db649	irq_dispose_mapping
 EXPORT_SYMBOL_GPL	 vmlinux 0x2c81a826	imx_1443x_pll
 EXPORT_SYMBOL_GPL	 vmlinux 0x2c834418	static_key_slow_inc
+EXPORT_SYMBOL_GPL	 vmlinux 0x2c86a755	hv_tdx_hypercall
 EXPORT_SYMBOL_GPL	 vmlinux 0x2c89640c	devm_hte_register_chip
 EXPORT_SYMBOL_GPL	 vmlinux 0x2c8b0768	of_alias_get_id
 EXPORT_SYMBOL_GPL	 vmlinux 0x2c8dd6b8	edac_mem_types
@@ -21562,7 +21564,6 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x59e640c0	halt_poll_ns
 EXPORT_SYMBOL_GPL	 vmlinux 0x59edfeb8	phy_rate_matching_to_str
 EXPORT_SYMBOL_GPL	 vmlinux 0x59f32720	mpi_subm
 EXPORT_SYMBOL_GPL	 vmlinux 0x59f37530	get_dev_pagemap
-EXPORT_SYMBOL_GPL	 vmlinux 0x59f8b7c6	ms_hyperv
 EXPORT_SYMBOL_GPL	 vmlinux 0x5a0defc8	vmbus_teardown_gpadl
 EXPORT_SYMBOL_GPL	 vmlinux 0x5a12e60c	__SCK__tp_func_sched_update_nr_running_tp
 EXPORT_SYMBOL_GPL	 vmlinux 0x5a1d134a	rcu_momentary_dyntick_idle
@@ -25934,6 +25935,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0xede97e00	class_for_each_device
 EXPORT_SYMBOL_GPL	 vmlinux 0xede9a09a	btree_lookup
 EXPORT_SYMBOL_GPL	 vmlinux 0xedf2d491	vmbus_request_addr_match
 EXPORT_SYMBOL_GPL	 vmlinux 0xedf47a28	dm_submit_bio_remap
+EXPORT_SYMBOL_GPL	 vmlinux 0xee006366	hv_isolation_type_tdx
 EXPORT_SYMBOL_GPL	 vmlinux 0xee01421d	blkcg_activate_policy
 EXPORT_SYMBOL_GPL	 vmlinux 0xee090c39	fwnode_graph_get_remote_port_parent
 EXPORT_SYMBOL_GPL	 vmlinux 0xee1ebce5	__dax_driver_register
