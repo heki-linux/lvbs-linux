@@ -19031,6 +19031,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x02fb4dea	folio_alloc_buffers
 EXPORT_SYMBOL_GPL	 vmlinux 0x0302ae8d	__pneigh_lookup
 EXPORT_SYMBOL_GPL	 vmlinux 0x030cbca2	ata_id_xfermask
 EXPORT_SYMBOL_GPL	 vmlinux 0x0312b3b0	reset_controller_add_lookup
+EXPORT_SYMBOL_GPL	 vmlinux 0x0321990f	ms_hyperv
 EXPORT_SYMBOL_GPL	 vmlinux 0x0321cdbf	of_alias_get_highest_id
 EXPORT_SYMBOL_GPL	 vmlinux 0x0333c9e5	devlink_region_snapshot_id_get
 EXPORT_SYMBOL_GPL	 vmlinux 0x033832c7	usb_amd_hang_symptom_quirk
@@ -20221,6 +20222,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x2c6ebae1	vfs_submount
 EXPORT_SYMBOL_GPL	 vmlinux 0x2c7db649	irq_dispose_mapping
 EXPORT_SYMBOL_GPL	 vmlinux 0x2c81a826	imx_1443x_pll
 EXPORT_SYMBOL_GPL	 vmlinux 0x2c834418	static_key_slow_inc
+EXPORT_SYMBOL_GPL	 vmlinux 0x2c86a755	hv_tdx_hypercall
 EXPORT_SYMBOL_GPL	 vmlinux 0x2c876ffa	regmap_parse_val
 EXPORT_SYMBOL_GPL	 vmlinux 0x2c8dd6b8	edac_mem_types
 EXPORT_SYMBOL_GPL	 vmlinux 0x2c8e0fdc	devm_regulator_bulk_get_enable
@@ -21573,7 +21575,6 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x59eb5a2a	rio_release_inb_mbox
 EXPORT_SYMBOL_GPL	 vmlinux 0x59edfeb8	phy_rate_matching_to_str
 EXPORT_SYMBOL_GPL	 vmlinux 0x59f32720	mpi_subm
 EXPORT_SYMBOL_GPL	 vmlinux 0x59f5ed6f	usb_lock_device_for_reset
-EXPORT_SYMBOL_GPL	 vmlinux 0x59f8b7c6	ms_hyperv
 EXPORT_SYMBOL_GPL	 vmlinux 0x59fba4ef	mtk_paris_pinctrl_probe
 EXPORT_SYMBOL_GPL	 vmlinux 0x5a0629e8	cpufreq_freq_transition_begin
 EXPORT_SYMBOL_GPL	 vmlinux 0x5a12e60c	__SCK__tp_func_sched_update_nr_running_tp
@@ -25930,6 +25931,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0xeded4773	devlink_region_create
 EXPORT_SYMBOL_GPL	 vmlinux 0xedf07725	vp_modern_get_queue_size
 EXPORT_SYMBOL_GPL	 vmlinux 0xedf513e1	ata_sas_port_start
 EXPORT_SYMBOL_GPL	 vmlinux 0xedfc616f	kvm_vcpu_write_guest
+EXPORT_SYMBOL_GPL	 vmlinux 0xee006366	hv_isolation_type_tdx
 EXPORT_SYMBOL_GPL	 vmlinux 0xee0485e8	ip6_flush_pending_frames
 EXPORT_SYMBOL_GPL	 vmlinux 0xee049ae1	dprc_get_obj_count
 EXPORT_SYMBOL_GPL	 vmlinux 0xee09c0fb	usb_add_hcd
