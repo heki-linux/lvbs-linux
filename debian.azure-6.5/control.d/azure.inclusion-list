@@ -202,7 +202,6 @@ fs/binfmt_misc.ko
 fs/btrfs/*
 fs/cachefiles/cachefiles.ko
 fs/ceph/*
-fs/cifs/*
 fs/configfs/*
 fs/dlm/dlm.ko
 fs/ecryptfs/*
@@ -221,6 +220,7 @@ fs/nls/nls_cp437.ko
 fs/nls/nls_iso8859-1.ko
 fs/nls/nls_utf8.ko
 fs/overlayfs/*
+fs/smb/*
 fs/squashfs/*
 fs/udf/*
 fs/ufs/*
