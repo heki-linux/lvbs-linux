@@ -6043,6 +6043,7 @@ teranetics
 test_blackhole_dev
 test_bpf
 test_div64
+test_lockup
 test_power
 tg3
 thc63lvd1024
