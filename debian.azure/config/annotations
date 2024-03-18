@@ -1393,7 +1393,7 @@ CONFIG_DVB_ZL10039                              policy<{'amd64': '-', 'arm64': '
 CONFIG_DVB_ZL10353                              policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_DWMAC_GENERIC                            policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_DWMAC_INTEL                              policy<{'amd64': '-'}>
-CONFIG_DWMAC_LOONGSON                           policy<{'amd64': '-', 'arm64': 'm'}>
+CONFIG_DWMAC_LOONGSON                           policy<{'amd64': '-', 'arm64': '-'}>
 CONFIG_DW_DMAC                                  policy<{'amd64': 'n', 'arm64': 'm'}>
 CONFIG_ECHO                                     policy<{'amd64': 'n', 'arm64': 'm'}>
 CONFIG_EDAC_GHES                                policy<{'amd64': '-', 'arm64': 'y'}>
