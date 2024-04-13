@@ -101,7 +101,7 @@
 #include <linux/randomize_kstack.h>
 #include <net/net_namespace.h>
 #include <linux/vsm.h>
-
+#include <linux/heki.h>
 #include <asm/io.h>
 #include <asm/setup.h>
 #include <asm/sections.h>
@@ -1052,6 +1052,7 @@ void start_kernel(void)
 	uts_ns_init();
 	key_init();
 	security_init();
+	heki_early_init();
 	dbg_late_init();
 	net_ns_init();
 	vfs_caches_init();
