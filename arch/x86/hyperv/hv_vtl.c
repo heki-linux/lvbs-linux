@@ -31,13 +31,19 @@ static bool __init hv_vtl_msi_ext_dest_id(void)
 	return true;
 }
 
+static void __init hv_vtl1_apic_intr_mode_select(void)
+{
+	apic_intr_mode = APIC_SYMMETRIC_IO;
+}
+
 void __init hv_vtl_init_platform(void)
 {
-	pr_info("Linux runs in Hyper-V Virtual Trust Level\n");
+	pr_info("Linux runs in Hyper-V Virtual Trust Level\n\n\n");
 
 	x86_init.resources.probe_roms = x86_init_noop;
 	x86_platform.realmode_reserve = x86_init_noop;
 	x86_platform.realmode_init = x86_init_noop;
+	x86_init.irqs.intr_mode_select = hv_vtl1_apic_intr_mode_select;
 	x86_init.irqs.pre_vector_init = x86_init_noop;
 	x86_init.timers.timer_init = x86_init_noop;
 
