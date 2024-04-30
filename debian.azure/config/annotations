@@ -4417,6 +4417,7 @@ CONFIG_TI_ADS7924                               policy<{'amd64': '-', 'arm64': '
 CONFIG_TI_ADS7950                               policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_TI_ADS8344                               policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_TI_ADS8688                               policy<{'amd64': '-', 'arm64': 'm'}>
+CONFIG_TI_AM335X_ADC                            policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_TI_CPSW_PHY_SEL                          policy<{'amd64': '-', 'arm64': 'n'}>
 CONFIG_TI_DAC082S085                            policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_TI_DAC5571                               policy<{'amd64': '-', 'arm64': 'm'}>
@@ -4503,6 +4504,7 @@ CONFIG_TOUCHSCREEN_STMFTS                       policy<{'amd64': '-', 'arm64': '
 CONFIG_TOUCHSCREEN_SUR40                        policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_TOUCHSCREEN_SURFACE3_SPI                 policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_TOUCHSCREEN_SX8654                       policy<{'amd64': '-', 'arm64': 'm'}>
+CONFIG_TOUCHSCREEN_TI_AM335X_TSC                policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_TOUCHSCREEN_TOUCHIT213                   policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_TOUCHSCREEN_TOUCHRIGHT                   policy<{'amd64': '-', 'arm64': 'm'}>
 CONFIG_TOUCHSCREEN_TOUCHWIN                     policy<{'amd64': '-', 'arm64': 'm'}>
