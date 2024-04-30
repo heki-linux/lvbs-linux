@@ -31,10 +31,6 @@
 MODULE_AUTHOR("Microsoft");
 MODULE_LICENSE("GPL");
 
-#define MSHV_ENTRY_REASON_LOWER_VTL_CALL     0x1
-#define MSHV_ENTRY_REASON_INTERRUPT          0x2
-#define MSHV_ENTRY_REASON_INTERCEPT          0x3
-
 #define MAX_GUEST_MEM_SIZE	BIT_ULL(40)
 #define MSHV_PG_OFF_CPU_MASK	0xFFFF
 #define MSHV_REAL_OFF_SHIFT	16
@@ -96,15 +92,6 @@ union hv_register_vsm_capabilities {
 		u64 reserved: 35;
 	} __packed;
 };
-
-union hv_register_vsm_page_offsets {
-	struct {
-		u64 vtl_call_offset : 12;
-		u64 vtl_return_offset : 12;
-		u64 reserved_mbz : 40;
-	};
-	u64 as_uint64;
-} __packed;
 
 struct mshv_vtl_per_cpu {
 	struct mshv_vtl_run *run;
