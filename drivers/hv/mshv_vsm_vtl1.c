@@ -16,8 +16,21 @@
 #include "mshv.h"
 #include "mshv_vtl.h"
 
+/*
+ * mshv_vtl_call_params : Strcture to parse in parameters from VTL0
+ * _a0 : command id
+ * _a1, _a2, _a3: optional and depends on the requested service
+ */
+struct mshv_vtl_call_params {
+	u64 _a0;
+	u64 _a1;
+	u64 _a2;
+	u64 _a3;
+};
+
 struct hv_vsm_per_cpu {
 	struct hv_vtl_cpu_context cpu_context;
+	struct mshv_vtl_call_params vtl_params;
 	struct task_struct *vsm_task;
 	/* Shut down tick when exiting VTL1 */
 	bool suppress_tick;
@@ -165,6 +178,15 @@ out:
 	raw_local_irq_enable();
 }
 
+static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
+{
+	switch (_vtl_params->_a0) {
+	default:
+		pr_err("%s: Wrong Command:0x%llx sent into VTL1\n", __func__, _vtl_params->_a0);
+		break;
+	}
+}
+
 static int mshv_vsm_vtl_task(void *unused)
 {
 	struct hv_vp_assist_page *hvp;
@@ -173,6 +195,34 @@ static int mshv_vsm_vtl_task(void *unused)
 		hvp = hv_vp_assist_page[smp_processor_id()];
 		switch (hvp->vtl_entry_reason) {
 		case MSHV_ENTRY_REASON_LOWER_VTL_CALL:
+			struct hv_vsm_per_cpu *per_cpu;
+			struct hv_vtl_cpu_context *cpu_context;
+			struct mshv_vtl_call_params *vtl_params;
+
+			/*
+			 *  VTL0 can pass four arguments to VTL1 in registers rdi,
+			 *  rsi, rdx and r8 respectively. r8 is also used to pass
+			 *  success or failure back to VTL0. Copy these arguments
+			 *  to vtl_params structure on entry. Copy vtl_params
+			 *  out to cpu_context on vtl exit so that _mshv_vtl_return
+			 *  populates these registers with return values from vtl1.
+			 */
+			per_cpu = this_cpu_ptr(&vsm_per_cpu);
+			cpu_context = &per_cpu->cpu_context;
+			vtl_params = &per_cpu->vtl_params;
+
+			vtl_params->_a0 = cpu_context->rdi;
+			vtl_params->_a1 = cpu_context->rsi;
+			vtl_params->_a2 = cpu_context->rdx;
+			vtl_params->_a3 = cpu_context->r8;
+
+			pr_debug("CPU%u: MSHV_ENTRY_REASON_LOWER_VTL_CALL\n", smp_processor_id());
+			mshv_vsm_handle_entry(vtl_params);
+
+			cpu_context->rdi = vtl_params->_a0;
+			cpu_context->rsi = vtl_params->_a1;
+			cpu_context->rdx = vtl_params->_a2;
+			cpu_context->r8 =  vtl_params->_a3;
 			break;
 		case MSHV_ENTRY_REASON_INTERRUPT:
 			/* ToDo: Some kind of refcounting here */
