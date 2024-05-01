@@ -380,9 +380,11 @@ int hv_vtl_set_reg(struct hv_register_assoc *regs, bool shared);
  */
 int hv_vtl_get_reg(struct hv_register_assoc *regs, bool shared);
 
+int hv_secure_vtl_enable_secondary_cpu(u32 target_vp_index);
 #else
 static inline void __init hv_vtl_init_platform(void) {}
 static inline int __init hv_vtl_early_init(void) { return 0; }
+static inline int hv_secure_vtl_enable_secondary_cpu(u32 target_vp_index) { return 0; }
 #endif
 
 #include <asm-generic/mshyperv.h>
