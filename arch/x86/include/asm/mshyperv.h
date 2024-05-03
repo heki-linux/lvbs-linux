@@ -358,7 +358,7 @@ struct hv_vtl_cpu_context {
 };
 
 void __init hv_vtl_init_platform(void);
-int __init hv_vtl_early_init(void);
+int __init hv_vtl_early_init(u8 vtl);
 void hv_vtl_return(struct hv_vtl_cpu_context *vtl0, u32 flags, u64 vtl_return_offset);
 
 static inline void hv_vtl_idle(void)
@@ -383,7 +383,7 @@ int hv_vtl_get_reg(struct hv_register_assoc *regs, bool shared);
 int hv_secure_vtl_enable_secondary_cpu(u32 target_vp_index);
 #else
 static inline void __init hv_vtl_init_platform(void) {}
-static inline int __init hv_vtl_early_init(void) { return 0; }
+static inline int __init hv_vtl_early_init(u8 vtl) { return 0; }
 static inline int hv_secure_vtl_enable_secondary_cpu(u32 target_vp_index) { return 0; }
 #endif
 
