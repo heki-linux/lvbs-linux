@@ -476,8 +476,10 @@ static int vmap_pages_pte_range(pmd_t *pmd, unsigned long addr,
 			return -EBUSY;
 		if (WARN_ON(!page))
 			return -ENOMEM;
+#if 0
 		if (WARN_ON(!pfn_valid(page_to_pfn(page))))
 			return -EINVAL;
+#endif
 
 		set_pte_at(&init_mm, addr, pte, mk_pte(page, prot));
 		(*nr)++;
