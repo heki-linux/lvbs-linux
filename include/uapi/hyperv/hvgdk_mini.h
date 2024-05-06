@@ -736,6 +736,9 @@ enum hv_register_name {
 	HV_REGISTER_VSM_CAPABILITIES		= 0x000D0006,
 	HV_REGISTER_VSM_PARTITION_CONFIG	= 0x000D0007,
 	HV_REGISTER_VSM_VP_SECURE_CONFIG_VTL0	= 0x000D0010,
+	HV_REGISTER_CR_INTERCEPT_CONTROL	= 0x000E0000,
+	HV_REGISTER_CR_INTERCEPT_CR0_MASK	= 0x000E0001,
+	HV_REGISTER_CR_INTERCEPT_CR4_MASK	= 0x000E0002,
 
 #if defined(__x86_64__)
 	/* Suspend Registers */
@@ -1313,6 +1316,39 @@ struct hv_input_install_intercept {
 	__u32 access_type;	/* mask */
 	__u32 intercept_type;	/* hv_intercept_type */
 	union hv_intercept_parameters intercept_parameter;
+} __packed;
+
+/*  CR Intercept Control */
+union hv_cr_intercept_control {
+	u64 as_u64;
+	struct {
+		u64 cr0_write			: 1;
+		u64 cr4_write			: 1;
+		u64 xcr0_write			: 1;
+		u64 ia32miscenable_read		: 1;
+		u64 ia32miscenable_write	: 1;
+		u64 msr_lstar_read		: 1;
+		u64 msr_lstar_write		: 1;
+		u64 msr_star_read		: 1;
+		u64 msr_star_write		: 1;
+		u64 msr_cstar_read		: 1;
+		u64 msr_cstar_write		: 1;
+		u64 msr_apic_base_read		: 1;
+		u64 msr_apic_base_write		: 1;
+		u64 msr_efer_read		: 1;
+		u64 msr_efer_write		: 1;
+		u64 gdtr_write			: 1;
+		u64 idtr_write			: 1;
+		u64 ldtr_write			: 1;
+		u64 tr_write			: 1;
+		u64 msr_sysenter_cs_write	: 1;
+		u64 msr_sysenter_eip_write	: 1;
+		u64 msr_sysenter_esp_write	: 1;
+		u64 msr_sfmask_write		: 1;
+		u64 msr_tsc_aux_write		: 1;
+		u64 msr_sgx_launch_ctrl_write	: 1;
+		u64 reserved			: 39;
+	};
 } __packed;
 
 #endif /* _UAPI_HV_HVGDK_MINI_H */

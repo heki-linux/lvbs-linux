@@ -30,8 +30,10 @@
 /* Compute the page frame number (PFN) from a page address */
 #define VSM_PAGE_TO_PFN(addr)  ((addr) / VSM_PAGE_SIZE)
 
-extern struct boot_params boot_params;
+#define CR4_PIN_MASK	~((u64)(X86_CR4_MCE | X86_CR4_PGE | X86_CR4_PCE | X86_CR4_VMXE))
+#define CR0_PIN_MASK	((u64)(X86_CR0_PE | X86_CR0_WP | X86_CR0_PG))
 
+extern struct boot_params boot_params;
 /*
  * mshv_vtl_call_params : Strcture to parse in parameters from VTL0
  * _a0 : command id
@@ -46,13 +48,25 @@ struct mshv_vtl_call_params {
 
 enum vsm_service_ids {
 	VSM_VTL_CALL_FUNC_ID_ENABLE_APS_VTL = 0x1FFE0,
-	VSM_VTL_CALL_FUNC_ID_BOOT_APS = 0x1FFE1
+	VSM_VTL_CALL_FUNC_ID_BOOT_APS = 0x1FFE1,
+	VSM_VTL_CALL_FUNC_ID_LOCK_REGS = 0x1FFE2
 };
 
 struct hv_vsm_per_cpu {
 	struct hv_vtl_cpu_context cpu_context;
 	struct mshv_vtl_call_params vtl_params;
 	struct task_struct *vsm_task;
+	u64 cr0_saved;
+	u64 cr4_saved;
+	u64 msr_lstar_saved;
+	u64 msr_cstar_saved;
+	u64 msr_star_saved;
+	u64 msr_apic_base_saved;
+	u64 msr_efer_saved;
+	u64 msr_sysenter_cs_saved;
+	u64 msr_sysenter_eip_saved;
+	u64 msr_sysenter_esp_saved;
+	u64 msr_sfmask_saved;
 	/* Shut down tick when exiting VTL1 */
 	bool suppress_tick;
 	/* CPU should stay in VTL1 and not exit to VTL0 even if idle is invoked */
@@ -135,6 +149,90 @@ static int hv_modify_vtl_protection_mask(u64 start, u64 number_of_pages, u32 pag
 	local_irq_restore(flags);
 	/* Done */
 	return hv_result(status);
+}
+
+static void __save_vtl0_registers(void)
+{
+	struct hv_vsm_per_cpu *per_cpu = this_cpu_ptr(&vsm_per_cpu);
+	struct hv_register_assoc reg_assoc[11] = { 0 };
+	union hv_input_vtl input_vtl;
+
+	reg_assoc[0].name = HV_X64_REGISTER_CR0;
+	reg_assoc[1].name = HV_X64_REGISTER_CR4;
+	reg_assoc[2].name = HV_X64_REGISTER_LSTAR;
+	reg_assoc[3].name = HV_X64_REGISTER_STAR;
+	reg_assoc[4].name = HV_X64_REGISTER_CSTAR;
+	reg_assoc[5].name = HV_X64_REGISTER_APIC_BASE;
+	reg_assoc[6].name = HV_X64_REGISTER_EFER;
+	reg_assoc[7].name = HV_X64_REGISTER_SYSENTER_CS;
+	reg_assoc[8].name = HV_X64_REGISTER_SYSENTER_ESP;
+	reg_assoc[9].name = HV_X64_REGISTER_SYSENTER_EIP;
+	reg_assoc[10].name = HV_X64_REGISTER_SFMASK;
+
+	input_vtl.as_uint8 = 0;
+	input_vtl.target_vtl = 0;
+	input_vtl.use_target_vtl = 1;
+
+	hv_call_get_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF, 11, input_vtl, reg_assoc);
+
+	per_cpu->cr0_saved = reg_assoc[0].value.reg64;
+	per_cpu->cr4_saved = reg_assoc[1].value.reg64;
+	per_cpu->msr_lstar_saved = reg_assoc[2].value.reg64;
+	per_cpu->msr_star_saved = reg_assoc[3].value.reg64;
+	per_cpu->msr_cstar_saved = reg_assoc[4].value.reg64;
+	per_cpu->msr_apic_base_saved = reg_assoc[5].value.reg64;
+	per_cpu->msr_efer_saved = reg_assoc[6].value.reg64;
+	per_cpu->msr_sysenter_cs_saved = reg_assoc[7].value.reg64;
+	per_cpu->msr_sysenter_esp_saved = reg_assoc[8].value.reg64;
+	per_cpu->msr_sysenter_eip_saved = reg_assoc[9].value.reg64;
+	per_cpu->msr_sfmask_saved = reg_assoc[10].value.reg64;
+}
+
+static int mshv_vsm_lock_regs(void)
+{
+	struct hv_register_assoc *reg_assoc;
+	union hv_cr_intercept_control ctrl;
+	union hv_input_vtl input_vtl;
+	int ret;
+
+	ctrl.as_u64 = 0;
+	ctrl.cr0_write = 1;
+	ctrl.cr4_write = 1;
+	ctrl.gdtr_write = 1;
+	ctrl.idtr_write = 1;
+	ctrl.ldtr_write = 1;
+	ctrl.tr_write = 1;
+	ctrl.msr_lstar_write = 1;
+	ctrl.msr_star_write = 1;
+	ctrl.msr_cstar_write = 1;
+	ctrl.msr_apic_base_write = 1;
+	ctrl.msr_efer_write = 1;
+	ctrl.msr_sysenter_cs_write = 1;
+	ctrl.msr_sysenter_eip_write = 1;
+	ctrl.msr_sysenter_esp_write = 1;
+	ctrl.msr_sfmask_write = 1;
+
+	__save_vtl0_registers();
+	/* ToDo: Error Handling for kmalloc */
+	reg_assoc = kmalloc(3 * sizeof(*reg_assoc), GFP_KERNEL);
+
+	reg_assoc[0].name = HV_REGISTER_CR_INTERCEPT_CONTROL;
+	reg_assoc[0].value.reg64 = ctrl.as_u64;
+
+	reg_assoc[1].name = HV_REGISTER_CR_INTERCEPT_CR4_MASK;
+	reg_assoc[1].value.reg64 = CR4_PIN_MASK;
+
+	reg_assoc[2].name = HV_REGISTER_CR_INTERCEPT_CR0_MASK;
+	reg_assoc[2].value.reg64 = CR0_PIN_MASK;
+
+	input_vtl.as_uint8 = 0;
+	ret = hv_call_set_vp_registers(HV_VP_INDEX_SELF, HV_PARTITION_ID_SELF,
+				       3, input_vtl, reg_assoc);
+
+	/* ToDo: Error Handling */
+	kfree(reg_assoc);
+
+	return ret;
 }
 
 static int mshv_vsm_enable_aps(unsigned int cpu_present_mask_pfn)
@@ -475,6 +573,10 @@ static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
 	case VSM_VTL_CALL_FUNC_ID_BOOT_APS:
 		pr_debug("%s : VSM_VTL_CALL_FUNC_ID_BOOT_APS\n", __func__);
 		status = mshv_vsm_boot_aps(_vtl_params->_a1, _vtl_params->_a2);
+		break;
+	case VSM_VTL_CALL_FUNC_ID_LOCK_REGS:
+		pr_debug("%s : VSM_LOCK_REGS\n", __func__);
+		status = mshv_vsm_lock_regs();
 		break;
 	default:
 		pr_err("%s: Wrong Command:0x%llx sent into VTL1\n", __func__, _vtl_params->_a0);
