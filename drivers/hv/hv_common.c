@@ -65,7 +65,7 @@ EXPORT_SYMBOL_GPL(hyperv_pcpu_output_arg);
  */
 static inline bool hv_output_arg_exists(void)
 {
-#ifdef CONFIG_MSHV_VTL
+#if defined (CONFIG_MSHV_VTL) || (CONFIG_MSHV_SECURE_VTL)
 	return true;
 #else
 	return hv_root_partition ? true : false;
