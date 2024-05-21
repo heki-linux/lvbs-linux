@@ -200,6 +200,7 @@ irqreturn_t vmbus_percpu_isr(int irq, void *dev_id);
 void hv_remove_vmbus_handler(void);
 void hv_setup_stimer0_handler(void (*handler)(void));
 void hv_remove_stimer0_handler(void);
+void hv_setup_vsm_handler(void (*handler)(void));
 
 void hv_setup_mshv_irq(void (*handler)(void));
 
