@@ -444,7 +444,7 @@ enum hv_message_type {
 	HVMSG_X64_EXCEPTION_INTERCEPT		= 0x80010003,
 	HVMSG_X64_APIC_EOI			= 0x80010004,
 	HVMSG_X64_LEGACY_FP_ERROR		= 0x80010005,
-	HVMSG_X64_IOMMU_PRQ			= 0x80010006,
+	HVMSG_X64_REGISTER_INTERCEPT		= 0x80010006,
 	HVMSG_X64_HALT				= 0x80010007,
 	HVMSG_X64_INTERRUPTION_DELIVERABLE	= 0x80010008,
 	HVMSG_X64_SIPI_INTERCEPT		= 0x80010009,
@@ -730,6 +730,7 @@ struct hv_vp_assist_page {
 } __packed;
 
 enum hv_register_name {
+	HV_REGISTER_PENDING_EVENT0		= 0x00010004,
 
 	/* Synthetic VSM registers */
 	HV_REGISTER_VSM_CODE_PAGE_OFFSETS	= 0x000D0002,
@@ -1348,6 +1349,20 @@ union hv_cr_intercept_control {
 		u64 msr_tsc_aux_write		: 1;
 		u64 msr_sgx_launch_ctrl_write	: 1;
 		u64 reserved			: 39;
+	};
+} __packed;
+
+union hv_pending_exception_event {
+	u64 as_u64[2];
+	struct {
+		u64 event_pending	: 1;
+		u64 event_type		: 3;
+		u64 reserved_0		: 4;
+		u64 deliver_error_code	: 1;
+		u64 reserved_1		: 7;
+		u64 vector		: 16;
+		u64 error_code		: 32;
+		u64 exception_parameter	: 64;
 	};
 } __packed;
 
