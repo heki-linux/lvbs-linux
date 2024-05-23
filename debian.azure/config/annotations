@@ -101,8 +101,11 @@ CONFIG_IWLMEI                                   note<'LP: #1987312'>
 CONFIG_KERNEL_ZSTD                              policy<{'amd64': 'y', 'arm64': 'n'}>
 CONFIG_KERNEL_ZSTD                              note<'LP: #1931725'>
 
-CONFIG_MICROSOFT_MANA                           policy<{'amd64': 'y'}>
-CONFIG_MICROSOFT_MANA                           note<'LP:1949357'>
+CONFIG_MICROSOFT_MANA                           policy<{'amd64': 'y', 'arm64': 'y'}>
+CONFIG_MICROSOFT_MANA                           note<'LP:1949357, LP:2066982'>
+
+CONFIG_MANA_INFINIBAND                          policy<{'amd64': 'm', 'arm64': 'm'}>
+CONFIG_MANA_INFINIBAND                          note<'LP: #2024917, LP:2066982'>
 
 CONFIG_MMC_BLOCK                                policy<{'amd64': '-', 'arm64': 'y'}>
 CONFIG_MMC_BLOCK                                note<'boot essential on armhf/arm64'>
