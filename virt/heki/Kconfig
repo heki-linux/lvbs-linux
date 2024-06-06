@@ -4,7 +4,7 @@
 
 config HEKI
 	bool "Hypervisor Enforced Kernel Integrity (Heki)"
-	depends on ARCH_SUPPORTS_HEKI
+	depends on ARCH_SUPPORTS_HEKI && HYPERVISOR_SUPPORTS_HEKI
 	help
 	  This feature enhances guest virtual machine security by taking
 	  advantage of security features provided by the hypervisor for guests.
@@ -17,3 +17,10 @@ config ARCH_SUPPORTS_HEKI
 	  An architecture should select this when it can successfully build
 	  and run with CONFIG_HEKI. That is, it should provide all of the
 	  architecture support required for the HEKI feature.
+
+config HYPERVISOR_SUPPORTS_HEKI
+	bool "Hypervisor support for Heki"
+	help
+	  A hypervisor should select this when it can successfully build
+	  and run with CONFIG_HEKI. That is, it should provide all of the
+	  hypervisor support required for the Heki feature.
