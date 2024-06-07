@@ -96,6 +96,7 @@ struct hv_mem_intercept_message {
 } __packed;
 
 extern struct boot_params boot_params;
+bool vtl0_end_of_boot;
 /*
  * mshv_vtl_call_params : Strcture to parse in parameters from VTL0
  * _a0 : command id
@@ -111,7 +112,8 @@ struct mshv_vtl_call_params {
 enum vsm_service_ids {
 	VSM_VTL_CALL_FUNC_ID_ENABLE_APS_VTL = 0x1FFE0,
 	VSM_VTL_CALL_FUNC_ID_BOOT_APS = 0x1FFE1,
-	VSM_VTL_CALL_FUNC_ID_LOCK_REGS = 0x1FFE2
+	VSM_VTL_CALL_FUNC_ID_LOCK_REGS = 0x1FFE2,
+	VSM_VTL_CALL_FUNC_ID_SIGNAL_END_OF_BOOT = 0x1FFE3,
 };
 
 struct hv_vsm_per_cpu {
@@ -860,15 +862,23 @@ static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
 	switch (_vtl_params->_a0) {
 	case VSM_VTL_CALL_FUNC_ID_ENABLE_APS_VTL:
 		pr_debug("%s : VSM_VTL_CALL_FUNC_ID_ENABLE_APS_VTL\n", __func__);
-		status = mshv_vsm_enable_aps(_vtl_params->_a1);
+		if (!vtl0_end_of_boot)
+			status = mshv_vsm_enable_aps(_vtl_params->_a1);
 		break;
 	case VSM_VTL_CALL_FUNC_ID_BOOT_APS:
 		pr_debug("%s : VSM_VTL_CALL_FUNC_ID_BOOT_APS\n", __func__);
-		status = mshv_vsm_boot_aps(_vtl_params->_a1, _vtl_params->_a2);
+		if (!vtl0_end_of_boot)
+			status = mshv_vsm_boot_aps(_vtl_params->_a1, _vtl_params->_a2);
 		break;
 	case VSM_VTL_CALL_FUNC_ID_LOCK_REGS:
 		pr_debug("%s : VSM_LOCK_REGS\n", __func__);
-		status = mshv_vsm_lock_regs();
+		if (!vtl0_end_of_boot)
+			status = mshv_vsm_lock_regs();
+		break;
+	case VSM_VTL_CALL_FUNC_ID_SIGNAL_END_OF_BOOT:
+		pr_debug("%s: VSM_SIGNAL_END_OF_BOOT\n", __func__);
+		vtl0_end_of_boot = true;
+		status = 0;
 		break;
 	default:
 		pr_err("%s: Wrong Command:0x%llx sent into VTL1\n", __func__, _vtl_params->_a0);
