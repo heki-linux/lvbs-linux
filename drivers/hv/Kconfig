@@ -74,4 +74,9 @@ config HYPERV_VSM
 	  establish an interface between VTL0 and VTL1 to request for
 	  VSM services.
 
+config HYPERV_VSM_DEBUG
+	bool
+	depends on HYPERV_VSM
+	default n
+
 endmenu

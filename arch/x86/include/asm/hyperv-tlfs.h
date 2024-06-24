@@ -799,6 +799,107 @@ struct hv_get_vp_from_apic_id_in {
 	u32 apic_ids[];
 } __packed;
 
+/* Types for the EnablePartitionVtl hypercall */
+union hv_enable_partition_vtl_flags {
+	u8 as_u8;
+
+	struct {
+		u8 enable_mbec : 1;
+		u8 reserved : 7;
+	};
+};
+
+struct hv_input_enable_partition_vtl {
+	u64 partition_id;
+	u8 target_vtl;
+	union hv_enable_partition_vtl_flags flags;
+	u16 reserved16_z;
+	u32 reserved32_z;
+} __packed;
+
+enum hv_register_name {
+	HvRegisterVsmCodePageOffsets = 0x000d0002,
+	HvRegisterVsmVpStatus = 0x000d0003,
+	HvRegisterVsmPartitionStatus = 0x000d0004,
+	HvRegisterVsmCapabilities = 0x000d0006,
+};
+
+union hv_register_value {
+	u64 as_u64;
+	u32 as_u32;
+	u16 as_u16;
+	u8 as_u8;
+};
+
+union hv_register_vsm_partition_status {
+	u64 as_u64;
+
+	struct {
+		u64 enabled_vtl_set : 16;
+		u64 max_vtl : 4;
+		u64 mbec_enabled_vtl_set: 16;
+		u64 reserved_z : 28;
+	};
+};
+
+struct hv_input_get_vp_registers {
+	u64 partition_id;
+	u32 vp_index;
+	union hv_input_vtl input_vtl;
+	u8 reserved8_z;
+	u16 reserved16_z;
+	__aligned(8) enum hv_register_name names[1];
+};
+
+union hv_register_vsm_vp_status {
+	u64 as_u64;
+
+	struct {
+		u64 active_vtl : 4;
+		u64 active_mbec_enabled : 1;
+		u64 reserved_z0 : 11;
+		u64 enabled_vtl_set : 16;
+		u64 reserved_z1 : 32;
+	};
+};
+
+/* Types for the EnableVpVtl hypercall */
+struct hv_initial_vp_context {
+	u64 rip;
+	u64 rsp;
+	u64 rflags;
+
+	/* Segment selector registers together with their hidden state */
+	struct hv_x64_segment_register cs;
+	struct hv_x64_segment_register ds;
+	struct hv_x64_segment_register es;
+	struct hv_x64_segment_register fs;
+	struct hv_x64_segment_register gs;
+	struct hv_x64_segment_register ss;
+	struct hv_x64_segment_register tr;
+	struct hv_x64_segment_register ldtr;
+
+	/* Global and Interrupt Descriptor tables */
+	struct hv_x64_table_register idtr;
+	struct hv_x64_table_register gdtr;
+
+	/* Control registers and MSRs */
+	u64 efer;
+	u64 cr0;
+	u64 cr3;
+	u64 cr4;
+	u64 msr_cr_pat;
+};
+
+struct hv_input_enable_vp_vtl {
+	u64 partition_id;
+	u32 vp_index;
+	u8 target_vtl;
+	u8 reserved_z0;
+	u16 reserved_z1;
+	struct hv_initial_vp_context vp_vtl_context;
+};
+
 #include <asm-generic/hyperv-tlfs.h>
 
 #endif
