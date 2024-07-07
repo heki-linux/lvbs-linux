@@ -37,6 +37,22 @@ struct heki {
 	struct heki_hypervisor *hypervisor;
 };
 
+/*
+ * The kernel page table is walked to locate kernel mappings. For each
+ * mapping, a callback function is called. The table walker passes information
+ * about the mapping to the callback using this structure.
+ */
+struct heki_args {
+	/* Information passed by the table walker to the callback. */
+	unsigned long va;
+	phys_addr_t pa;
+	size_t size;
+	unsigned long flags;
+};
+
+/* Callback function called by the table walker. */
+typedef void (*heki_func_t)(struct heki_args *args);
+
 extern struct heki heki;
 extern bool heki_enabled;
 
