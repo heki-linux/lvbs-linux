@@ -29,6 +29,8 @@ __init void heki_early_init(void)
 		return;
 	}
 	pr_warn("Heki is supported by the active Hypervisor\n");
+
+	mutex_init(&heki.lock);
 }
 
 /*
@@ -46,6 +48,8 @@ void heki_late_init(void)
 		return;
 
 	pr_warn("Control registers locked\n");
+
+	heki_arch_init();
 
 	/* 
 	 * Signal end of kernel boot.

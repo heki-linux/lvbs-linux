@@ -14,6 +14,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/printk.h>
+#include <linux/xarray.h>
 
 #ifdef CONFIG_HEKI
 
@@ -34,6 +35,7 @@ struct heki_hypervisor {
  * pointer into this heki structure.
  */
 struct heki {
+	struct mutex lock;
 	struct heki_hypervisor *hypervisor;
 };
 
@@ -48,6 +50,7 @@ struct heki_args {
 	phys_addr_t pa;
 	size_t size;
 	unsigned long flags;
+	struct xarray permissions;
 };
 
 /* Callback function called by the table walker. */
@@ -58,6 +61,15 @@ extern bool heki_enabled;
 
 void heki_early_init(void);
 void heki_late_init(void);
+void heki_walk(unsigned long va, unsigned long va_end, heki_func_t func,
+	       struct heki_args *args);
+void heki_map(unsigned long va, unsigned long end);
+void heki_init_perm(unsigned long va, unsigned long end,
+		    struct heki_args *args);
+
+/* Arch-specific functions. */
+void heki_arch_init(void);
+unsigned long heki_flags_to_permissions(unsigned long flags);
 
 #else /* !CONFIG_HEKI */
 
