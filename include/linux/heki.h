@@ -51,6 +51,8 @@ struct heki_page {
 
 enum heki_kdata_type {
 	HEKI_MODULE_CERTS,
+	HEKI_KERNEL_INFO,
+	HEKI_KERNEL_DATA,
 	HEKI_KDATA_MAX,
 };
 
@@ -59,6 +61,13 @@ enum heki_kdata_type {
  * values in enum mod_mem_type.
  */
 #define MOD_ELF		MOD_MEM_NUM_TYPES
+
+struct heki_kinfo {
+	struct kernel_symbol	*ksymtab_start;
+	struct kernel_symbol	*ksymtab_end;
+	struct kernel_symbol	*ksymtab_gpl_start;
+	struct kernel_symbol	*ksymtab_gpl_end;
+};
 
 /*
  * A hypervisor that supports Heki will instantiate this structure to
