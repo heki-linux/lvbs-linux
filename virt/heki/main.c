@@ -46,6 +46,14 @@ void heki_late_init(void)
 		return;
 
 	pr_warn("Control registers locked\n");
+
+	/* 
+	 * Signal end of kernel boot.
+	 * This means all boot time lvbs protections are in place and protections on
+	 * many of the resources cannot be altered now.
+	 */
+	if (hypervisor->finish_boot())
+		hypervisor->finish_boot();
 }
 
 static int __init heki_parse_config(char *str)
