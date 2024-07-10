@@ -13,6 +13,8 @@
 #include <linux/fs.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/key.h>
+#include <keys/system_keyring.h>
 #include <linux/heki.h>
 #include <linux/sort.h>
 #include <linux/mem_attr.h>
@@ -118,6 +120,7 @@ enum vsm_service_ids {
 	VSM_VTL_CALL_FUNC_ID_LOCK_REGS = 0x1FFE2,
 	VSM_VTL_CALL_FUNC_ID_SIGNAL_END_OF_BOOT = 0x1FFE3,
 	VSM_VTL_CALL_FUNC_ID_PROTECT_MEMORY = 0x1FFE4,
+	VSM_VTL_CALL_FUNC_ID_LOAD_KDATA = 0x1FFE5,
 };
 
 struct hv_vsm_per_cpu {
@@ -148,6 +151,11 @@ struct hv_vsm_per_cpu {
 
 static DEFINE_PER_CPU(struct hv_vsm_per_cpu, vsm_per_cpu);
 static union  hv_register_vsm_page_offsets vsm_page_offsets;
+
+struct vtl0 {
+	struct heki_mem mem[HEKI_KDATA_MAX];
+	struct key *trusted_keys;
+} vtl0;
 
 struct hv_input_modify_vtl_protection_mask {
 	u64 partition_id;
@@ -836,6 +844,72 @@ static int mshv_vsm_lock_regs(void)
 	return ret;
 }
 
+int x509_load_certificate_list(const u8 cert_list[],
+			       const unsigned long list_size,
+			       const struct key *keyring);
+
+static int mshv_vsm_create_trusted_keys(void)
+{
+	struct heki_mem *mem = &vtl0.mem[HEKI_MODULE_CERTS];
+	void *certs = mem->va;
+	unsigned long certs_size = mem->size;
+	int ret = 0;
+
+	if (vtl0.trusted_keys) {
+		/* Can only load this once. */
+		pr_warn("%s: Certificates already loaded\n", __func__);
+		ret = -EINVAL;
+		goto unmap;
+	}
+
+	vtl0.trusted_keys =
+		keyring_alloc(".guest_trusted_keys",
+			      GLOBAL_ROOT_UID, GLOBAL_ROOT_GID, current_cred(),
+			      ((KEY_POS_ALL & ~KEY_POS_SETATTR) |
+			      KEY_USR_VIEW | KEY_USR_READ | KEY_USR_SEARCH),
+			      KEY_ALLOC_NOT_IN_QUOTA,
+			      NULL, NULL);
+	if (!vtl0.trusted_keys) {
+		pr_warn("%s: Could not allocate trusted keyring\n", __func__);
+		ret = -ENOMEM;
+		goto unmap;
+	}
+
+	/* Populate a trusted keyring with VTL0 module certificates. */
+	ret = x509_load_certificate_list(certs, certs_size, vtl0.trusted_keys);
+	if (ret) {
+		pr_warn("%s: Can't populate trusted keyring\n", __func__);
+		key_put(vtl0.trusted_keys);
+		vtl0.trusted_keys = NULL;
+	} else {
+		pr_debug("%s: Created trusted keys\n", __func__);
+	}
+
+unmap:
+	vsm_unmap(mem);
+	return ret;
+}
+
+static int mshv_vsm_load_kdata(u64 pa, unsigned long nranges)
+{
+	struct heki_range *ranges;
+	int ret;
+
+	ranges = __vsm_read_ranges(pa, nranges, true);
+	if (!ranges)
+		return -ENOMEM;
+
+	ret = vsm_map_all(ranges, nranges, vtl0.mem, HEKI_KDATA_MAX);
+	if (ret)
+		goto free_ranges;
+
+	ret =  mshv_vsm_create_trusted_keys();
+
+free_ranges:
+	vfree(ranges);
+	return ret;
+}
+
 static int mshv_vsm_enable_aps(unsigned int cpu_present_mask_pfn)
 {
 	unsigned int cpu, total_cpus_enabled = 0;
@@ -1191,6 +1265,11 @@ static void mshv_vsm_handle_entry(struct mshv_vtl_call_params *_vtl_params)
 		pr_debug("%s : VSM_PROTECT_MEMORY\n", __func__);
 		if (!vtl0_end_of_boot)
 			status = mshv_vsm_protect_memory(_vtl_params->_a1, _vtl_params->_a2);
+		break;
+	case VSM_VTL_CALL_FUNC_ID_LOAD_KDATA:
+		pr_debug("%s : VSM_LOAD_KDATA\n", __func__);
+		if (!vtl0_end_of_boot)
+			status = mshv_vsm_load_kdata(_vtl_params->_a1, _vtl_params->_a2);
 		break;
 	default:
 		pr_err("%s: Wrong Command:0x%llx sent into VTL1\n", __func__, _vtl_params->_a0);

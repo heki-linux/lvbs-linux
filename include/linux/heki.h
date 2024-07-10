@@ -57,4 +57,9 @@ struct heki_mem {
 	unsigned long		nranges;
 };
 
+enum heki_kdata_type {
+	HEKI_MODULE_CERTS,
+	HEKI_KDATA_MAX,
+};
+
 #endif /* __HEKI_H__ */
