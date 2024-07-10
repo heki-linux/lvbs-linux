@@ -17,6 +17,8 @@
 #include <linux/printk.h>
 #include <linux/slab.h>
 
+#include <asm/heki.h>
+
 /*
  * This structure contains a guest memory range and its attributes (e.g.,
  * permissions (RWX)).
@@ -98,6 +100,7 @@ struct heki_kinfo {
 	struct kernel_symbol *ksymtab_end;
 	struct kernel_symbol *ksymtab_gpl_start;
 	struct kernel_symbol *ksymtab_gpl_end;
+	struct heki_arch_kinfo arch;
 };
 
 #endif /* __HEKI_H__ */

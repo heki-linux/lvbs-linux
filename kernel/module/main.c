@@ -2525,6 +2525,18 @@ static int post_relocation(struct module *mod, const struct load_info *info)
 	return module_finalize(info->hdr, info->sechdrs, mod);
 }
 
+static int guest_post_relocation(struct module *mod,
+				 const struct load_info *info)
+{
+	int err;
+
+	/* Arch-specific module finalizing. */
+	err = module_finalize(info->hdr, info->sechdrs, mod);
+
+	module_arch_cleanup(mod);
+	return err;
+}
+
 /* Call module constructors. */
 static void do_mod_ctors(struct module *mod)
 {
@@ -3208,6 +3220,10 @@ int validate_guest_module(struct load_info *info, int flags,
 			__func__, info->name);
 		goto unmap_mod;
 	}
+
+	err = guest_post_relocation(mod, info);
+	if (err)
+		goto unmap_mod;
 
 	/* Compare the original module contents and their copies. */
 	for_each_mod_mem_type(type) {
