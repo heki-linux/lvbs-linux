@@ -70,6 +70,8 @@ struct heki_mem {
 
 enum heki_kdata_type {
 	HEKI_MODULE_CERTS,
+	HEKI_KERNEL_INFO,
+	HEKI_KERNEL_DATA,
 	HEKI_KDATA_MAX,
 };
 
@@ -90,5 +92,12 @@ struct heki_mod {
 };
 
 #define HEKI_MODULE_RESERVE_SIZE	0x40000000UL
+
+struct heki_kinfo {
+	struct kernel_symbol *ksymtab_start;
+	struct kernel_symbol *ksymtab_end;
+	struct kernel_symbol *ksymtab_gpl_start;
+	struct kernel_symbol *ksymtab_gpl_end;
+};
 
 #endif /* __HEKI_H__ */
