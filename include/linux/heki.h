@@ -45,4 +45,16 @@ struct heki_page {
 	struct heki_range ranges[];
 };
 
+/*
+ * The ranges contain VTL0 pages. VTL0 pages are mapped into VTL1 address space
+ * so VTL1 can access VTL0 memory at va.
+ */
+struct heki_mem {
+	void			*va;
+	unsigned long		size;
+	long			offset;
+	struct heki_range	*ranges;
+	unsigned long		nranges;
+};
+
 #endif /* __HEKI_H__ */
