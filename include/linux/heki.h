@@ -98,6 +98,9 @@ struct heki_hypervisor {
 
 	/* Free module init sections. */
 	int (*free_module_init)(long token);
+
+	/* Unload module. */
+	int (*unload_module)(long token);
 };
 
 /*
@@ -154,6 +157,7 @@ void heki_cleanup_args(struct heki_args *args);
 void heki_load_kdata(void);
 long heki_validate_module(struct module *mod, struct load_info *info, int flags);
 void heki_free_module_init(struct module *mod);
+void heki_unload_module(struct module *mod);
 
 /* Arch-specific functions. */
 void heki_arch_init(void);

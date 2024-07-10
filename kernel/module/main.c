@@ -757,6 +757,7 @@ SYSCALL_DEFINE2(delete_module, const char __user *, name_user,
 	blocking_notifier_call_chain(&module_notify_list,
 				     MODULE_STATE_GOING, mod);
 	klp_module_going(mod);
+	heki_unload_module(mod);
 	ftrace_release_mod(mod);
 
 	async_synchronize_full();
@@ -2611,6 +2612,7 @@ fail:
 	blocking_notifier_call_chain(&module_notify_list,
 				     MODULE_STATE_GOING, mod);
 	klp_module_going(mod);
+	heki_unload_module(mod);
 	ftrace_release_mod(mod);
 	free_module(mod);
 	wake_up_all(&module_wq);
@@ -2962,7 +2964,7 @@ static int load_module(struct load_info *info, const char __user *uargs,
 	/* Finally it's fully formed, ready to start executing. */
 	err = complete_formation(mod, info);
 	if (err)
-		goto ddebug_cleanup;
+		goto heki_unload;
 
 	err = prepare_coming_module(mod);
 	if (err)
@@ -3016,6 +3018,8 @@ static int load_module(struct load_info *info, const char __user *uargs,
 	module_bug_cleanup(mod);
 	mutex_unlock(&module_mutex);
 
+ heki_unload:
+	heki_unload_module(mod);
  ddebug_cleanup:
 	ftrace_release_mod(mod);
 	synchronize_rcu();
