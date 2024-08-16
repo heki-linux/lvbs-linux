@@ -53,6 +53,8 @@ struct heki_page {
 
 enum heki_kdata_type {
 	HEKI_MODULE_CERTS,
+	HEKI_REVOCATION_CERTS,
+	HEKI_BLACKLIST_HASHES,
 	HEKI_KERNEL_INFO,
 	HEKI_KERNEL_DATA,
 	HEKI_KDATA_MAX,
@@ -139,6 +141,11 @@ struct heki_args {
 	phys_addr_t head_pa;
 };
 
+/* We store the hash, the prefix which is either "tbs:" or "bin:", and the null terminator */
+#define HEKI_MAX_TOTAL_HASH_LEN 133
+/* Currently 83 hashes get added to the blacklist keyring */
+#define HEKI_MAX_TOTAL_HASHES 100
+
 /* Callback function called by the table walker. */
 typedef void (*heki_func_t)(struct heki_args *args);
 
@@ -162,6 +169,7 @@ long heki_validate_module(struct module *mod, struct load_info *info, int flags)
 void heki_free_module_init(struct module *mod);
 void heki_unload_module(struct module *mod);
 void heki_copy_secondary_key(const void *data, size_t size);
+void __init heki_store_blacklist_raw_hashes(const char *hash);
 
 /* Arch-specific functions. */
 void heki_arch_init(void);
@@ -183,6 +191,10 @@ static inline long heki_validate_module(struct module *mod,
 }
 
 static inline void heki_copy_secondary_key(const void *data, size_t size)
+{
+}
+
+static inline void heki_store_blacklist_raw_hashes(const char *hash)
 {
 }
 
