@@ -101,6 +101,9 @@ struct heki_hypervisor {
 
 	/* Unload module. */
 	int (*unload_module)(long token);
+
+	/* Copy secondary key data. */
+	int (*copy_secondary_key)(phys_addr_t pa, unsigned long npages);
 };
 
 /*
@@ -158,6 +161,7 @@ void heki_load_kdata(void);
 long heki_validate_module(struct module *mod, struct load_info *info, int flags);
 void heki_free_module_init(struct module *mod);
 void heki_unload_module(struct module *mod);
+void heki_copy_secondary_key(const void *data, size_t size);
 
 /* Arch-specific functions. */
 void heki_arch_init(void);
@@ -176,6 +180,10 @@ static inline long heki_validate_module(struct module *mod,
 					struct load_info *info, int flags)
 {
 	return 0;
+}
+
+static inline void heki_copy_secondary_key(const void *data, size_t size)
+{
 }
 
 #endif /* CONFIG_HEKI */
