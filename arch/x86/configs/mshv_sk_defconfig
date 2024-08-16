@@ -1828,6 +1828,8 @@ CONFIG_SIGNED_PE_FILE_VERIFICATION=y
 #
 # Certificates for signature checking
 #
+CONFIG_SYSTEM_BLACKLIST_KEYRING=y
+CONFIG_SYSTEM_REVOCATION_LIST=y
 # end of Certificates for signature checking
 
 #
