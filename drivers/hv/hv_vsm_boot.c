@@ -28,7 +28,10 @@
 
 extern struct resource sk_res;
 
-static struct file *sk_loader, *sk_loader_sig, *sk, *sk_sig;
+static struct file *sk_loader, *sk;
+#ifndef CONFIG_HYPERV_VSM_DISABLE_IMG_VERIFY
+static struct file *sk_loader_sig, *sk_sig;
+#endif
 static struct page *boot_signal_page, *cpu_online_page, *cpu_present_page;
 static phys_addr_t vsm_skm_pa;
 static void *vsm_skm_va;
@@ -332,7 +335,7 @@ static __init int hv_vsm_enable_ap_vtl(void)
 }
 
 struct task_struct **ap_thread;
-static int hv_vsm_boot_sec_vp_thread_fn(void *unused)
+static __init int hv_vsm_boot_sec_vp_thread_fn(void *unused)
 {
 	struct vtlcall_param args = {0};
 	unsigned long flags = 0;
@@ -379,7 +382,7 @@ static __init int hv_vsm_boot_ap_vtl(void)
 	void *va;
 	u64 boot_signal_pfn, cpu_online_mask_pfn;
 	unsigned int cpu, cur_cpu = smp_processor_id(), vsm_cpus = num_possible_cpus(), next_cpu;
-	int ret;
+	int ret = 0;
 
 	/* Allocate & Initialize Boot Signal Page */
 	boot_signal_pfn = hv_vsm_establish_shared_page(&boot_signal_page);
